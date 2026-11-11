@@ -85,4 +85,4 @@ API: **org-admin-api ADM-006** (backlog).
 
 All tickets are in [`work/backlog.md`](../work/backlog.md). Phase 1 (screens on mock data) is done; the rest waits on org-admin-api endpoints, except PAN-009.
 
-API gaps to raise in org-admin-api (no ticket there yet): admin sessions list/revoke, dashboard stats, reports.
+API gaps to raise in org-admin-api (no ticket there yet): admin sessions list/revoke, dashboard stats, reports, member count per app.

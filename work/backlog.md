@@ -36,5 +36,5 @@ Phases: **1. UI with mock data** (PAN-001…008, done) → **2. Foundations** (P
 
 Order of work (dependencies): PAN-001 → PAN-002…008 → PAN-009 → PAN-010 → PAN-011 → PAN-013, PAN-014, PAN-015 → PAN-016 → PAN-012, PAN-019, PAN-022, PAN-023 → PAN-017, PAN-018, PAN-020, PAN-021, PAN-024.
 Waiting on org-admin-api: PAN-010 ← USR-03, USR-03b · PAN-011 ← ADM-002, USR-02 · PAN-012 ← USR-04 · PAN-013 ← USR-01b (done), ADM-002 · PAN-014 ← ADM-001 (done) · PAN-015 ← USR-02 · PAN-016 ← ADM-004 · PAN-018 ← USR-06 · PAN-019 ← ADM-006.
-API gaps (no org-admin-api ticket yet): admin sessions list/revoke (PAN-017), dashboard stats (PAN-020), reports (PAN-021).
+API gaps (no org-admin-api ticket yet): admin sessions list/revoke (PAN-017), dashboard stats (PAN-020), reports (PAN-021), member count per app (PAN-015).
 Only PAN-009 can start now without waiting on the API.

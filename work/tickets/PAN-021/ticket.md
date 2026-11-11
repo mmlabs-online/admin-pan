@@ -25,3 +25,4 @@ PAN-007, PAN-011; org-admin-api reports API (gap)
 
 ## Notes / answers from owner
 - Needs owner confirmation of the reports scope (spec §8 Q7) and an org-admin-api ticket.
+- Proposed data shape for the org-admin-api reports API is in PAN-007's mock (`src/features/reports/data/schema.ts`).

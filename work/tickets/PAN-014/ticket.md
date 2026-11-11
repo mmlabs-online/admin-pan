@@ -25,4 +25,4 @@ PAN-004, PAN-011; org-admin-api ADM-001 (USR-06 for created_by)
 - [ ] States tested with MSW
 
 ## Notes / answers from owner
-None yet.
+- Follow-up from PAN-004: confirm slug/name length limits from the OpenAPI; consider typing the slug to confirm delete.

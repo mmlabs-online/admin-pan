@@ -24,4 +24,5 @@ PAN-005, PAN-006, PAN-011; org-admin-api USR-02
 - [ ] States tested with MSW
 
 ## Notes / answers from owner
-None yet.
+- Follow-up from PAN-005: the Members column uses mock counts; org-admin-api has no member count per app (gap) — add to USR-02 or drop the column.
+- Follow-up from PAN-005: no "set default role" action yet; role keys stored as `<app>:<key>` — check against the API.

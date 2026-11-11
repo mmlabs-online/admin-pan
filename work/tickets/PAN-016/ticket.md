@@ -25,4 +25,4 @@ PAN-008, PAN-011; org-admin-api ADM-004
 - [ ] States tested with MSW
 
 ## Notes / answers from owner
-None yet.
+- Follow-up from PAN-008: decide whether the API or the UI masks emails of unknown accounts; add target-id filter for links from users/orgs.
