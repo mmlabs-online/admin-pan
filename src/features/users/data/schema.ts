@@ -1,30 +1,18 @@
 import { z } from 'zod'
 
-const userStatusSchema = z.union([
-  z.literal('active'),
-  z.literal('inactive'),
-  z.literal('invited'),
-  z.literal('suspended'),
-])
+// Mirrors org-admin-api `UserRead` (GET /api/v1/users, USR-01b).
+export const userStatusSchema = z.enum(['active', 'disabled'])
 export type UserStatus = z.infer<typeof userStatusSchema>
 
-const userRoleSchema = z.union([
-  z.literal('superadmin'),
-  z.literal('admin'),
-  z.literal('cashier'),
-  z.literal('manager'),
-])
-
-const _userSchema = z.object({
-  id: z.string(),
-  firstName: z.string(),
-  lastName: z.string(),
-  username: z.string(),
+export const userSchema = z.object({
+  id: z.uuid(),
   email: z.string(),
-  phoneNumber: z.string(),
+  display_name: z.string().nullable(),
   status: userStatusSchema,
-  role: userRoleSchema,
-  createdAt: z.coerce.date(),
-  updatedAt: z.coerce.date(),
+  email_verified_at: z.iso.datetime({ offset: true }).nullable(),
+  created_at: z.iso.datetime({ offset: true }),
+  updated_at: z.iso.datetime({ offset: true }),
 })
-export type User = z.infer<typeof _userSchema>
+export type User = z.infer<typeof userSchema>
+
+export const userListSchema = z.array(userSchema)

@@ -1,35 +1,35 @@
-import { Shield, UserCheck, Users, CreditCard } from 'lucide-react'
 import { type UserStatus } from './schema'
 
-export const callTypes = new Map<UserStatus, string>([
+export const statusOptions: { label: string; value: UserStatus }[] = [
+  { label: 'Active', value: 'active' },
+  { label: 'Disabled', value: 'disabled' },
+]
+
+export const statusBadgeClass = new Map<UserStatus, string>([
   ['active', 'bg-teal-100/30 text-teal-900 dark:text-teal-200 border-teal-200'],
-  ['inactive', 'bg-neutral-300/40 border-neutral-300'],
-  ['invited', 'bg-sky-200/40 text-sky-900 dark:text-sky-100 border-sky-300'],
   [
-    'suspended',
+    'disabled',
     'bg-destructive/10 dark:bg-destructive/50 text-destructive dark:text-primary border-destructive/10',
   ],
 ])
 
-export const roles = [
-  {
-    label: 'Superadmin',
-    value: 'superadmin',
-    icon: Shield,
-  },
-  {
-    label: 'Admin',
-    value: 'admin',
-    icon: UserCheck,
-  },
-  {
-    label: 'Manager',
-    value: 'manager',
-    icon: Users,
-  },
-  {
-    label: 'Cashier',
-    value: 'cashier',
-    icon: CreditCard,
-  },
-] as const
+/** Display label for a user: display name when set, otherwise the email. */
+export function userLabel(user: {
+  email: string
+  display_name: string | null
+}) {
+  return user.display_name ?? user.email
+}
+
+export function formatDateTime(iso: string) {
+  return new Intl.DateTimeFormat('en', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(iso))
+}
+
+export function formatDate(iso: string) {
+  return new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(
+    new Date(iso)
+  )
+}

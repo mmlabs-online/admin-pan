@@ -1,10 +1,17 @@
-import React, { useState } from 'react'
+import React, { useCallback, useState } from 'react'
 import useDialogState from '@/hooks/use-dialog-state'
-import { type User } from '../data/schema'
+import { type User, type UserStatus } from '../data/schema'
+import { users as mockUsers } from '../data/users'
 
-type UsersDialogType = 'invite' | 'add' | 'edit' | 'delete'
+type UsersDialogType = 'view' | 'status'
 
 type UsersContextType = {
+  users: User[]
+  /**
+   * Local stand-in for `PATCH /api/v1/users/{id} {status}` (admin:users:write).
+   * Updates the in-memory list only; no persistence.
+   */
+  setUsersStatus: (ids: string[], status: UserStatus) => void
   open: UsersDialogType | null
   setOpen: (str: UsersDialogType | null) => void
   currentRow: User | null
@@ -13,12 +20,43 @@ type UsersContextType = {
 
 const UsersContext = React.createContext<UsersContextType | null>(null)
 
-export function UsersProvider({ children }: { children: React.ReactNode }) {
+type UsersProviderProps = {
+  children: React.ReactNode
+  /** Override the mock list (used by tests). */
+  initialUsers?: User[]
+}
+
+export function UsersProvider({
+  children,
+  initialUsers = mockUsers,
+}: UsersProviderProps) {
+  const [users, setUsers] = useState<User[]>(initialUsers)
   const [open, setOpen] = useDialogState<UsersDialogType>(null)
   const [currentRow, setCurrentRow] = useState<User | null>(null)
 
+  const setUsersStatus = useCallback((ids: string[], status: UserStatus) => {
+    const idSet = new Set(ids)
+    const now = new Date().toISOString()
+    const update = (u: User): User =>
+      idSet.has(u.id) && u.status !== status
+        ? { ...u, status, updated_at: now }
+        : u
+    setUsers((prev) => prev.map(update))
+    // Keep the details sheet in sync with the list.
+    setCurrentRow((prev) => (prev ? update(prev) : prev))
+  }, [])
+
   return (
-    <UsersContext value={{ open, setOpen, currentRow, setCurrentRow }}>
+    <UsersContext
+      value={{
+        users,
+        setUsersStatus,
+        open,
+        setOpen,
+        currentRow,
+        setCurrentRow,
+      }}
+    >
       {children}
     </UsersContext>
   )

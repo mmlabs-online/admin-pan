@@ -1,12 +1,12 @@
 import { type ColumnDef } from '@tanstack/react-table'
 import { cn } from '@/lib/utils'
-import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DataTableColumnHeader } from '@/components/data-table'
 import { LongText } from '@/components/long-text'
-import { callTypes, roles } from '../data/data'
+import { formatDate } from '../data/data'
 import { type User } from '../data/schema'
 import { DataTableRowActions } from './data-table-row-actions'
+import { UserStatusBadge } from './user-status-badge'
 
 export const usersColumns: ColumnDef<User>[] = [
   {
@@ -29,7 +29,7 @@ export const usersColumns: ColumnDef<User>[] = [
       <Checkbox
         checked={row.getIsSelected()}
         onCheckedChange={(value) => row.toggleSelected(!!value)}
-        aria-label='Select row'
+        aria-label={`Select ${row.original.email}`}
         className='translate-y-0.5'
       />
     ),
@@ -37,12 +37,12 @@ export const usersColumns: ColumnDef<User>[] = [
     enableHiding: false,
   },
   {
-    accessorKey: 'username',
+    accessorKey: 'email',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Username' />
+      <DataTableColumnHeader column={column} title='Email' />
     ),
     cell: ({ row }) => (
-      <LongText className='max-w-36 ps-3'>{row.getValue('username')}</LongText>
+      <LongText className='max-w-56 ps-3'>{row.original.email}</LongText>
     ),
     meta: {
       className: cn(
@@ -53,83 +53,59 @@ export const usersColumns: ColumnDef<User>[] = [
     enableHiding: false,
   },
   {
-    id: 'fullName',
+    id: 'display_name',
+    accessorFn: (row) => row.display_name ?? '',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Name' />
+      <DataTableColumnHeader column={column} title='Display name' />
     ),
-    cell: ({ row }) => {
-      const { firstName, lastName } = row.original
-      const fullName = `${firstName} ${lastName}`
-      return <LongText className='max-w-36'>{fullName}</LongText>
-    },
-    meta: { className: 'w-36' },
-  },
-  {
-    accessorKey: 'email',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Email' />
-    ),
-    cell: ({ row }) => (
-      <div className='w-fit ps-2 text-nowrap'>{row.getValue('email')}</div>
-    ),
-  },
-  {
-    accessorKey: 'phoneNumber',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Phone Number' />
-    ),
-    cell: ({ row }) => <div>{row.getValue('phoneNumber')}</div>,
-    enableSorting: false,
+    cell: ({ row }) =>
+      row.original.display_name ? (
+        <LongText className='max-w-40'>{row.original.display_name}</LongText>
+      ) : (
+        <span className='text-muted-foreground'>—</span>
+      ),
   },
   {
     accessorKey: 'status',
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title='Status' />
     ),
-    cell: ({ row }) => {
-      const { status } = row.original
-      const badgeColor = callTypes.get(status)
-      return (
-        <div className='flex space-x-2'>
-          <Badge variant='outline' className={cn('capitalize', badgeColor)}>
-            {row.getValue('status')}
-          </Badge>
-        </div>
-      )
-    },
-    filterFn: (row, id, value) => {
-      return value.includes(row.getValue(id))
-    },
+    cell: ({ row }) => <UserStatusBadge status={row.original.status} />,
+    filterFn: (row, id, value: string[]) => value.includes(row.getValue(id)),
     enableHiding: false,
     enableSorting: false,
   },
   {
-    accessorKey: 'role',
+    accessorKey: 'email_verified_at',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Role' />
+      <DataTableColumnHeader column={column} title='Email verified' />
     ),
     cell: ({ row }) => {
-      const { role } = row.original
-      const userType = roles.find(({ value }) => value === role)
-
-      if (!userType) {
-        return null
-      }
-
-      return (
-        <div className='flex items-center gap-x-2'>
-          {userType.icon && (
-            <userType.icon size={16} className='text-muted-foreground' />
-          )}
-          <span className='text-sm capitalize'>{row.getValue('role')}</span>
-        </div>
+      const verifiedAt = row.original.email_verified_at
+      return verifiedAt ? (
+        <time dateTime={verifiedAt} className='text-nowrap'>
+          {formatDate(verifiedAt)}
+        </time>
+      ) : (
+        <span className='text-muted-foreground'>Not verified</span>
       )
     },
-    filterFn: (row, id, value) => {
-      return value.includes(row.getValue(id))
-    },
-    enableSorting: false,
-    enableHiding: false,
+    // ISO strings sort chronologically; unverified (null) sorts first ascending.
+    sortingFn: (a, b) =>
+      (a.original.email_verified_at ?? '').localeCompare(
+        b.original.email_verified_at ?? ''
+      ),
+  },
+  {
+    accessorKey: 'created_at',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='Created at' />
+    ),
+    cell: ({ row }) => (
+      <time dateTime={row.original.created_at} className='text-nowrap'>
+        {formatDate(row.original.created_at)}
+      </time>
+    ),
   },
   {
     id: 'actions',

@@ -1,51 +1,28 @@
-import { UsersActionDialog } from './users-action-dialog'
-import { UsersDeleteDialog } from './users-delete-dialog'
-import { UsersInviteDialog } from './users-invite-dialog'
+import { UsersDetailSheet } from './users-detail-sheet'
 import { useUsers } from './users-provider'
+import { UsersStatusDialog } from './users-status-dialog'
 
 export function UsersDialogs() {
-  const { open, setOpen, currentRow, setCurrentRow } = useUsers()
+  const { open, setOpen, currentRow } = useUsers()
+  if (!currentRow) return null
+
+  // Keep currentRow after closing so the close animation still has content.
+  const close = () => setOpen(null)
+
   return (
     <>
-      <UsersActionDialog
-        key='user-add'
-        open={open === 'add'}
-        onOpenChange={() => setOpen('add')}
+      <UsersDetailSheet
+        key={`user-view-${currentRow.id}`}
+        open={open === 'view'}
+        onOpenChange={(o) => !o && close()}
+        currentRow={currentRow}
       />
-
-      <UsersInviteDialog
-        key='user-invite'
-        open={open === 'invite'}
-        onOpenChange={() => setOpen('invite')}
+      <UsersStatusDialog
+        key={`user-status-${currentRow.id}`}
+        open={open === 'status'}
+        onOpenChange={(o) => !o && close()}
+        currentRow={currentRow}
       />
-
-      {currentRow && (
-        <>
-          <UsersActionDialog
-            key={`user-edit-${currentRow.id}`}
-            open={open === 'edit'}
-            onOpenChange={() => {
-              setOpen('edit')
-              setTimeout(() => {
-                setCurrentRow(null)
-              }, 500)
-            }}
-            currentRow={currentRow}
-          />
-
-          <UsersDeleteDialog
-            key={`user-delete-${currentRow.id}`}
-            open={open === 'delete'}
-            onOpenChange={() => {
-              setOpen('delete')
-              setTimeout(() => {
-                setCurrentRow(null)
-              }, 500)
-            }}
-            currentRow={currentRow}
-          />
-        </>
-      )}
     </>
   )
 }
