@@ -1,11 +1,12 @@
 {
-  "name": "shadcn-admin",
-  "private": false,
-  "version": "2.2.1",
+  "name": "admin-pan",
+  "private": true,
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "typecheck": "tsc -b",
     "lint": "eslint .",
     "preview": "vite preview",
     "format:check": "prettier --check .",

@@ -1,6 +1,6 @@
 # admin-pan — Product spec v1
 
-Status: **Draft** — written while bootstrapping the repo (2026-11-11). Everything below is a proposal for the owner to confirm, cut or change, especially §8 Open questions.
+Status: **Draft** — written while bootstrapping the repo (2026-11-11); screens of §5.1–§5.7 exist on mock data (PAN-001…008). Everything below is a proposal for the owner to confirm, cut or change, especially §8 Open questions.
 Source of truth for scope: if `CLAUDE.md`, a ticket and this spec disagree on scope, **this spec wins** — flag the conflict.
 Business rules, data and authorization are owned by **org-admin-api** (`mmlabs-online/org-admin-api`, `docs/spec-v1.md` and `docs/identity-architecture.md`). This spec only describes the screens over them.
 
@@ -49,6 +49,10 @@ API: **org-admin-api USR-02** (backlog), sessions revoke (identity-architecture 
 Read-only, filterable list (actor, action, target, time) with before/after detail; links from users/orgs to their history.
 API: **org-admin-api ADM-004** (backlog).
 
+### §5.7 Dashboard and reports
+Dashboard: KPIs (users, active orgs, apps, sign-ins), sign-up and sign-in trends, members per app, items needing attention, recent admin activity. Reports: define, run and export operational reports (see Q7).
+API: none yet — **gap** (stats and reports endpoints).
+
 ### §5.6 Org product entitlements
 Enable/disable a product for an org, set plan/limits.
 API: **org-admin-api ADM-006** (backlog).
@@ -69,20 +73,16 @@ API: **org-admin-api ADM-006** (backlog).
 
 ## §8 Open questions (owner)
 
-- [ ] Q1. Stack: confirm the proposal in `CLAUDE.md` (React + Vite SPA, TanStack, shadcn/ui + Tailwind) — or Next.js like stoktok, or Angular (auth-client has Angular and React wrappers).
+- [x] Q1. Stack — **answered 2026-11-11:** build on the satnaing/shadcn-admin template (React + Vite + TanStack + shadcn/ui).
 - [ ] Q2. Hostname: `admin.mmlabs.online`?
 - [ ] Q3. UI language: Vietnamese, English, or both?
 - [ ] Q4. Design reference: a Figma file, or design in code from a brief (like stoktok)?
 - [ ] Q5. Order of screens after sign-in (proposal: users → organizations → apps/roles → audit → entitlements).
 - [ ] Q6. 2FA for staff (org-admin-api OQ3) — does the UI need a second-factor step in v1?
+- [ ] Q7. "Reports management": the mock (PAN-007) lets staff define, run and download operational reports (sign-ups, active users, app memberships, org overview, audit activity). Is that the intended scope? It needs a reports API in org-admin-api.
 
-## §9 Proposed tickets (not created yet — run `/ticket` for the ones you want)
+## §9 Tickets
 
-| Title | Areas | Depends on |
-|---|---|---|
-| Sign-in, account switch and app shell with permission-aware navigation | architecture, ui, ux, auth, security, api | PAN-001; org-admin-api USR-03b, ADM-002 |
-| Users list, detail and enable/disable | ui, api | sign-in ticket; org-admin-api USR-01b |
-| Organizations list, create, edit, suspend, delete | ui, api | sign-in ticket; org-admin-api ADM-001 |
-| Apps, roles and role assignments | ui, ux, api, auth | sign-in ticket; org-admin-api USR-02 |
-| Audit log viewer | ui, api | sign-in ticket; org-admin-api ADM-004 |
-| Release and deploy pipeline (nginx image, release.yml, deployment PR) | architecture, security | PAN-001 |
+All tickets are in [`work/backlog.md`](../work/backlog.md). Phase 1 (screens on mock data) is done; the rest waits on org-admin-api endpoints, except PAN-009.
+
+API gaps to raise in org-admin-api (no ticket there yet): admin sessions list/revoke, dashboard stats, reports.
