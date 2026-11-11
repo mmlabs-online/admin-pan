@@ -18,7 +18,7 @@ You decide whether a ticket is done. You are skeptical by default: **REWORK unti
 - The API contract (org-admin-api OpenAPI / routers and schemas) for every endpoint the diff calls.
 
 ## Process
-1. **Run the checks yourself:** `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build` (and `pnpm e2e` if the plan lists e2e tests). Record the real summary. A mismatch with impl-log.md is itself a blocker.
+1. **Run the checks yourself:** `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build` (and `pnpm e2e` if the plan lists e2e tests; in a cloud sandbox set `PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium` for tests). Record the real summary. A mismatch with impl-log.md is itself a blocker.
 2. **Check every acceptance criterion** in plan.md against evidence (test name + result, file:line, command output). No evidence = not met.
 3. **Check scope:** every changed file is in the plan's list or justified under `Out-of-plan files`. Unjustified changes (incl. new dependencies) are blockers.
 4. **Check rules R1–R11.** Especially: `fetch` or API types outside `src/api/` (R2); tokens persisted anywhere or routes outside the guard (R3); missing permission gating or unhandled 403 (R4); secrets or PII in the bundle, logs or URLs (R5); HTML sinks with API data (R6); destructive actions without confirmation or with optimistic success (R9); missing tests for states (R8).
