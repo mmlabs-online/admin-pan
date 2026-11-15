@@ -49,3 +49,26 @@ A11y review PAN-012. Static review of the components only. I did not run axe or 
 - A shared decision on `FormMessage` live-region semantics (`role='alert'`) for server errors across all forms.
 - Add `@axe-core/playwright` runs for `/forgot-password` and `/reset-password#token=…` in PAN-023 (sent, invalid, expired, 429).
 - Manual pass: NVDA/VoiceOver on the Turnstile widget, 200%/400% zoom on the auth card, forced-colors mode.
+
+## Attempt 2
+
+🟡 1–4 are closed, and no new 🔴 or 🟡. Static read of `status-panel.tsx`, `forgot-password-form.tsx`, `turnstile.tsx` and the `setError` call in `reset-password-form.tsx`; Vitest/axe not run.
+
+### Closed
+- **🟡 1 (2.4.3, 4.1.3):** `forgot-password-form.tsx:91-99` renders `StatusPanel title='Check your email'`; its `h2` has `tabIndex={-1}` and takes focus on mount (`status-panel.tsx:11-16`). Reset uses the same component for invalid/expired/success.
+- **🟡 2 (3.3.2, 3.3.1, 4.1.3):** `forgot-password-form.tsx:134-142` shows "Complete the verification to continue.", linked to the disabled button via `aria-describedby` and removed once a token exists. `turnstile.tsx:49-52, 94-110`: `error-callback` sets `widgetError` → `role='alert'` message + Retry; `callback` clears it. Residual: button still natively `disabled` (Tab skips it) — acceptable given the hint and alert.
+- **🟡 3 (3.3.1):** `setError(..., { shouldFocus: true })` at `forgot-password-form.tsx:76-80` and `reset-password-form.tsx:71-75`.
+- **🟡 4 (1.3.5):** `type='email'`, `autoComplete='email'` at `forgot-password-form.tsx:117-122`; `noValidate` (line 105) keeps zod as the only validator.
+
+### Open notes (💭, none block)
+- `status-panel.tsx:14`: `role='status'` plus focused heading may double-announce; drop `role='status'` or keep.
+- `turnstile.tsx:100-106` (and load-failure Retry 81-85): focus falls to `<body>` when Retry unmounts; give the container `tabIndex={-1}` and focus it.
+- `turnstile.tsx:93`: optional `role='group' aria-label='Human verification'`.
+- `turnstile.tsx:48`: `expired-callback` clears silently; the hint reappearing is enough.
+
+### Follow-ups
+- Per-route document `<title>` (2.4.2), app-wide.
+- Shared decision on `role='alert'` for `FormMessage`.
+- `@axe-core/playwright` runs for `/forgot-password` (idle, sent, error, widget error) and `/reset-password#token=…` (invalid, expired, success) in PAN-023.
+- Manual pass: NVDA/VoiceOver on Turnstile, 200%/400% zoom, forced-colors.
+- Tests worth adding: "Check your email" heading focused after success, `aria-describedby` on Continue, Retry after `error-callback`.
