@@ -21,6 +21,14 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  server: {
+    // Dev only (not part of dist/, so not a BFF): admin Bearer paths have no CORS yet.
+    proxy: {
+      '/api': {
+        target: process.env.API_PROXY_TARGET ?? 'http://localhost:8000',
+      },
+    },
+  },
   test: {
     silent: 'passed-only',
     unstubEnvs: true,

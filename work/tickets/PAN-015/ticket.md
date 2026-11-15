@@ -16,7 +16,7 @@ Replace apps/roles mock data with the USR-02 admin endpoints (apps registry, per
 `docs/spec-v1.md` §5.4
 
 ## Depends on
-PAN-005, PAN-006, PAN-011; org-admin-api USR-02
+PAN-005, PAN-006, PAN-011; org-admin-api USR-02, USR-02b/c/d (done), ADM-002b (mounts the RBAC APIs in production)
 
 ## Acceptance criteria
 - [ ] Every screen action maps to a USR-02 endpoint (missing ones become org-admin-api follow-ups)

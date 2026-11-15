@@ -16,7 +16,7 @@ Replace Users mock data with `GET /api/v1/users`, `GET/PATCH /api/v1/users/{id}`
 `docs/spec-v1.md` §5.2
 
 ## Depends on
-PAN-003, PAN-011; org-admin-api USR-01b, ADM-002
+PAN-003, PAN-011; org-admin-api USR-01b, ADM-002 (done), ADM-002b (mounts the users API in production)
 
 ## Acceptance criteria
 - [ ] List uses server-side `limit`/`offset`, `email`, `status`

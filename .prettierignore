@@ -17,3 +17,7 @@
 
 # Ignore auto generated routeTree.gen.ts
 /src/routeTree.gen.ts
+
+# Generated API snapshot and types (must stay byte-identical to the generator output)
+/src/api/schema.d.ts
+/src/api/openapi.json

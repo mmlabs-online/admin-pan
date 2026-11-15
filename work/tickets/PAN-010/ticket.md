@@ -16,7 +16,7 @@ Replace the mock sign-in: login via `@mmlabs/auth-client` with app key `admin`, 
 `docs/spec-v1.md` §5.1
 
 ## Depends on
-PAN-009; org-admin-api USR-03, USR-03b
+PAN-009; org-admin-api USR-03, USR-03b, USR-03c, ADM-002c (all done 2026-11-15) and **USR-08** (`@mmlabs/auth-client`, separate repo — not started)
 
 ## Acceptance criteria
 - [ ] Sign-in posts through auth-client only; no password handling elsewhere (R3)
@@ -26,4 +26,4 @@ PAN-009; org-admin-api USR-03, USR-03b
 - [ ] Tests for guard, error states and logout
 
 ## Notes / answers from owner
-None yet.
+- 2026-11-15 (owner): wait for the API team's `@mmlabs/auth-client` (org-admin-api USR-08); no interim hand-written auth module. R3 stays as written.

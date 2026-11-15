@@ -23,6 +23,32 @@ pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build
 
 Stack and rules: [`CLAUDE.md`](CLAUDE.md). Scope: [`docs/spec-v1.md`](docs/spec-v1.md).
 
+## Local development with org-admin-api
+
+**Mock mode (default).** Leave `VITE_API_BASE_URL` empty: screens use the mock data in `src/features/*/data/`.
+
+**Real API on :8000.** In an org-admin-api checkout:
+
+```bash
+make db-up && make migrate
+APP_ENV=local ADMIN_USERS_API_ENABLED=true ADMIN_RBAC_API_ENABLED=true make dev   # :8000
+make set-admin-origins ARGS='--origin http://localhost:5173'
+make grant-super-admin email=you@example.com
+```
+
+Then in `.env.local` set `VITE_API_BASE_URL=http://localhost:5173` (an origin only, no `/api/v1`). Calls go same-origin through the dev-only Vite proxy (`/api` to `http://localhost:8000`; override with `API_PROXY_TARGET`). The proxy hides that org-admin-api does not answer CORS on admin Bearer paths yet. Real sign-in arrives with PAN-010; until then there is no real token.
+
+**Refreshing API types.** Types are generated from the committed snapshot `src/api/openapi.json` (never hand-edit it or `schema.d.ts`). From an org-admin-api checkout:
+
+```bash
+APP_ENV=local ADMIN_USERS_API_ENABLED=true ADMIN_RBAC_API_ENABLED=true \
+  uv run --frozen python -c "import json; from app.main import create_app; print(json.dumps(create_app().openapi(), indent=2, sort_keys=True))" \
+  > <admin-pan>/src/api/openapi.json
+pnpm api:types   # commit both files
+```
+
+Snapshot: org-admin-api main (`4c01328`) as of 2026-11-15, users and RBAC flags on.
+
 ## How we work
 
 Work is driven by tickets and Claude Code subagents (same loop as stoktok and org-admin-api):
