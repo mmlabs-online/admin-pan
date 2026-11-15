@@ -18,6 +18,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Turnstile, type TurnstileHandle } from '@/components/turnstile'
 import { useForgotPasswordMutation } from '../../api/mutations'
+import { StatusPanel } from '../../components/status-panel'
 
 const formSchema = z.object({
   email: z.email({
@@ -72,7 +73,11 @@ export function ForgotPasswordForm({
         },
         onError: (e) => {
           if (isApiError(e, 422)) {
-            form.setError('email', { message: 'Please enter a valid email.' })
+            form.setError(
+              'email',
+              { message: 'Please enter a valid email.' },
+              { shouldFocus: true }
+            )
           } else {
             setStatus({ state: 'error', message: messageFor(e) })
           }
@@ -85,16 +90,19 @@ export function ForgotPasswordForm({
 
   if (status.state === 'sent') {
     return (
-      <p role='status' className='text-sm'>
-        If an account exists for that address, we&apos;ve sent a reset link. It
-        expires in 30 minutes.
-      </p>
+      <StatusPanel title='Check your email'>
+        <p>
+          If an account exists for that address, we&apos;ve sent a reset link.
+          It expires in 30 minutes.
+        </p>
+      </StatusPanel>
     )
   }
 
   return (
     <Form {...form}>
       <form
+        noValidate
         onSubmit={(e) => void form.handleSubmit(onSubmit)(e)}
         className={cn('grid gap-2', className)}
         {...props}
@@ -106,7 +114,12 @@ export function ForgotPasswordForm({
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input placeholder='name@example.com' {...field} />
+                <Input
+                  type='email'
+                  autoComplete='email'
+                  placeholder='name@example.com'
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -118,9 +131,15 @@ export function ForgotPasswordForm({
             {status.message}
           </p>
         )}
+        {!turnstileToken && (
+          <p id='turnstile-hint' className='text-sm text-muted-foreground'>
+            Complete the verification to continue.
+          </p>
+        )}
         <Button
           className='mt-2'
           disabled={mutation.isPending || !turnstileToken}
+          aria-describedby={!turnstileToken ? 'turnstile-hint' : undefined}
         >
           Continue
           {mutation.isPending ? (

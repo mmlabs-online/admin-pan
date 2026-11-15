@@ -17,6 +17,7 @@ export function Turnstile({ onToken, ref }: Props) {
   const onTokenRef = useRef(onToken)
   const [attempt, setAttempt] = useState(0)
   const [failed, setFailed] = useState(false)
+  const [widgetError, setWidgetError] = useState(false)
 
   useEffect(() => {
     onTokenRef.current = onToken
@@ -40,9 +41,15 @@ export function Turnstile({ onToken, ref }: Props) {
         apiRef.current = api
         widget.current = api.render(box.current, {
           sitekey: siteKey,
-          callback: (t) => onTokenRef.current(t),
+          callback: (t) => {
+            setWidgetError(false)
+            onTokenRef.current(t)
+          },
           'expired-callback': () => onTokenRef.current(null),
-          'error-callback': () => onTokenRef.current(null),
+          'error-callback': () => {
+            setWidgetError(true)
+            onTokenRef.current(null)
+          },
         })
       },
       () => {
@@ -81,5 +88,26 @@ export function Turnstile({ onToken, ref }: Props) {
       </div>
     )
   }
-  return <div ref={box} />
+  return (
+    <>
+      <div ref={box} />
+      {widgetError && (
+        <div role='alert' className='grid gap-2 text-sm text-destructive'>
+          <p>Verification failed. Retry the check or reload the page.</p>
+          <Button
+            type='button'
+            variant='outline'
+            onClick={() => {
+              setWidgetError(false)
+              if (apiRef.current && widget.current) {
+                apiRef.current.reset(widget.current)
+              }
+            }}
+          >
+            Retry
+          </Button>
+        </div>
+      )}
+    </>
+  )
 }

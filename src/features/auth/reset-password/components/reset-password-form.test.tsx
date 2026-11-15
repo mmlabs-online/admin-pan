@@ -1,11 +1,14 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createApiClient } from '@/api'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, type RenderResult } from 'vitest-browser-react'
 import { userEvent } from 'vitest/browser'
-import { InvalidLink, ResetPasswordForm } from './reset-password-form'
+import { ResetPassword } from '../index'
+import { ResetPasswordForm } from './reset-password-form'
 
+const replace = vi.hoisted(() => vi.fn())
 vi.mock('@tanstack/react-router', () => ({
+  useRouter: () => ({ history: { replace } }),
   Link: ({ to, children, ...p }: { to: string; children: React.ReactNode }) => (
     <a href={to} {...p}>
       {children}
@@ -52,12 +55,46 @@ describe('ResetPasswordForm', () => {
     respond = () => new Response(null, { status: 204 })
   })
 
-  it('malformed or missing token shows invalid link and sends no request', async () => {
-    const screen = await render(<InvalidLink />)
-    await expect
-      .element(screen.getByRole('link', { name: 'Forgot password' }))
-      .toHaveAttribute('href', '/forgot-password')
-    expect(seen).toHaveLength(0)
+  describe('page token handling', () => {
+    async function mountPage(hash: string) {
+      replace.mockReset()
+      replace.mockImplementation((p: string) =>
+        window.history.replaceState(null, '', p)
+      )
+      window.history.replaceState(null, '', `/${hash}`)
+      return render(
+        <QueryClientProvider client={new QueryClient()}>
+          <ResetPassword />
+        </QueryClientProvider>
+      )
+    }
+    afterEach(() => window.history.replaceState(null, '', '/'))
+
+    it.each([
+      ['no hash', ''],
+      ['malformed token', '#token=short'],
+    ])('%s shows invalid link and sends no request', async (_n, hash) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch')
+      const screen = await mountPage(hash)
+      await expect
+        .element(screen.getByRole('heading', { name: 'Invalid link' }))
+        .toBeInTheDocument()
+      await expect
+        .element(screen.getByRole('link', { name: 'Forgot password' }))
+        .toHaveAttribute('href', '/forgot-password')
+      expect(screen.getByLabelText('New password').elements()).toHaveLength(0)
+      expect(fetchSpy).not.toHaveBeenCalled()
+      fetchSpy.mockRestore()
+    })
+
+    it('valid token shows the form and removes the token from the URL', async () => {
+      const screen = await mountPage(`#token=${TOKEN}`)
+      await expect
+        .element(screen.getByLabelText('New password'))
+        .toBeInTheDocument()
+      expect(window.location.hash).toBe('')
+      expect(window.location.href).not.toContain(TOKEN)
+    })
   })
 
   it('requires password and matching confirmation', async () => {
@@ -142,10 +179,9 @@ describe('ResetPasswordForm', () => {
     expect((await seen[2].json()).token).toBe(TOKEN)
   })
 
-  it('token never appears in DOM or location', async () => {
+  it('token never appears in the DOM', async () => {
     await mount()
     expect(document.body.innerHTML).not.toContain(TOKEN)
-    expect(window.location.href).not.toContain(TOKEN)
   })
 
   it('inputs are labelled, errors linked, status announced', async () => {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Link } from '@tanstack/react-router'
@@ -17,39 +17,21 @@ import {
 } from '@/components/ui/form'
 import { PasswordInput } from '@/components/password-input'
 import { useResetPasswordMutation } from '../../api/mutations'
+import { StatusPanel } from '../../components/status-panel'
 import { resetPasswordSchema, type ResetPasswordValues } from '../schema'
 
 type Status = 'idle' | 'success' | 'expired'
-
-function Panel({
-  title,
-  children,
-}: {
-  title: string
-  children: React.ReactNode
-}) {
-  const heading = useRef<HTMLHeadingElement>(null)
-  useEffect(() => heading.current?.focus(), [])
-  return (
-    <div role='status' className='grid gap-2 text-sm'>
-      <h2 ref={heading} tabIndex={-1} className='font-medium outline-none'>
-        {title}
-      </h2>
-      {children}
-    </div>
-  )
-}
 
 const linkClass = 'underline underline-offset-4 hover:text-primary'
 
 export function InvalidLink() {
   return (
-    <Panel title='Invalid link'>
+    <StatusPanel title='Invalid link'>
       <p>This link is invalid. Request a new one.</p>
       <Link to='/forgot-password' className={linkClass}>
         Forgot password
       </Link>
-    </Panel>
+    </StatusPanel>
   )
 }
 
@@ -86,7 +68,11 @@ export function ResetPasswordForm({
           const mapped = passwordErrorsFrom(e)
           if (mapped) {
             for (const [name, message] of Object.entries(mapped.fields)) {
-              form.setError(name as keyof ResetPasswordValues, { message })
+              form.setError(
+                name as keyof ResetPasswordValues,
+                { message },
+                { shouldFocus: true }
+              )
             }
             if (mapped.form) setFormError(mapped.form)
           } else if (isApiError(e, 429)) {
@@ -105,7 +91,7 @@ export function ResetPasswordForm({
 
   if (status === 'success') {
     return (
-      <Panel title='Password changed'>
+      <StatusPanel title='Password changed'>
         <p>
           All sessions of this account were signed out. Sign in with your new
           password.
@@ -113,17 +99,17 @@ export function ResetPasswordForm({
         <Link to='/sign-in' className={linkClass}>
           Sign in
         </Link>
-      </Panel>
+      </StatusPanel>
     )
   }
   if (status === 'expired') {
     return (
-      <Panel title='Link expired'>
+      <StatusPanel title='Link expired'>
         <p>This link is invalid, expired or already used.</p>
         <Link to='/forgot-password' className={linkClass}>
           Request a new link
         </Link>
-      </Panel>
+      </StatusPanel>
     )
   }
 

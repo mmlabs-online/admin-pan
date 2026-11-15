@@ -49,3 +49,31 @@ None.
 ### Scope self-check
 - Could the diff be smaller? No.
 - Diff size: ~ +1300 / -50 lines incl. tests.
+
+## Attempt 2 (REWORK) — 2026-11-15
+
+Fixed only the issues in review.md / security-review.md / a11y-review.md Attempt 1.
+
+### Changes
+- review Issue 1: `reset-password-form.test.tsx` now renders the real `ResetPassword` page for no hash, `#token=short` (invalid link, no form, `fetch` not called) and a valid token (form shown).
+- review Issue 2: kept the `useState` initialiser (see Deviations). Hash-strip tests use a `replace` that really calls `history.replaceState`; they assert the token is still rendered, `location.hash === ''`, href has no token, `replace` called exactly once (StrictMode). Page-level case asserts the same with the token really in the URL before mount; the always-passing location assertion was removed.
+- security: boolean `meta: { handlesOwnErrors: true }` on both mutations; `MutationCache.onError` in `query-client.ts` skips them. New test in `mutations.test.tsx` uses `createQueryClient()`, fails forgot + reset with 422 and asserts no `toast.error`, with a control mutation that still toasts. `mutation.reset()` note not done (not one line).
+- a11y 1: shared `src/features/auth/components/status-panel.tsx` (focused heading), used by reset and by the forgot "sent" state ("Check your email").
+- a11y 2: Turnstile shows a `role='alert'` message plus Retry on `error-callback`; forgot form shows "Complete the verification to continue." linked to the disabled button via `aria-describedby`.
+- a11y 3: `setError(..., { shouldFocus: true })` on forgot and reset server field errors.
+- a11y 4: email input `type='email' autoComplete='email'`; added `noValidate` to the form, otherwise native validation blocks submit and bypasses the zod message.
+
+### Deviations from plan
+- Token capture stays a `useState` initialiser rather than a ref-guarded effect. StrictMode double-invokes initialisers within the same render, before any effect runs, so both see the hash; the strip effect runs afterwards and the token lives in state. Proven by the strengthened test.
+- Extra file `src/features/auth/components/status-panel.tsx` (shared panel, requested by a11y review); `turnstile.tsx` and `query-client.ts` edited per reviews.
+
+### Checks
+- pnpm typecheck: clean
+- pnpm lint: clean
+- pnpm format:check: all files use Prettier style
+- pnpm test (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium): 44 files, 253 tests passed
+- pnpm build: built OK; routeTree.gen.ts unchanged
+- api:types: `pnpm api:types` leaves schema.d.ts unchanged
+
+### Follow-ups
+None new.

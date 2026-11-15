@@ -39,6 +39,11 @@ export function createQueryClient() {
         if (isTransient(error)) toast.error('Server or network error')
       },
     }),
-    mutationCache: new MutationCache({ onError: handleServerError }),
+    mutationCache: new MutationCache({
+      onError: (error, _vars, _ctx, mutation) => {
+        if (mutation.meta?.handlesOwnErrors) return
+        handleServerError(error)
+      },
+    }),
   })
 }

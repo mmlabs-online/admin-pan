@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { readFragmentToken, useFragmentToken } from './fragment-token'
 
-const replace = vi.fn()
+const replace = vi.hoisted(() => vi.fn())
 vi.mock('@tanstack/react-router', () => ({
   useRouter: () => ({ history: { replace } }),
 }))
@@ -28,7 +28,11 @@ function Probe() {
 }
 
 describe('useFragmentToken', () => {
-  it('captures once under StrictMode and strips the hash', async () => {
+  it('captures once under StrictMode, then strips the hash exactly once', async () => {
+    replace.mockReset()
+    replace.mockImplementation((p: string) =>
+      window.history.replaceState(null, '', p)
+    )
     window.history.replaceState(null, '', `/#token=${TOKEN}`)
     const screen = await render(
       <StrictMode>
@@ -36,6 +40,9 @@ describe('useFragmentToken', () => {
       </StrictMode>
     )
     await expect.element(screen.getByText(TOKEN)).toBeInTheDocument()
+    expect(window.location.hash).toBe('')
+    expect(window.location.href).not.toContain(TOKEN)
+    expect(replace).toHaveBeenCalledTimes(1)
     expect(replace).toHaveBeenCalledWith('/reset-password')
     window.history.replaceState(null, '', '/')
   })
