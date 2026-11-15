@@ -7,7 +7,7 @@ import { defineConfig } from 'eslint/config'
 import tseslint from 'typescript-eslint'
 
 export default defineConfig(
-  { ignores: ['dist', 'src/components/ui'] },
+  { ignores: ['dist', 'src/components/ui', 'src/api/schema.d.ts'] },
   {
     extends: [
       js.configs.recommended,
@@ -54,6 +54,53 @@ export default defineConfig(
       ],
       // Prevent duplicate imports from the same module
       'no-duplicate-imports': 'error',
+    },
+  },
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            { name: 'axios', message: 'HTTP only via src/api (R2)' },
+            { name: 'openapi-fetch', message: 'HTTP only via src/api (R2)' },
+          ],
+          patterns: [
+            {
+              group: ['ky', 'ofetch', 'axios/*'],
+              message: 'HTTP only via src/api (R2)',
+            },
+          ],
+        },
+      ],
+      'no-restricted-globals': [
+        'error',
+        ...['fetch', 'XMLHttpRequest', 'WebSocket', 'EventSource'].map(
+          (name) => ({ name, message: 'HTTP only via src/api (R2)' })
+        ),
+      ],
+      'no-restricted-properties': [
+        'error',
+        ...['window', 'globalThis', 'self'].map((object) => ({
+          object,
+          property: 'fetch',
+          message: 'HTTP only via src/api (R2)',
+        })),
+        {
+          object: 'navigator',
+          property: 'sendBeacon',
+          message: 'HTTP only via src/api (R2)',
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/api/**', 'src/**/*.test.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': 'off',
+      'no-restricted-globals': 'off',
+      'no-restricted-properties': 'off',
     },
   }
 )
