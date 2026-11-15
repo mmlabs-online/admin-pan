@@ -87,3 +87,35 @@ I found no blockers in the PAN-009 diff. There are 2 cheap should-fix items and 
    - Non-credentialed Bearer CORS on `/api/v1/*` for the `admin` app's registered origins, with `Expose-Headers: Retry-After`.
    - `Cache-Control: no-store` on admin responses.
    - An error-envelope schema in OpenAPI so `errors.ts` can be generated.
+
+## Attempt 2
+
+S1 and S2 are both closed for the cases I raised in attempt 1. There are no blockers. I found one cheap should-fix (S3, a gap left in the S2 backstop) and four notes. The new `invalid_response` path does not put body text into errors, and the `clone()`/`text()` use does not break how openapi-fetch reads the body. `pnpm lint` is clean and `pnpm test src/api` passes (6 files, 40 tests). Reviewed commit 1484e50 against openapi-fetch 0.17.0.
+
+### S1 is closed: forced fetch settings in `timedFetch` (`src/api/client.ts:21-36`)
+- `new Request(req, { credentials:'omit', redirect:'error', cache:'no-store', referrerPolicy:'no-referrer', mode:'cors', signal })` overrides whatever the per-call init set; method, headers (incl. `Authorization`), body and URL are kept. The new test (`client.test.ts:111-120`) checks the Request that reaches `fetchImpl`.
+
+### S2 is closed for the reported cases
+- Backstop catches `/* eslint no-restricted-globals: off */`, dynamic `import('axios'|'openapi-fetch'|'ky'|'ofetch')` (incl. subpaths), and `openapi-fetch/*` is restricted. `noInlineConfig` not adopted (optional; acceptable).
+
+### The invalid_response change (`src/api/client.ts:58-79`) introduces nothing new
+- No body text in errors (tested with `JSON.stringify(err)` and a marker). `response.clone()` tees the body so openapi-fetch's own read is unaffected. A throw from `onResponse` rejects the call; the epoch entry is deleted first. 204/205/empty bodies return early. No retry storm.
+
+### Findings
+
+🟡 **S3: The backstop still misses a bare `eslint-disable` and multi-rule inline configs (`src/api/no-http-outside-api.test.ts:38`)**
+- `/* eslint-disable */` or `// eslint-disable-next-line` with no rule list, and inline configs like `/* eslint semi: 0, no-restricted-globals: 0 */` or `/* eslint "no-restricted-globals": "off" */`, pass both lint and the test. Nothing in `src/` exploits this today (all 21 directives name a specific rule).
+- Fix: replace the regex with two checks: `/eslint-disable(-next-line|-line)?(\s*(\*\/|$)|[^\n]*no-restricted-)/m` and `/\/\*\s*eslint\s[^*]*no-restricted-/`.
+
+💭 **N7: Per-call `fetch`/`middleware`/`baseUrl` options can still route around the client's checks (`src/api/client.ts:40-54, 90-101`)** — repeat the origin check in `timedFetch`; optionally narrow the exported client type with `Omit<…>`.
+
+💭 **N8: A non-JSON 2xx is rejected for every call, including future `parseAs: 'text' | 'blob' | 'stream'`** — skip the check unless `options.parseAs === 'json'`.
+
+💭 **N9: A 2xx with a malformed body on a mutation is reported as failure although the write may have happened** — real-API screen tickets should invalidate affected queries on `invalid_response` in mutation `onError`.
+
+💭 **N10: Errors while reading the body surface raw** (`DOMException` on timeout/abort during `clone().text()`) — optional try/catch → `errorFromFetchFailure(e)`.
+
+### Follow-ups (out of scope, R7)
+1. PAN-010: N1 (new 401 epoch on token change) and N4 (validate `redirect` on sign-in).
+2. Existing `pnpm audit --prod` advisories (e.g. `seroval` via `@tanstack/react-router`) need their own ticket.
+3. Real-API screen tickets: N9 mutation pattern and the 403 state test (attempt-1 N5).
