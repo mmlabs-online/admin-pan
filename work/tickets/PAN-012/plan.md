@@ -1,4 +1,4 @@
-Status: BLOCKED
+Status: READY
 
 # Plan — PAN-012: Forgot password, reset password and verify-email pages
 

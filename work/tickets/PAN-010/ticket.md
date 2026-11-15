@@ -23,7 +23,10 @@ PAN-009; org-admin-api USR-03, USR-03b, USR-03c, ADM-002c (all done 2026-11-15) 
 - [ ] Token in memory only; reload restores the session through the device cookie
 - [ ] `not_member` and `email_unverified` errors have clear pages
 - [ ] Every authenticated route is behind the guard; redirect back after sign-in (no open redirect)
+- [ ] "Email not verified" page: resend verification (`POST /auth/verify-email/resend`, cookie class, 409/429 limits) and refresh the token after verify (moved from PAN-012, owner 2026-11-15)
 - [ ] Tests for guard, error states and logout
 
 ## Notes / answers from owner
 - 2026-11-15 (owner): wait for the API team's `@mmlabs/auth-client` (org-admin-api USR-08); no interim hand-written auth module. R3 stays as written.
+- 2026-11-15 (owner, via PAN-012 Q2): resend-verification and the post-verify `/token` refresh belong here.
+- From PAN-009/PAN-012 security reviews: drop the hash from the 401 `redirect` value (`src/main.tsx`); validate `redirect` on the sign-in page (same-origin relative path only).
