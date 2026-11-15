@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| State | REVIEW |
+| State | DONE |
 | Priority | P1 |
 | Areas | architecture, api, security |
 | Attempts | 1 |
@@ -19,11 +19,11 @@ One HTTP client in `src/api/` (base URL from `VITE_API_BASE_URL`, error envelope
 PAN-001
 
 ## Acceptance criteria
-- [ ] `pnpm api:types` generates `src/api/schema.d.ts` from org-admin-api OpenAPI (file committed)
-- [ ] Client parses `{error:{code,message,details}}` and non-JSON errors into one error type; unit tests
-- [ ] 401 triggers re-auth hook point, 403 is surfaced to the caller
-- [ ] No `fetch`/axios use outside `src/api/` (lint rule or test)
-- [ ] Local dev documented: real API on :8000 or mocks
+- [x] `pnpm api:types` generates `src/api/schema.d.ts` from org-admin-api OpenAPI (file committed)
+- [x] Client parses `{error:{code,message,details}}` and non-JSON errors into one error type; unit tests
+- [x] 401 triggers re-auth hook point, 403 is surfaced to the caller
+- [x] No `fetch`/axios use outside `src/api/` (lint rule or test)
+- [x] Local dev documented: real API on :8000 or mocks
 
 ## Notes / answers from owner
 None yet.

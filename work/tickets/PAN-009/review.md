@@ -49,3 +49,93 @@ None (to be filled by the orchestrator from security-review.md, if any).
 - org-admin-api: a shared `ErrorEnvelope` schema in the OpenAPI responses; a `make openapi` dump target; optional `X-Request-ID`.
 - admin-pan: update the CLAUDE.md "Cross-repo dependencies" paragraph to the origin-only + dev-proxy convention (owner edit).
 - admin-pan: `pnpm audit --prod` / `minimumReleaseAge` in CI; CSP `connect-src` (PAN-022); validate `redirect` on consume (PAN-010).
+
+## Attempt 2 — 2026-11-15
+Verdict: PASS
+
+### Checks (run by reviewer)
+- pnpm typecheck: exit 0, clean
+- pnpm lint: exit 0, clean. Negative checks (stdin, no file edited), in `src/features/organizations/*.ts`:
+  - `import 'openapi-fetch/dist/index.mjs'` fails with `no-restricted-imports` (new `openapi-fetch/*` pattern).
+  - `fetch('/x')` fails with `no-restricted-globals`.
+  - `api.GET(…, { fetch: globalThis.fetch })` and `{ fetch: self.fetch }` fail with `no-restricted-properties`.
+- pnpm format:check: exit 0, "All matched files use Prettier code style!"
+- pnpm test (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium): 36 files, 212 tests passed, which matches impl-log attempt 2.
+  - I ran the suite 11 times. The first run was a cold start and had 1 failure (211/212). I did not capture which test failed.
+  - The next 10 runs passed 212/212 every time. See Follow-ups.
+- pnpm build: exit 0, built OK. `dist/` contains no `localhost:8000` and no `API_PROXY_TARGET`.
+- api:types drift: `pnpm api:types && git diff --exit-code src/api/schema.d.ts` gives no diff, and the working tree is clean.
+- pnpm e2e: not planned
+
+### Attempt-1 blocker and security items
+- **Issue 1 (malformed 2xx body escapes as `SyntaxError`): fixed.**
+  - `src/api/client.ts:58-79`: `onResponse` now returns `undefined` for 204/205 and for an empty body. Any other 2xx whose content-type is not `application/json`, or whose body fails `JSON.parse`, is thrown as `ApiError { kind: 'invalid_response', status, code: 'invalid_response' }`. The body is never put in the error.
+  - Tests:
+    - `client.test.ts › rejects with ApiError invalid_response for a 200 text/html body` passes.
+    - `client.test.ts › rejects with ApiError invalid_response for a 200 malformed JSON body` passes.
+    - Both assert `name`, `kind` and `status: 200`, and that `secret-body` is absent from `JSON.stringify(err)`.
+  - impl-log attempt 2 records the deviation from plan step 4.
+- **S1 (a per-call init can override the fetch settings): fixed.**
+  - `src/api/client.ts:26-34`: `timedFetch` rebuilds every request with `credentials: 'omit'`, `redirect: 'error'`, `cache: 'no-store'`, `referrerPolicy: 'no-referrer'` and `mode: 'cors'`.
+  - Test: `client.test.ts › forces credentials omit and redirect error even if a call overrides them` passes. It sends `credentials: 'include'` and `redirect: 'follow'` and checks that `seen[0]` is `omit` / `error`.
+- **S2 (backstop misses inline config and dynamic imports): fixed.**
+  - `src/api/no-http-outside-api.test.ts:29` adds `/import\(\s*['"](axios|openapi-fetch|ky|ofetch)/`.
+  - `:38` changes the regex to `/eslint(-disable[^\n]*|\s+)no-restricted-(globals|imports|properties)/`.
+  - `eslint.config.js:71` adds `'openapi-fetch/*'`.
+  - I checked the regexes with node:
+    - `/* eslint no-restricted-globals: off */` matches.
+    - `// eslint-disable-next-line no-restricted-globals` matches.
+    - `await import('openapi-fetch')` and `import("axios")` match.
+  - `noInlineConfig` was skipped, with a reason logged. The security review called it optional.
+
+### Acceptance criteria
+- [x] `pnpm api:types` generates `src/api/schema.d.ts` from the org-admin-api OpenAPI (file committed). Evidence:
+  - the drift check above
+  - `.github/workflows/ci.yml` api:types step
+  - `src/api/page.test.ts › Page<T> matches the generated Page_OrganizationRead_` passes
+  - snapshot provenance was verified byte-identical in attempt 1, and `openapi.json` has not changed since.
+- [x] Client parses `{error:{code,message,details}}` and non-JSON errors into one error type, with unit tests. Evidence:
+  - error responses: `src/api/errors.test.ts` (envelope, HTML, empty, malformed) and `client.test.ts › rejects with ApiError …`
+  - 2xx responses: the two new `invalid_response` tests
+  - network failures: `client.test.ts › rejects with ApiError network_error when fetch throws`
+  - `ApiError` is the only error class. axios is gone from `package.json` and `src`.
+- [x] 401 triggers the re-auth hook point, and 403 is surfaced to the caller. Evidence (unchanged since attempt 1, all passing):
+  - `client.test.ts › calls the unauthorized handler once for concurrent 401s`
+  - `client.test.ts › does not call the unauthorized handler on 403 …`
+  - `queries.test.ts › surfaces a 403 ApiError to the caller`
+  - `query-client.test.ts › does not retry 401, 403, …`
+  - `src/main.tsx` registers the handlers.
+- [x] No `fetch`/axios use outside `src/api/` (lint rule or test). Evidence:
+  - the `eslint.config.js` restriction block
+  - the negative lint checks above
+  - `src/api/no-http-outside-api.test.ts`, which now covers the inline-config and dynamic-import bypasses, passes.
+- [x] Local dev documented (real API on :8000 or mocks). Evidence: the `README.md` section "Local development with org-admin-api" (unchanged since attempt 1, verified then).
+
+### Issues
+None.
+
+### Rules R1–R11
+No violations found.
+- R7: attempt 2 changed only `src/api/client.ts`, `src/api/client.test.ts`, `src/api/no-http-outside-api.test.ts` and `eslint.config.js`. All four are in the plan's file list. No new dependencies.
+- R2, R3 and R5: the forced fetch settings make the "no cookies to admin paths" control hold at the transport layer.
+- The `invalid_response` error carries no body.
+- The R1/R4/R6/R9 findings from attempt 1 still hold. Nothing in those areas changed.
+
+### Security / a11y blockers
+None. S1 and S2 were should-fix items, and both are verified fixed above. This is to be confirmed by the orchestrator if appsec runs again.
+
+### Nits (do not block)
+- 💭 `src/api/client.ts:62`: `includes('application/json')` rejects `+json` media types such as `application/problem+json`. org-admin-api sends `application/json` today. Consider `/\bjson\b/` if that changes.
+- 💭 `src/api/client.ts:58-79`: every 2xx with a non-JSON body is rejected. A future non-JSON download that uses `parseAs: 'blob' | 'text' | 'stream'` (for example an audit-log CSV export) will need an opt-out.
+- 💭 `src/api/client.ts:60`: `response.clone().text()` reads each 2xx body twice, once here and once by openapi-fetch. This is fine at `limit` ≤ 100.
+- 💭 A per-call `fetch` option with a custom function, not a global, would bypass `timedFetch`. Lint blocks the obvious forms. The `api` wrapper could strip `fetch` from the init if this ever matters.
+- 💭 These attempt-1 nits are still open: `toPageParams` NaN guard, the unused `prod` in `parseApiBaseUrl`, and the untested 401 handler in `main.tsx` (owned by PAN-010). Security N1, N2, N4, N5 and N6 are also still open, as noted in security-review.md.
+
+### Follow-ups (out of scope)
+- admin-pan: one cold-start `pnpm test` run failed 1 of 212, and 10 reruns were green. Watch CI for a flaky browser-mode test. If it shows up, open a `solo:` to find it and fix it, for example with a longer `testTimeout` or by awaiting UI state.
+- These are carried over unchanged from attempt 1 and security-review.md attempt 1:
+  - org-admin-api: Bearer CORS on `/api/v1/*` from `apps[admin].origins`, `Cache-Control: no-store`, and an ErrorEnvelope schema in OpenAPI.
+  - admin-pan: dependency advisories and `pnpm audit` in CI.
+  - admin-pan: pin CI actions to commit SHAs.
+  - PAN-010: redirect validation and the 401 epoch on token change.
+  - PAN-022: CSP `connect-src`.
