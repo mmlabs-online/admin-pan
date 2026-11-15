@@ -7,7 +7,7 @@
 | Areas | auth, ui, security |
 | Attempts | 1 |
 | Created | 2026-11-11 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/3 |
 
 ## Goal
 Wire the auth pages to org-admin-api: forgot (always 202), reset with token, verify email and resend, with Turnstile where required.
