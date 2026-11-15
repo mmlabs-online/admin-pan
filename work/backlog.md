@@ -21,7 +21,7 @@ Phases: **1. UI with mock data** (PAN-001…008, done) → **2. Foundations** (P
 | PAN-010 | Sign-in with @mmlabs/auth-client, account switch, logout and route guard | BACKLOG | P1 | architecture, auth, security, api, ui | 0 | 2026-11-11 |
 | PAN-011 | Permission-aware UI and 403 handling | BACKLOG | P1 | auth, ui, security | 0 | 2026-11-11 |
 | PAN-012 | Forgot password and reset password pages | DONE | P2 | auth, ui, security | 1 | 2026-11-15 |
-| PAN-012b | Verify-email page | BACKLOG | P2 | auth, ui, security | 0 | 2026-11-15 |
+| PAN-012b | Verify-email page | PLANNING | P2 | auth, ui, security | 0 | 2026-11-15 |
 | PAN-013 | Users screen on the real API | BACKLOG | P1 | api, ui | 0 | 2026-11-11 |
 | PAN-014 | Organizations screen on the real API | BACKLOG | P1 | api, ui | 0 | 2026-11-11 |
 | PAN-015 | Apps, permissions, roles and assignments on the real API | BACKLOG | P1 | api, ui, auth | 0 | 2026-11-11 |
