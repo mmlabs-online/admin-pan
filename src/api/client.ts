@@ -7,6 +7,11 @@ import {
 import { ApiError, errorFromFetchFailure, errorFromResponse } from './errors'
 import type { paths } from './schema'
 
+// Public auth endpoints (R3 class 2/3): no bearer token, and a 401 there is not
+// a session expiry.
+const isPublicAuthPath = (url: string) =>
+  new URL(url).pathname.startsWith('/api/v1/auth/')
+
 type Options = {
   baseUrl: string
   fetch?: typeof globalThis.fetch
@@ -48,11 +53,13 @@ export function createApiClient({
         })
       }
       epochs.set(id, currentAuthEpoch())
-      const token = await getAccessToken()
+      const token = isPublicAuthPath(request.url)
+        ? null
+        : await getAccessToken()
       if (token) request.headers.set('Authorization', `Bearer ${token}`)
       return request
     },
-    async onResponse({ response, id }) {
+    async onResponse({ request, response, id }) {
       const epoch = epochs.get(id) ?? currentAuthEpoch()
       epochs.delete(id)
       if (response.ok) {
@@ -78,7 +85,8 @@ export function createApiClient({
         })
       }
       const err = await errorFromResponse(response)
-      if (response.status === 401) notifyUnauthorized(epoch)
+      if (response.status === 401 && !isPublicAuthPath(request.url))
+        notifyUnauthorized(epoch)
       throw err
     },
     onError({ error, id }) {

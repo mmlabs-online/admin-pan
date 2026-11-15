@@ -33,6 +33,8 @@ Each feature lists the org-admin-api endpoints it uses and the API ticket that p
 Login page using `@mmlabs/auth-client` (app key `admin`); account picker / switch and logout; the `aud=admin` token is kept in memory and refreshed by the library. Shell with navigation filtered by permission, signed-in user, and a clear page for 403 and for "email not verified" / "not a member".
 API: `POST /api/v1/auth/login`, `/auth/token`, accounts, logout — **org-admin-api USR-03, USR-03b** (backlog). Admin endpoints require `aud=admin` — **ADM-002** (backlog).
 
+Public pages at fixed paths `/forgot-password` (Turnstile, same answer for any email), `/reset-password` and `/verify-email` (token from the email link) (owner, 2026-11-15). API: `POST /auth/password/forgot`, `/auth/password/reset`, `/auth/verify-email` — org-admin-api USR-04, USR-04b (done). Resending the verification email needs a signed-in session and belongs with sign-in (PAN-010).
+
 ### §5.2 Users (mmlabs Identity)
 List with email search and status filter (paginated), detail, enable/disable with confirmation.
 API: `GET /api/v1/users`, `GET/PATCH /api/v1/users/{id}` (`admin:users:read`, `admin:users:write`) — **org-admin-api USR-01b** (done; mounted only when `ADMIN_USERS_API_ENABLED=true` until ADM-002).
