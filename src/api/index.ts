@@ -5,6 +5,8 @@ export { ApiError, isApiError } from './errors'
 export type { ValidationErrorDetail, UnprocessableDetail } from './errors'
 export { toPageParams, type Page } from './page'
 export { setAccessTokenProvider, setUnauthorizedHandler } from './auth-hooks'
+export { appKey } from './config'
+export { forgotPassword, resetPassword } from './public-auth'
 export { createApiClient, unwrap, type ApiClient } from './client'
 export type { paths, components } from './schema'
 

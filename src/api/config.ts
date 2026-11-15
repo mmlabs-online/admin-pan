@@ -47,3 +47,20 @@ export function apiBaseUrl(): string {
     dev: import.meta.env.DEV,
   })
 }
+
+/** VITE_APP_KEY: sent as X-MM-App; same shape as an app key in the API. */
+export function parseAppKey(raw: string | undefined): string {
+  if (!raw || !/^[a-z][a-z0-9-]*$/.test(raw)) {
+    throw new ApiError({
+      kind: 'config',
+      status: 0,
+      code: 'config_error',
+      message: 'Invalid VITE_APP_KEY',
+    })
+  }
+  return raw
+}
+
+export function appKey(): string {
+  return parseAppKey(import.meta.env.VITE_APP_KEY)
+}

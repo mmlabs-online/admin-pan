@@ -174,3 +174,41 @@ describe('createApiClient', () => {
     expect(handler).not.toHaveBeenCalled()
   })
 })
+
+describe('public auth paths', () => {
+  it('never sends Authorization to /api/v1/auth/* even with a token', async () => {
+    setAccessTokenProvider(() => 'abc')
+    const { api, seen } = setup(() => new Response(null, { status: 204 }))
+    await api.POST('/api/v1/auth/password/reset', {
+      body: { token: 't', new_password: 'p' },
+    })
+    expect(seen[0].headers.has('authorization')).toBe(false)
+  })
+
+  it('still sends Authorization to admin paths', async () => {
+    setAccessTokenProvider(() => 'abc')
+    const { api, seen } = setup(() => json(page))
+    await api.GET('/api/v1/organizations')
+    expect(seen[0].headers.get('authorization')).toBe('Bearer abc')
+  })
+
+  it('does not notify unauthorized for /api/v1/auth/* 401', async () => {
+    const handler = vi.fn()
+    setUnauthorizedHandler(handler)
+    const { api } = setup(() => envelope(401, 'unauthorized'))
+    await expect(
+      api.POST('/api/v1/auth/password/reset', {
+        body: { token: 't', new_password: 'p' },
+      })
+    ).rejects.toBeInstanceOf(ApiError)
+    expect(handler).not.toHaveBeenCalled()
+  })
+
+  it('keeps credentials omit for auth paths', async () => {
+    const { api, seen } = setup(() => new Response(null, { status: 204 }))
+    await api.POST('/api/v1/auth/password/reset', {
+      body: { token: 't', new_password: 'p' },
+    })
+    expect(seen[0].credentials).toBe('omit')
+  })
+})

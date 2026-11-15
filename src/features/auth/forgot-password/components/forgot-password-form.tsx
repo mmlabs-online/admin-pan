@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useNavigate } from '@tanstack/react-router'
+import { isApiError, type ApiClient } from '@/api'
 import { ArrowRight, Loader2 } from 'lucide-react'
-import { toast } from 'sonner'
-import { sleep, cn } from '@/lib/utils'
+import { formatRetryAfter } from '@/lib/retry-after'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -16,6 +16,8 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { Turnstile, type TurnstileHandle } from '@/components/turnstile'
+import { useForgotPasswordMutation } from '../../api/mutations'
 
 const formSchema = z.object({
   email: z.email({
@@ -23,12 +25,35 @@ const formSchema = z.object({
   }),
 })
 
+type Status =
+  | { state: 'idle' }
+  | { state: 'sent' }
+  | { state: 'error'; message: string }
+
+function messageFor(e: unknown): string {
+  if (isApiError(e)) {
+    if (e.status === 403 && e.code === 'turnstile_failed') {
+      return 'Verification failed. Please try again.'
+    }
+    if (e.status === 429) {
+      return `Too many requests. Try again in ${formatRetryAfter(e.retryAfter)}.`
+    }
+    if (e.kind === 'network' || e.kind === 'timeout') {
+      return 'Could not reach the server. Please try again.'
+    }
+  }
+  return 'Something went wrong. Please try again later.'
+}
+
 export function ForgotPasswordForm({
   className,
+  api,
   ...props
-}: React.HTMLAttributes<HTMLFormElement>) {
-  const navigate = useNavigate()
-  const [isLoading, setIsLoading] = useState(false)
+}: React.HTMLAttributes<HTMLFormElement> & { api?: () => ApiClient }) {
+  const [status, setStatus] = useState<Status>({ state: 'idle' })
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
+  const turnstile = useRef<TurnstileHandle>(null)
+  const mutation = useForgotPasswordMutation(api)
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -36,24 +61,41 @@ export function ForgotPasswordForm({
   })
 
   function onSubmit(data: z.infer<typeof formSchema>) {
-    setIsLoading(true)
+    if (!turnstileToken) return
+    setStatus({ state: 'idle' })
+    mutation.mutate(
+      { email: data.email, turnstile_token: turnstileToken },
+      {
+        onSuccess: () => {
+          form.reset()
+          setStatus({ state: 'sent' })
+        },
+        onError: (e) => {
+          if (isApiError(e, 422)) {
+            form.setError('email', { message: 'Please enter a valid email.' })
+          } else {
+            setStatus({ state: 'error', message: messageFor(e) })
+          }
+        },
+        // the Turnstile token is single-use
+        onSettled: () => turnstile.current?.reset(),
+      }
+    )
+  }
 
-    toast.promise(sleep(2000), {
-      loading: 'Sending email...',
-      success: () => {
-        setIsLoading(false)
-        form.reset()
-        navigate({ to: '/sign-in' })
-        return `Email sent to ${data.email}`
-      },
-      error: 'Error',
-    })
+  if (status.state === 'sent') {
+    return (
+      <p role='status' className='text-sm'>
+        If an account exists for that address, we&apos;ve sent a reset link. It
+        expires in 30 minutes.
+      </p>
+    )
   }
 
   return (
     <Form {...form}>
       <form
-        onSubmit={form.handleSubmit(onSubmit)}
+        onSubmit={(e) => void form.handleSubmit(onSubmit)(e)}
         className={cn('grid gap-2', className)}
         {...props}
       >
@@ -70,9 +112,22 @@ export function ForgotPasswordForm({
             </FormItem>
           )}
         />
-        <Button className='mt-2' disabled={isLoading}>
+        <Turnstile ref={turnstile} onToken={setTurnstileToken} />
+        {status.state === 'error' && (
+          <p role='alert' className='text-sm text-destructive'>
+            {status.message}
+          </p>
+        )}
+        <Button
+          className='mt-2'
+          disabled={mutation.isPending || !turnstileToken}
+        >
           Continue
-          {isLoading ? <Loader2 className='animate-spin' /> : <ArrowRight />}
+          {mutation.isPending ? (
+            <Loader2 className='animate-spin' />
+          ) : (
+            <ArrowRight />
+          )}
         </Button>
       </form>
     </Form>

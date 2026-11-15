@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseApiBaseUrl } from './config'
+import { parseApiBaseUrl, parseAppKey } from './config'
 
 const prod = { prod: true, dev: false }
 const dev = { prod: false, dev: true }
@@ -40,5 +40,14 @@ describe('parseApiBaseUrl', () => {
     expect(() => parseApiBaseUrl('javascript:alert(1)', dev)).toThrow()
     expect(() => parseApiBaseUrl('', dev)).toThrow()
     expect(() => parseApiBaseUrl(undefined, dev)).toThrow()
+  })
+})
+
+describe('parseAppKey', () => {
+  it('accepts admin, rejects empty/invalid', () => {
+    expect(parseAppKey('admin')).toBe('admin')
+    for (const v of [undefined, '', 'Admin', '1app', 'a b', 'a\r\nx']) {
+      expect(() => parseAppKey(v)).toThrow()
+    }
   })
 })
