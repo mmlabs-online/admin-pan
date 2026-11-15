@@ -7,7 +7,7 @@
 | Areas | auth, ui, security |
 | Attempts | 1 |
 | Created | 2026-11-15 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/4 |
 
 ## Goal
 Public `/verify-email` page that reads the token from the email link and confirms the address with org-admin-api, split from PAN-012.
