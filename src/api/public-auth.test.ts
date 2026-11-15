@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApiClient } from './client'
 import { ApiError } from './errors'
-import { forgotPassword, resetPassword } from './public-auth'
+import { forgotPassword, resetPassword, verifyEmail } from './public-auth'
 
 function setup(respond: () => Response) {
   const seen: Request[] = []
@@ -62,5 +62,22 @@ describe('public auth calls', () => {
     }).catch((x) => x)
     expect(e).toBeInstanceOf(ApiError)
     expect(e).toMatchObject({ status: 429, retryAfter: 90 })
+  })
+
+  it('verify sends body {token}, no X-MM-App or Authorization, credentials omit; 204 resolves', async () => {
+    const { api, seen } = setup(() => new Response(null, { status: 204 }))
+    await expect(verifyEmail(api, { token: 't' })).resolves.toBeUndefined()
+    expect(seen[0].url).toBe('https://api.test/api/v1/auth/verify-email')
+    expect(seen[0].headers.has('x-mm-app')).toBe(false)
+    expect(seen[0].headers.has('authorization')).toBe(false)
+    expect(seen[0].credentials).toBe('omit')
+    expect(await seen[0].json()).toEqual({ token: 't' })
+  })
+
+  it('verify 422 token_invalid rejects with ApiError', async () => {
+    const { api } = setup(() => err(422, 'token_invalid'))
+    const e = await verifyEmail(api, { token: 't' }).catch((x) => x)
+    expect(e).toBeInstanceOf(ApiError)
+    expect(e).toMatchObject({ status: 422, code: 'token_invalid' })
   })
 })
