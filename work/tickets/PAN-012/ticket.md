@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| State | REVIEW |
+| State | DONE |
 | Priority | P2 |
 | Areas | auth, ui, security |
 | Attempts | 1 |
@@ -19,10 +19,10 @@ Wire the auth pages to org-admin-api: forgot (always 202), reset with token, ver
 PAN-009; org-admin-api USR-04, USR-04b (done)
 
 ## Acceptance criteria
-- [ ] Forgot shows the same message for any email
-- [ ] Reset validates password and handles expired/used tokens
+- [x] Forgot shows the same message for any email
+- [x] Reset validates password and handles expired/used tokens
 - [ ] ~~Verify-email handles success, expired and resend limits~~ → moved: verify-email to PAN-012b, resend to PAN-010 (owner 2026-11-15)
-- [ ] Tests for each state
+- [x] Tests for each state
 
 ## Notes / answers from owner
 - 2026-11-15 (owner, answers to plan.md blocking questions):

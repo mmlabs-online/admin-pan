@@ -55,3 +55,32 @@
 - **Owner/ops:** production Turnstile site key for the admin hostname (test key only in dev/test); register the local dev origin on app `admin`.
 - **Forgot form UX:** dedicated "configuration error" text for 403 `app_header_required` / `origin_not_allowed`.
 - **org-admin-api docs:** `consumers.md` should recommend `credentials: 'omit'` for forgot; OpenAPI should not declare `origin` as a required header.
+
+## Attempt 2
+
+**Verdict:** the attempt-1 should-fix is closed and nothing new blocks the merge. No 🔴 or 🟡. `pnpm typecheck`, `lint`, `format:check`, `build` pass. `pnpm test` passed 253/253 in 5 of 6 runs; the first run had 1 unidentified failure that did not recur. No new dependency.
+
+### Attempt-1 should-fix is closed
+- `src/lib/query-client.ts:42-47`: app-wide mutation `onError` returns early when `mutation.meta?.handlesOwnErrors`; `main.tsx:17` uses `createQueryClient()`.
+- `src/features/auth/api/mutations.ts:20,29`: both hooks set `meta: { handlesOwnErrors: true }` (fixed boolean, no user data, no `mutationKey`).
+- The flag cannot be influenced by URL or API; omitting it only restores the capped toast.
+- `mutations.test.tsx:53-102` uses the real `createQueryClient()`, fails both with a 422 `'leak'` message, asserts no `toast.error`; a control mutation without the flag toasts once (test can fail).
+
+### Other changes checked (nothing found)
+- Error text in the DOM is fixed strings plus `formatRetryAfter(number)`; no server `message`/`details`/`msg`/`input` rendered. Turnstile Retry never touches the token.
+- `status-panel.tsx` focuses a fixed heading; `shouldFocus` moves focus to inputs without exposing values; nothing logged; no token in `id`/`aria-*`.
+- Forgot form: `type='email'`, `autoComplete='email'`, `noValidate`, static `aria-describedby='turnstile-hint'` fine; "sent" panel does not echo the email.
+- Reset form: token only in the mutation body; "token never appears in the DOM" still tested.
+- Fragment-token tests now use the real `history.replaceState` and assert empty hash, no token in `href`, `replace` once under StrictMode; `reset-password-form.test.tsx:58-97` mounts the real page (router still mocked — enough).
+
+### Findings
+💭 **one unexplained test failure in 6 full runs** — likeliest the fixed `setTimeout(r, 100)` in `mutations.test.tsx:91`; wait for both mutations to reach `error` (e.g. `expect.poll(...)`) before asserting.
+💭 **(carried over) token, password and email stay in mutation state until unmount** — `reset-password-form.tsx:58-66`, `forgot-password-form.tsx:70-73`; call `mutation.reset()` next to `form.reset()`.
+💭 **component tests for both forms still use a bare `new QueryClient()`** — optional to render one failing form under `createQueryClient()`.
+
+### Follow-ups (out of scope, R7; same as attempt 1)
+- PAN-010: remove the hash from the 401 `redirect` value (`src/main.tsx:34`).
+- PAN-022: CSP (`script-src`/`frame-src https://challenges.cloudflare.com`, `connect-src` API origin, `frame-ancestors 'none'`); `Referrer-Policy: no-referrer` header; self-hosted fonts.
+- Owner/ops: production Turnstile site key for the admin hostname; register the local dev origin on app `admin`.
+- Forgot form UX: dedicated configuration-error text for 403 `app_header_required` / `origin_not_allowed`.
+- org-admin-api docs: `credentials: 'omit'` for forgot in `consumers.md`; OpenAPI should not require the `origin` header.
