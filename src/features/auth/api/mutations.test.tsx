@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createApiClient } from '@/api'
 import { toast } from 'sonner'
@@ -7,6 +8,7 @@ import { createQueryClient } from '@/lib/query-client'
 import {
   useForgotPasswordMutation,
   useResetPasswordMutation,
+  useVerifyEmailMutation,
 } from './mutations'
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
@@ -61,9 +63,15 @@ describe('auth mutations', () => {
           { status: 422, headers: { 'content-type': 'application/json' } }
         )) as unknown as typeof globalThis.fetch,
     })
+    let allErrored = false
+    const done = (v: boolean) => (allErrored = v)
     function Both() {
       const r = useResetPasswordMutation(() => client)
       const f = useForgotPasswordMutation(() => client)
+      const v = useVerifyEmailMutation(() => client)
+      useEffect(() => {
+        done(r.isError && f.isError && v.isError)
+      })
       const noop = { onError: () => {} }
       return (
         <>
@@ -79,6 +87,7 @@ describe('auth mutations', () => {
           >
             forgot
           </button>
+          <button onClick={() => v.mutate({ token: 't' }, noop)}>verify</button>
         </>
       )
     }
@@ -90,7 +99,8 @@ describe('auth mutations', () => {
     )
     await screen.getByRole('button', { name: 'reset' }).click()
     await screen.getByRole('button', { name: 'forgot' }).click()
-    await new Promise((r) => setTimeout(r, 100))
+    await screen.getByRole('button', { name: 'verify' }).click()
+    await vi.waitFor(() => expect(allErrored).toBe(true))
     expect(toast.error).not.toHaveBeenCalled()
     // control: a mutation without the opt-out still toasts
     await qc
