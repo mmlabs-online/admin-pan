@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| State | PLANNING |
+| State | BLOCKED |
 | Priority | P2 |
 | Areas | auth, ui, security |
 | Attempts | 0 |
