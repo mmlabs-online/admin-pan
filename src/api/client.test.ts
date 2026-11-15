@@ -89,6 +89,36 @@ describe('createApiClient', () => {
     })
   })
 
+  it.each([
+    ['a 200 text/html body', '<html>secret-body</html>', 'text/html'],
+    ['a 200 malformed JSON body', '{"items": secret-body', 'application/json'],
+  ])(
+    'rejects with ApiError invalid_response for %s',
+    async (_n, body, type) => {
+      const { api } = setup(
+        () =>
+          new Response(body, { status: 200, headers: { 'content-type': type } })
+      )
+      const err = await api.GET('/api/v1/organizations').catch((e) => e)
+      expect(err).toMatchObject({
+        name: 'ApiError',
+        kind: 'invalid_response',
+        status: 200,
+      })
+      expect(JSON.stringify(err)).not.toContain('secret-body')
+    }
+  )
+
+  it('forces credentials omit and redirect error even if a call overrides them', async () => {
+    const { api, seen } = setup(() => json(page))
+    await api.GET('/api/v1/organizations', {
+      credentials: 'include',
+      redirect: 'follow',
+    })
+    expect(seen[0].credentials).toBe('omit')
+    expect(seen[0].redirect).toBe('error')
+  })
+
   it('rejects with ApiError network_error when fetch throws', async () => {
     const { api } = setup(() => {
       throw new TypeError('Failed to fetch')

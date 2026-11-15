@@ -68,7 +68,7 @@ export default defineConfig(
           ],
           patterns: [
             {
-              group: ['ky', 'ofetch', 'axios/*'],
+              group: ['ky', 'ofetch', 'axios/*', 'openapi-fetch/*'],
               message: 'HTTP only via src/api (R2)',
             },
           ],

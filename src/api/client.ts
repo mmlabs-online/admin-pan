@@ -25,6 +25,12 @@ export function createApiClient({
     return fetchImpl(
       new Request(req, {
         signal: AbortSignal.any([req.signal, AbortSignal.timeout(ms)]),
+        // forced here so a per-call init cannot override them
+        credentials: 'omit',
+        redirect: 'error',
+        cache: 'no-store',
+        referrerPolicy: 'no-referrer',
+        mode: 'cors',
       })
     )
   }
@@ -49,7 +55,28 @@ export function createApiClient({
     async onResponse({ response, id }) {
       const epoch = epochs.get(id) ?? currentAuthEpoch()
       epochs.delete(id)
-      if (response.ok) return undefined
+      if (response.ok) {
+        if (response.status === 204 || response.status === 205) return undefined
+        const text = await response.clone().text()
+        if (!text) return undefined
+        let valid = (response.headers.get('content-type') ?? '').includes(
+          'application/json'
+        )
+        if (valid) {
+          try {
+            JSON.parse(text)
+          } catch {
+            valid = false
+          }
+        }
+        if (valid) return undefined
+        throw new ApiError({
+          kind: 'invalid_response',
+          status: response.status,
+          code: 'invalid_response',
+          message: 'The server returned an invalid response',
+        })
+      }
       const err = await errorFromResponse(response)
       if (response.status === 401) notifyUnauthorized(epoch)
       throw err

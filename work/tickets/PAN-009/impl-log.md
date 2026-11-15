@@ -43,3 +43,30 @@ None.
 ### Scope self-check
 - Could the diff be smaller? No
 - Diff size: see git (generated schema/openapi/lockfile excluded from the hand-written estimate)
+
+## Attempt 2 (REWORK) — 2026-11-15
+
+### Fixed
+- Review Issue 1 (blocker): `onResponse` in `src/api/client.ts` now rejects a 2xx with a non-empty body that is not `application/json` or does not parse as `ApiError` kind `invalid_response` (status kept, body never in the error). 204/205 and empty bodies pass. Deviation from plan step 4: the mapping lives in `onResponse`, not in `errorFromFetchFailure`, because openapi-fetch parses 2xx bodies after the middleware.
+- Security S1: `timedFetch` forces `credentials: 'omit'`, `redirect: 'error'`, `cache: 'no-store'`, `referrerPolicy: 'no-referrer'`, `mode: 'cors'` so a per-call init cannot override them.
+- Security S2: backstop regex now also matches inline `eslint no-restricted-*` config; added a dynamic `import('axios|openapi-fetch|ky|ofetch')` offender pattern; `'openapi-fetch/*'` added to the restricted-import patterns. `noInlineConfig` not used (existing eslint-disable comments in src/).
+
+### Tests added
+- client.test.ts: invalid_response for 200 text/html and 200 malformed JSON (name, kind, no body in JSON.stringify(err)); per-call `credentials: 'include'` / `redirect: 'follow'` still sent as omit / error.
+
+### Files changed
+src/api/client.ts, src/api/client.test.ts, src/api/no-http-outside-api.test.ts, eslint.config.js
+
+### Checks
+- pnpm typecheck: clean
+- pnpm lint: clean
+- pnpm format:check: all files match
+- pnpm test (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium): 36 files, 212 tests passed
+- pnpm build: built OK
+- api:types: no diff in schema.d.ts
+
+### Out-of-plan files
+None.
+
+### Follow-ups
+None new (nits N1-N6 and 💭 items left as noted by reviewers).

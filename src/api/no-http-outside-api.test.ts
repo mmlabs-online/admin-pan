@@ -26,6 +26,7 @@ describe('HTTP only via src/api (R2)', () => {
       /new\s+(WebSocket|EventSource)\b/,
       /sendBeacon/,
       /from\s+['"]axios/,
+      /import\(\s*['"](axios|openapi-fetch|ky|ofetch)/,
     ]) {
       expect(offenders(re), String(re)).toEqual([])
     }
@@ -34,7 +35,7 @@ describe('HTTP only via src/api (R2)', () => {
   it('no source file outside src/api disables the no-restricted-* rules', () => {
     expect(
       offenders(
-        /eslint-disable[^\n]*no-restricted-(globals|imports|properties)/
+        /eslint(-disable[^\n]*|\s+)no-restricted-(globals|imports|properties)/
       )
     ).toEqual([])
   })
