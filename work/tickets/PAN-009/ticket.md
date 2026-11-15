@@ -7,7 +7,7 @@
 | Areas | architecture, api, security |
 | Attempts | 1 |
 | Created | 2026-11-11 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/2 |
 
 ## Goal
 One HTTP client in `src/api/` (base URL from `VITE_API_BASE_URL`, error envelope, `Page<T>`), types generated from org-admin-api `/openapi.json`, and a pattern for TanStack Query hooks per feature.
