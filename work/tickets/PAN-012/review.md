@@ -109,3 +109,97 @@ None reported to the reviewer. `security-review.md` and `a11y-review.md` are not
   - CSP `script-src` and `frame-src https://challenges.cloudflare.com`;
   - `Referrer-Policy: no-referrer`;
   - SPA fallback and `no-store` on `/reset-password`.
+
+## Attempt 2 — 2026-11-15
+Verdict: PASS
+
+### Checks (run by reviewer)
+- pnpm typecheck: clean (`tsc -b`, exit 0)
+- pnpm lint: clean (`eslint .`, no output)
+- pnpm format:check: "All matched files use Prettier code style!"
+- pnpm test (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium): 44 files, 253 tests passed. Matches impl-log attempt 2.
+- pnpm build: "built in 1.18s". `git status` is clean afterwards, so `routeTree.gen.ts` is in sync.
+- api:types drift: `openapi-typescript src/api/openapi.json` into a scratch file is identical to `src/api/schema.d.ts`. Neither file is in the diff.
+- pnpm e2e: not planned.
+
+### Attempt-1 issues
+- **Issue 1 (🔴, AC2 page-level test): fixed.** `reset-password-form.test.tsx › page token handling`:
+  - The test renders the real `ResetPassword` from `../index`, with a `replace` mock that calls `history.replaceState`.
+  - `no hash` and `#token=short`: the "Invalid link" heading and the `/forgot-password` link appear, there is no "New password" field, and the `globalThis.fetch` spy is not called.
+  - Valid token: the form is shown, `location.hash === ''`, and the href no longer contains the token, which really was in the URL before mount.
+- **Issue 2 (🟡, `useState` deviation and hollow strip test): fixed.**
+  - The deviation is now recorded in impl-log attempt 2 "Deviations from plan".
+  - `fragment-token.test.tsx` under StrictMode asserts:
+    - the token is still rendered;
+    - `location.hash === ''`;
+    - the href has no token;
+    - `replace` was called exactly once.
+  - The strip effect only runs while a hash is present (`fragment-token.ts:20-22`), so the StrictMode re-run is a no-op.
+  - The always-passing location assertion was removed from the form test.
+
+### Security / a11y should-fix items
+- **Security 🟡 (app-wide mutation toast): fixed.**
+  - Both hooks set `meta: { handlesOwnErrors: true }` (`mutations.ts:20,29`), and `query-client.ts:42-47` skips them.
+  - `mutations.test.tsx › failures do not trigger the app-wide error toast` uses `createQueryClient()` and fails both mutations with 422, and `toast.error` is not called. A control mutation without the flag toasts once, which proves the test can fail.
+- **a11y 1 (focus after "sent"): fixed.** Shared `StatusPanel` (`src/features/auth/components/status-panel.tsx`) with a focused `h2`, used for "Check your email" (`forgot-password-form.tsx:93-98`) and the reset panels.
+- **a11y 2 (silent Turnstile failure / disabled button): fixed.**
+  - `turnstile.tsx:49-52,94-110` adds a `role='alert'` message and a Retry button that calls `api.reset`.
+  - `forgot-password-form.tsx:134-143` adds the hint "Complete the verification to continue.", linked to the button through `aria-describedby`.
+  - Untested, see Nits.
+- **a11y 3 (server field errors): fixed.** `{ shouldFocus: true }` at `forgot-password-form.tsx:76-80` and `reset-password-form.tsx:71-75`.
+- **a11y 4 (email input purpose): fixed.**
+  - `type='email' autoComplete='email'` at `forgot-password-form.tsx:117-122`.
+  - `noValidate` on the form is justified: without it, native validation would pre-empt the zod message. The existing invalid-email test still passes.
+
+### Out-of-plan files
+- `src/features/auth/components/status-panel.tsx`: new file. Justified by the a11y review (extract the shared panel), and listed under impl-log Deviations.
+- `src/components/turnstile.tsx`: already in the plan's file list. The attempt-2 change is the a11y 2 fix.
+- `src/lib/query-client.ts`: out of plan. Justified by the security should-fix. The change is minimal (a meta opt-out), and other mutations keep their behaviour (control assertion).
+
+### Acceptance criteria
+- [x] AC1: the forgot page shows the same message for any email.
+  - Evidence: `forgot-password-form.test.tsx › shows the identical confirmation for two different emails` and `› never renders the email after submit` pass.
+  - Fixed copy in `StatusPanel`, with no toast (now also proven against the app-wide cache).
+- [x] AC2: reset validates the password and handles expired or used tokens.
+  - Evidence: the `reset-password-form.test.tsx` state tests (required/match, 128 limit, `weak_password`, `token_invalid`, 204, 429/network) plus the new page-level malformed/missing/valid token tests.
+  - `schema.test.ts` passes.
+- [x] AC4: there are tests for each state. Every planned test name exists and is green, and the page-level token states are now really exercised.
+- [x] AC5: no bearer token on `/api/v1/auth/*`, and the token is kept out of URLs.
+  - Evidence: `client.test.ts` "public auth paths" tests and `public-auth.test.ts`.
+  - The hash strip is now proven against the real `window.location` (fragment-token and page tests).
+- AC3 (verify-email) moved to PAN-012b and resend moved to PAN-010 (owner, 2026-11-15). Not assessed here.
+
+### Issues
+None.
+
+### Rules R1–R11
+No violations found. Attempt-1 findings still hold, and attempt 2 adds nothing against the rules.
+- **R5**: the only new `meta` is a boolean and holds no user data. The hard-coded hint copy reveals nothing.
+- **R6**: no HTML sinks.
+- **R10**: improved as listed above.
+
+### Security / a11y blockers
+None. `security-review.md` and `a11y-review.md` attempt 1 report no 🔴 items, and their 🟡 items are fixed as listed above.
+
+### Nits (do not block)
+- `turnstile.test.tsx`: no test for the new widget-error state. Missing assertions:
+  - `error-callback` → `role='alert'` with "Verification failed";
+  - Retry → `api.reset('w1')` and the alert disappears;
+  - a later success clears the alert.
+- `forgot-password-form.test.tsx`: the hint is not tested. Missing assertions:
+  - the hint is shown and the button's `aria-describedby="turnstile-hint"` while there is no token;
+  - the hint is gone once there is a token.
+- Focus is not asserted in tests:
+  - the `StatusPanel` heading on mount (`toHaveFocus()`);
+  - the field after a server `setError`.
+- `forgot-password-form.tsx:135`: the hard-coded `id='turnstile-hint'`. Prefer `useId()` in case the form is ever rendered twice.
+- `status-panel.tsx:14`: `role='status'` together with a focused heading may be announced twice (a11y 💭 5).
+- Carried from the security notes, not done: `mutation.reset()` after terminal states (the variables stay in the mutation until unmount; `gcTime: 0` drops them afterwards), and the `as never` header cast in `public-auth.ts`.
+
+### Follow-ups (out of scope)
+- Unchanged from attempt 1: org-admin-api USR-08 (auth-client ownership of forgot, reset, verify and resend), org-admin-api OpenAPI/`consumers.md` docs, ops (admin origins, Turnstile hostnames), PAN-010 (hash in the 401 redirect, resend), PAN-022 (CSP, Referrer-Policy, `no-store` on `/reset-password`).
+- a11y follow-ups from `a11y-review.md`:
+  - a per-route document title;
+  - a `FormMessage` live-region decision;
+  - axe runs in PAN-023;
+  - a manual screen-reader pass on Turnstile.
