@@ -16,7 +16,7 @@ Wire the auth pages to org-admin-api: forgot (always 202), reset with token, ver
 `docs/spec-v1.md` §5.1
 
 ## Depends on
-PAN-009; org-admin-api USR-04
+PAN-009; org-admin-api USR-04, USR-04b (done)
 
 ## Acceptance criteria
 - [ ] Forgot shows the same message for any email
