@@ -7,7 +7,7 @@
 | Areas | architecture, security |
 | Attempts | 1 |
 | Created | 2026-11-11 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/6 (deployment: https://github.com/mmlabs-online/deployment/pull/75, https://github.com/mmlabs-online/deployment/pull/76) |
 
 ## Goal
 nginx image serving the static build with security headers (CSP, frame-ancestors none, Referrer-Policy), `release.yml` (branch `release/vX.Y.Z` → tag, image, deployment PR) like org-admin-api, and the origin registered on app `admin`.
