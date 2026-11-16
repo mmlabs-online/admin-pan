@@ -3,7 +3,7 @@
 States: BACKLOG → PLANNING → IN_PROGRESS → REVIEW → DONE · plus REWORK, BLOCKED, ESCALATED.
 Priority: P1 (next) > P2 > P3. `/run` with no ID picks the top BACKLOG ticket whose dependencies are met.
 
-Ticket IDs: `PAN-XXX`. Dependencies on the API are written `org-admin-api <ID>` and checked against `mmlabs-online/org-admin-api` `work/backlog.md`.
+Ticket IDs: `PAN-XXX`; bugs `BUG-XXX` (recorded with `/bug`, severity in ticket.md, S1 rows above the first BACKLOG row — ADR 0003). Dependencies on the API are written `org-admin-api <ID>` and checked against `mmlabs-online/org-admin-api` `work/backlog.md`.
 
 Phases: **1. UI with mock data** (PAN-001…008, done) → **2. Foundations** (PAN-009…012) → **3. Real API per screen** (PAN-013…021) → **4. Ship** (PAN-022…024).
 

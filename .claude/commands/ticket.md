@@ -5,6 +5,8 @@ argument-hint: "<description> [P1|P2|P3]"
 
 Create a ticket from: `$ARGUMENTS`
 
+If the description is a bug (something that worked or should work and does not), use `/bug` instead (ADR 0003).
+
 1. Read `work/backlog.md`. The new ID is `PAN-XXX` (3 digits): the highest existing ID (including any "Renamed / merged" table) + 1. Never reuse an ID.
 2. Create `work/tickets/<ID>/ticket.md` from `work/templates/ticket.md`:
    - **Goal**: one or two sentences, in English.
