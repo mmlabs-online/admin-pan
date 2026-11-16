@@ -1,0 +1,144 @@
+# A push to a branch `release/vX.Y.Z` (its commit must already be on main) releases exactly vX.Y.Z:
+# it must be new and higher than every existing vX.Y.Z tag. The workflow creates and pushes that git
+# tag, builds and pushes mingming21400/admin-pan:vX.Y.Z (static nginx image, public VITE_* values
+# baked in), smoke-tests the pushed image, then opens a pull request release/admin-pan-vX.Y.Z on
+# mmlabs-online/deployment that changes only apps/admin-pan/release.env (image pinned by digest).
+# Merging it runs deploy-admin-pan on macbook-runner. Same flow as org-admin-api; based on
+# mmlabs-online/deployment docs/app-release.yml. Runbook: docs/deploy.md.
+#
+# GitHub Environment `release` (limited to branches release/v*) holds the secrets:
+#   DOCKERHUB_USERNAME, DOCKERHUB_TOKEN  push to mingming21400/admin-pan
+#   DEPLOY_REPO_TOKEN                    fine-grained PAT on mmlabs-online/deployment only:
+#                                        Contents read/write, Pull requests read/write
+# Repository variable VITE_TURNSTILE_SITE_KEY: the public Turnstile site key baked into the bundle.
+# The API origin and app key below are public (rule R5), hard-coded on purpose.
+
+name: release
+
+on:
+  push:
+    branches: ['release/v*']
+
+permissions: {}
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  APP: admin-pan                     # folder apps/<APP>/ in the deployment repo
+  IMAGE: mingming21400/admin-pan # Docker Hub repository
+  API_BASE_URL: https://api.mmlabs.online
+  APP_KEY: admin
+
+jobs:
+  release:
+    runs-on: ubuntu-latest           # GitHub's runner: app code never runs on the home server
+    timeout-minutes: 30
+    environment: release             # secrets live here, limited to release/v* branches
+    permissions:
+      contents: write                # push the version tag
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: guards
+        id: version
+        env:
+          DH_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+          DH_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_REPO_TOKEN }}
+          TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_SHA is not on main: create the release branch from main, never commit to it directly"; exit 1
+          fi
+          if git tag --points-at "$GITHUB_SHA" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::$GITHUB_SHA is already released ($(git tag --points-at "$GITHUB_SHA" | tr '\n' ' '))"; exit 1
+          fi
+          if ! [[ "$GITHUB_REF_NAME" =~ ^release/(v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$ ]]; then
+            echo "::error::branch '$GITHUB_REF_NAME' is not release/vX.Y.Z (for example release/v0.2.0)"; exit 1
+          fi
+          TAG="${BASH_REMATCH[1]}"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "::error::$TAG already exists: pick a new version branch"; exit 1
+          fi
+          last="$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)"
+          if [ -n "$last" ] && [ "$(printf '%s\n%s\n' "$last" "$TAG" | sort -V | tail -n 1)" != "$TAG" ]; then
+            echo "::error::$TAG is not higher than the latest release $last"; exit 1
+          fi
+          echo "release version: $TAG (previous: ${last:-none})"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          for name in DH_USER DH_TOKEN DEPLOY_TOKEN; do
+            if [ -z "${!name}" ]; then
+              echo "::error::repository secret for $name is empty (see docs/deploy.md, One-time setup)"; exit 1
+            fi
+          done
+          if ! [[ "$TURNSTILE_SITE_KEY" =~ ^0x[A-Za-z0-9_-]{10,}$ ]]; then
+            echo "::error::repository variable VITE_TURNSTILE_SITE_KEY is empty or not a production site key (see docs/deploy.md, One-time setup)"; exit 1
+          fi
+
+      # Reserve the version before pushing the image: a failed run never reuses it.
+      - name: create version tag
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git tag "$TAG" "$GITHUB_SHA"
+          git push "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git" "refs/tags/$TAG"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64         # the home server is an Intel Mac
+          tags: ${{ env.IMAGE }}:${{ steps.version.outputs.tag }}
+          build-args: |
+            VITE_API_BASE_URL=${{ env.API_BASE_URL }}
+            VITE_APP_KEY=${{ env.APP_KEY }}
+            VITE_TURNSTILE_SITE_KEY=${{ vars.VITE_TURNSTILE_SITE_KEY }}
+
+      # Start the exact pushed image and run the smoke matrix (headers, routes, baked config).
+      # If this fails, no PR is opened.
+      - name: smoke test pushed image
+        env:
+          REF: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
+        run: |
+          docker pull "$REF"
+          bash scripts/smoke-image.sh "$REF" "$API_BASE_URL"
+
+      - name: pull request on the deployment repo
+        env:
+          GH_TOKEN: ${{ secrets.DEPLOY_REPO_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          branch="release/$APP-$TAG"
+          git clone --depth 1 "https://x-access-token:$GH_TOKEN@github.com/mmlabs-online/deployment.git" deployment
+          cd deployment
+          git switch -c "$branch"
+          mkdir -p "apps/$APP"
+          {
+            echo "# Written by the $APP release workflow for $TAG (commit $GITHUB_SHA). Do not edit by hand."
+            echo "ADMIN_PAN_IMAGE=$IMAGE:$TAG@$DIGEST"
+            echo "ADMIN_PAN_VERSION=$TAG"
+          } > "apps/$APP/release.env"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "apps/$APP/release.env"
+          git commit -m "$APP $TAG"
+          git push origin "$branch"
+          gh pr create --repo mmlabs-online/deployment --base main --head "$branch" \
+            --title "$APP $TAG" \
+            --body "Deploys \`$IMAGE:$TAG@$DIGEST\` ($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$GITHUB_SHA). Merging runs deploy-$APP on the home server: pull, replace, health check."

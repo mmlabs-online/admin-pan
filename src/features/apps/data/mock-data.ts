@@ -225,9 +225,9 @@ const appSeeds: AppSeed[] = [
 ]
 
 const userEmails = [
-  'linh.tran@mmlabs.online',
-  'minh.nguyen@mmlabs.online',
-  'an.pham@mmlabs.online',
+  'linh.tran@example.com',
+  'minh.nguyen@example.com',
+  'an.pham@example.com',
   'hoa.le@example.com',
   'quang.do@example.com',
   'thao.vo@example.com',
@@ -310,7 +310,7 @@ function buildAccessData(): AccessData {
   const roleByKey = (key: string) => roles.find((r) => r.key === key)!
   const userByEmail = (email: string) => users.find((u) => u.email === email)!
   const orgByName = (name: string) => orgs.find((o) => o.name === name)!
-  const grantor = userByEmail('linh.tran@mmlabs.online')
+  const grantor = userByEmail('linh.tran@example.com')
 
   const assignmentSeeds: [
     email: string,
@@ -318,9 +318,9 @@ function buildAccessData(): AccessData {
     org: string | null,
     expires: string | null,
   ][] = [
-    ['linh.tran@mmlabs.online', 'admin:super-admin', null, null],
-    ['minh.nguyen@mmlabs.online', 'admin:support', null, null],
-    ['an.pham@mmlabs.online', 'admin:auditor', null, '2027-03-31T00:00:00Z'],
+    ['linh.tran@example.com', 'admin:super-admin', null, null],
+    ['minh.nguyen@example.com', 'admin:support', null, null],
+    ['an.pham@example.com', 'admin:auditor', null, '2027-03-31T00:00:00Z'],
     ['hoa.le@example.com', 'stoktok:owner', null, null],
     ['quang.do@example.com', 'stoktok:viewer', null, '2026-12-31T00:00:00Z'],
     ['thao.vo@example.com', 'calechip:org-admin', 'Acme Coffee', null],

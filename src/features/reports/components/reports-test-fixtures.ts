@@ -11,7 +11,7 @@ export const makeReport = (overrides: Partial<Report>): Report => ({
   status: 'ready',
   last_run_at: '2026-11-01T09:00:00.000Z',
   row_count: 120,
-  created_by: 'ops@mmlabs.online',
+  created_by: 'ops@example.com',
   created_at: '2026-09-01T09:00:00.000Z',
   ...overrides,
 })
