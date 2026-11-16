@@ -28,3 +28,9 @@ PAN-001 (PAN-010 dependency dropped by the owner, 2026-11-16)
 ## Notes / answers from owner
 - Hostname to confirm (spec §8 Q2).
 - 2026-11-16 (owner): hostname **`admin-portal.mmlabs.online`**; release the first version **publicly** with the mock-data UI and mock sign-in (no Cloudflare Access), so the PAN-010 dependency is dropped; the agent may add `mmlabs-online/deployment` to the session and open a PR there (owner reviews and merges). After the PAN-022 PR is merged, cut the first release (`release/v0.1.0`).
+- 2026-11-16 (owner, after consults):
+  - Build the public image against the **real API**: `VITE_API_BASE_URL=https://api.mmlabs.online`, `VITE_APP_KEY=admin` (forgot/reset/verify go live). The agent may open a **separate** deployment PR adding `admin-portal.mmlabs.online` to org-admin-api's `TURNSTILE_ALLOWED_HOSTNAMES`; the owner registers the origin on app `admin` (`set-admin-origins`) and adds the hostname to the Turnstile widget, per the runbook.
+  - Before public release: replace every `@mmlabs.online` address in mock data with `@example.com` (in scope for PAN-022). **No** demo banner and **no** redirect validation in this ticket (redirect validation stays with PAN-010).
+  - Keep **Google Fonts** (allow `fonts.googleapis.com` / `fonts.gstatic.com` in the CSP); do not self-host.
+  - Docker Hub image **`mingming21400/admin-pan`, public**.
+
