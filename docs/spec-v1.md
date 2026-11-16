@@ -65,8 +65,9 @@ API: **org-admin-api ADM-006** (backlog).
 - No secrets in the bundle; access token in memory only (R3, R5). Security headers via nginx (R6).
 - Lists use server-side pagination (`limit` ≤ 100) and stay responsive with thousands of rows.
 
-### §6.1 Deployment (proposal)
-- Hostname on `*.mmlabs.online` — required, because the identity cookie flow only works same-site with `api.mmlabs.online` (org-admin-api identity-architecture §7). Proposed: `admin.mmlabs.online` (Q2). Its origin must be registered on app `admin` (`apps.origins`).
+### §6.1 Deployment
+- First release (owner, 2026-11-16): ship the mock-data UI publicly at `admin-portal.mmlabs.online` before real sign-in (PAN-010); it holds no real data.
+- Hostname on `*.mmlabs.online` — required, because the identity cookie flow only works same-site with `api.mmlabs.online` (org-admin-api identity-architecture §7). Hostname: `admin-portal.mmlabs.online` (owner, 2026-11-16). Its origin must be registered on app `admin` (`apps.origins`).
 - Static files in an nginx image; release/deploy like org-admin-api: branch `release/vX.Y.Z` from main → image on Docker Hub → PR on `mmlabs-online/deployment` → owner merges → Mac runner, Cloudflare Tunnel.
 
 ## §7 Success metrics
@@ -76,7 +77,7 @@ API: **org-admin-api ADM-006** (backlog).
 ## §8 Open questions (owner)
 
 - [x] Q1. Stack — **answered 2026-11-11:** build on the satnaing/shadcn-admin template (React + Vite + TanStack + shadcn/ui).
-- [ ] Q2. Hostname: `admin.mmlabs.online`?
+- [x] Q2. Hostname — **answered 2026-11-16:** `admin-portal.mmlabs.online`.
 - [ ] Q3. UI language: Vietnamese, English, or both?
 - [ ] Q4. Design reference: a Figma file, or design in code from a brief (like stoktok)?
 - [ ] Q5. Order of screens after sign-in (proposal: users → organizations → apps/roles → audit → entitlements).

@@ -1,8 +1,8 @@
-# PAN-022: Release and deploy to admin.mmlabs.online
+# PAN-022: Release and deploy to admin-portal.mmlabs.online
 
 | Field | Value |
 |---|---|
-| State | BACKLOG |
+| State | PLANNING |
 | Priority | P2 |
 | Areas | architecture, security |
 | Attempts | 0 |
@@ -16,13 +16,15 @@ nginx image serving the static build with security headers (CSP, frame-ancestors
 `docs/spec-v1.md` §6.1
 
 ## Depends on
-PAN-001, PAN-010
+PAN-001 (PAN-010 dependency dropped by the owner, 2026-11-16)
 
 ## Acceptance criteria
 - [ ] Dockerfile + nginx config with SPA fallback and security headers (R6)
 - [ ] `release.yml` mirrors org-admin-api's flow; smoke test of the image
 - [ ] Runbook `docs/deploy.md`
 - [ ] Origin registration on org-admin-api app `admin` documented
+- [ ] Deployment side prepared as a PR on `mmlabs-online/deployment` (app folder, deploy workflow, proxy/tunnel route), following that repo's conventions
 
 ## Notes / answers from owner
 - Hostname to confirm (spec §8 Q2).
+- 2026-11-16 (owner): hostname **`admin-portal.mmlabs.online`**; release the first version **publicly** with the mock-data UI and mock sign-in (no Cloudflare Access), so the PAN-010 dependency is dropped; the agent may add `mmlabs-online/deployment` to the session and open a PR there (owner reviews and merges). After the PAN-022 PR is merged, cut the first release (`release/v0.1.0`).
