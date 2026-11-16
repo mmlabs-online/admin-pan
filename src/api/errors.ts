@@ -2,6 +2,12 @@
 // see follow-up in work/tickets/PAN-009/plan.md. The single flagged exception
 // to R2's "never hand-written copies".
 import { z } from 'zod'
+import {
+  AuthError,
+  ConfigurationError,
+  NetworkError,
+  RateLimitedError,
+} from '@mmlabs/auth-client'
 
 export type ValidationErrorDetail = {
   type: string
@@ -17,6 +23,7 @@ export type ApiErrorKind =
   | 'aborted'
   | 'invalid_response'
   | 'config'
+  | 'auth'
 
 type ApiErrorInit = {
   kind: ApiErrorKind
@@ -94,6 +101,35 @@ export async function errorFromResponse(res: Response): Promise<ApiError> {
 
 export function errorFromFetchFailure(e: unknown): ApiError {
   if (e instanceof ApiError) return e
+  // Library errors have fixed messages; ours are fixed too and carry no request data.
+  if (e instanceof NetworkError) {
+    return new ApiError({
+      kind: 'network',
+      status: 0,
+      code: 'network_error',
+      message: 'Network error',
+    })
+  }
+  if (e instanceof ConfigurationError) {
+    return new ApiError({
+      kind: 'config',
+      status: e.status,
+      code: e.code,
+      message: 'Authentication is not configured correctly',
+    })
+  }
+  if (e instanceof AuthError) {
+    return new ApiError({
+      kind: 'auth',
+      status: e.status,
+      code: e.code,
+      message:
+        e instanceof RateLimitedError
+          ? 'Too many requests'
+          : 'Authentication required',
+      retryAfter: e instanceof RateLimitedError ? e.retryAfter : undefined,
+    })
+  }
   const name = e instanceof Error ? e.name : ''
   if (name === 'TimeoutError') {
     return new ApiError({

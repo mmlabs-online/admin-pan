@@ -1,6 +1,6 @@
 # ADR 0001: API client
 
-Status: Accepted pending owner merge (PAN-009)
+Status: Accepted pending owner merge (PAN-009); auth seam amended by [ADR 0003](0003-auth-client-integration.md)
 
 ## Context
 All data comes from org-admin-api (R1). We need one HTTP client (R2) with typed requests, one error type and a way to plug in authentication later (R3, PAN-010) without rewriting it.

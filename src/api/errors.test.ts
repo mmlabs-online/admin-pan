@@ -1,3 +1,10 @@
+import {
+  AuthError,
+  ConfigurationError,
+  NetworkError,
+  RateLimitedError,
+  SessionInvalidError,
+} from '@mmlabs/auth-client'
 import { describe, expect, it } from 'vitest'
 import {
   ApiError,
@@ -161,5 +168,43 @@ describe('ApiError', () => {
     expect(isApiError(e, 403)).toBe(true)
     expect(isApiError(e, 404)).toBe(false)
     expect(isApiError(new Error('x'))).toBe(false)
+  })
+})
+
+describe('errorFromFetchFailure with library errors', () => {
+  it('maps AuthError to kind auth (code, status, retryAfter)', () => {
+    expect(
+      errorFromFetchFailure(new SessionInvalidError('session_invalid', 401))
+    ).toMatchObject({ kind: 'auth', status: 401, code: 'session_invalid' })
+    const e = errorFromFetchFailure(
+      new RateLimitedError('rate_limited', 429, { retryAfter: 30 })
+    )
+    expect(e).toMatchObject({
+      kind: 'auth',
+      code: 'rate_limited',
+      retryAfter: 30,
+    })
+    expect(
+      errorFromFetchFailure(new AuthError('no_account_selected', 0))
+    ).toMatchObject({
+      kind: 'auth',
+      code: 'no_account_selected',
+    })
+  })
+
+  it('maps NetworkError to network and ConfigurationError to config', () => {
+    expect(
+      errorFromFetchFailure(new NetworkError('network_error', 0))
+    ).toMatchObject({ kind: 'network', code: 'network_error' })
+    expect(
+      errorFromFetchFailure(new ConfigurationError('origin_not_allowed', 403))
+    ).toMatchObject({ kind: 'config', code: 'origin_not_allowed' })
+  })
+
+  it('uses fixed messages, never the library text', () => {
+    const e = errorFromFetchFailure(
+      new SessionInvalidError('session_invalid', 401)
+    )
+    expect(e.message).toBe('Authentication required')
   })
 })

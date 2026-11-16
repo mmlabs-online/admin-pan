@@ -1,9 +1,5 @@
 import createClient, { type Middleware } from 'openapi-fetch'
-import {
-  currentAuthEpoch,
-  getAccessToken,
-  notifyUnauthorized,
-} from './auth-hooks'
+import { currentAuthEpoch, notifyUnauthorized } from './auth-hooks'
 import { ApiError, errorFromFetchFailure, errorFromResponse } from './errors'
 import type { paths } from './schema'
 
@@ -12,38 +8,50 @@ import type { paths } from './schema'
 const isPublicAuthPath = (url: string) =>
   new URL(url).pathname.startsWith('/api/v1/auth/')
 
+// Auth failures that the gate must look at again (session gone, no access, ...).
+const GATE_CODES = new Set([
+  'session_invalid',
+  'not_member',
+  'email_unverified',
+  'no_account_selected',
+])
+
 type Options = {
   baseUrl: string
   fetch?: typeof globalThis.fetch
+  /** Transport for admin paths: adds the Bearer token (the auth library). */
+  bearerFetch?: (req: Request) => Promise<Response>
   timeoutMs?: number
 }
 
 export function createApiClient({
   baseUrl,
   fetch: fetchImpl = (req) => globalThis.fetch(req),
+  bearerFetch,
   timeoutMs,
 }: Options) {
   const timedFetch = (req: Request) => {
     const ms =
       timeoutMs ??
       (req.method === 'GET' || req.method === 'HEAD' ? 15_000 : 30_000)
-    return fetchImpl(
-      new Request(req, {
-        signal: AbortSignal.any([req.signal, AbortSignal.timeout(ms)]),
-        // forced here so a per-call init cannot override them
-        credentials: 'omit',
-        redirect: 'error',
-        cache: 'no-store',
-        referrerPolicy: 'no-referrer',
-        mode: 'cors',
-      })
-    )
+    const forced = new Request(req, {
+      signal: AbortSignal.any([req.signal, AbortSignal.timeout(ms)]),
+      // forced here so a per-call init cannot override them
+      credentials: 'omit',
+      redirect: 'error',
+      cache: 'no-store',
+      referrerPolicy: 'no-referrer',
+      mode: 'cors',
+    })
+    return isPublicAuthPath(forced.url)
+      ? fetchImpl(forced)
+      : (bearerFetch ?? fetchImpl)(forced)
   }
 
   const epochs = new Map<string, number>()
 
   const middleware: Middleware = {
-    async onRequest({ request, id }) {
+    onRequest({ request, id }) {
       if (new URL(request.url).origin !== baseUrl) {
         throw new ApiError({
           kind: 'config',
@@ -53,10 +61,6 @@ export function createApiClient({
         })
       }
       epochs.set(id, currentAuthEpoch())
-      const token = isPublicAuthPath(request.url)
-        ? null
-        : await getAccessToken()
-      if (token) request.headers.set('Authorization', `Bearer ${token}`)
       return request
     },
     async onResponse({ request, response, id }) {
@@ -90,8 +94,12 @@ export function createApiClient({
       throw err
     },
     onError({ error, id }) {
+      const epoch = epochs.get(id) ?? currentAuthEpoch()
       epochs.delete(id)
-      return errorFromFetchFailure(error)
+      const err = errorFromFetchFailure(error)
+      if (err.kind === 'auth' && GATE_CODES.has(err.code))
+        notifyUnauthorized(epoch)
+      return err
     },
   }
 

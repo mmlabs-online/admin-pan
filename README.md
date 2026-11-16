@@ -9,7 +9,7 @@ Status: **screens on mock data** — Dashboard, Users, Organizations, Apps, Role
 
 ```bash
 pnpm install
-pnpm dev          # http://localhost:5173 — sign in with any email + 7-char password (mock)
+pnpm dev          # http://localhost:5173 — signing in needs a local or real org-admin-api (see below)
 ```
 
 Checks (same as CI):
@@ -25,7 +25,7 @@ Stack and rules: [`CLAUDE.md`](CLAUDE.md). Scope: [`docs/spec-v1.md`](docs/spec-
 
 ## Local development with org-admin-api
 
-**Mock mode (default).** Leave `VITE_API_BASE_URL` empty: screens use the mock data in `src/features/*/data/`.
+**Screens run on mock data** in `src/features/*/data/` until their "on the real API" tickets. **Sign-in is always real** (`@mmlabs/auth-client`, app key `admin`): the app needs `VITE_API_BASE_URL` and `VITE_APP_KEY` set, a reachable org-admin-api, the dev origin registered on app `admin`, and a verified account that was granted admin access (see below).
 
 **Real API on :8000.** In an org-admin-api checkout:
 
@@ -36,7 +36,7 @@ make set-admin-origins ARGS='--origin http://localhost:5173'
 make grant-super-admin email=you@example.com
 ```
 
-Then in `.env.local` set `VITE_API_BASE_URL=http://localhost:5173` (an origin only, no `/api/v1`). Calls go same-origin through the dev-only Vite proxy (`/api` to `http://localhost:8000`; override with `API_PROXY_TARGET`). The proxy hides that org-admin-api does not answer CORS on admin Bearer paths yet. Real sign-in arrives with PAN-010; until then there is no real token.
+Then in `.env.local` set `VITE_API_BASE_URL=http://localhost:5173` (an origin only, no `/api/v1`). Calls go same-origin through the dev-only Vite proxy (`/api` to `http://localhost:8000`; override with `API_PROXY_TARGET`). The proxy hides that org-admin-api does not answer CORS on admin Bearer paths yet.
 
 **Refreshing API types.** Types are generated from the committed snapshot `src/api/openapi.json` (never hand-edit it or `schema.d.ts`). From an org-admin-api checkout:
 

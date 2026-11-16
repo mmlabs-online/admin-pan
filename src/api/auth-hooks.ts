@@ -1,21 +1,10 @@
-// The seam between the API client and authentication (R3). No auth logic here:
-// the token lives in whoever registers the provider (in memory), never here.
-type TokenProvider = () => string | null | Promise<string | null>
-
-let provider: TokenProvider = () => null
+// The seam between the API client and the auth gate (R3). No token here: it
+// stays inside @mmlabs/auth-client; this only signals a final 401.
 let handler: () => void = () => {}
 let epoch = 0
 
-export function setAccessTokenProvider(p: TokenProvider) {
-  provider = p
-}
-
 export function setUnauthorizedHandler(h: () => void) {
   handler = h
-}
-
-export async function getAccessToken(): Promise<string | null> {
-  return provider()
 }
 
 export function currentAuthEpoch(): number {

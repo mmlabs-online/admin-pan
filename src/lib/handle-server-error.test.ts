@@ -43,6 +43,28 @@ describe('handleServerError', () => {
     expect(toastError).not.toHaveBeenCalled()
   })
 
+  it('auth rate_limited toasts the wait; other auth codes are silent', () => {
+    handleServerError(
+      apiError({
+        kind: 'auth',
+        status: 0,
+        code: 'rate_limited',
+        retryAfter: 90,
+      })
+    )
+    expect(toastError).toHaveBeenCalledWith(
+      'Too many requests. Try again in 2 min.'
+    )
+    toastError.mockClear()
+    for (const code of [
+      'not_member',
+      'email_unverified',
+      'unexpected_response',
+    ])
+      handleServerError(apiError({ kind: 'auth', status: 403, code }))
+    expect(toastError).not.toHaveBeenCalled()
+  })
+
   it('never logs to the console', () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
 

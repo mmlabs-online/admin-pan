@@ -2,10 +2,10 @@ import { StrictMode } from 'react'
 import ReactDOM from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
-import { setAccessTokenProvider, setUnauthorizedHandler } from '@/api'
-import { toast } from 'sonner'
-import { useAuthStore } from '@/stores/auth-store'
-import { createQueryClient } from '@/lib/query-client'
+import { getAuthClient, setUnauthorizedHandler } from '@/api'
+import { AuthProvider } from '@mmlabs/auth-client/react'
+import { useSessionRecheck } from '@/stores/session-recheck-store'
+import { clearOnAuthChange, createQueryClient } from '@/lib/query-client'
 import { DirectionProvider } from './context/direction-provider'
 import { FontProvider } from './context/font-provider'
 import { ThemeProvider } from './context/theme-provider'
@@ -25,16 +25,8 @@ const router = createRouter({
   defaultPreloadStaleTime: 0,
 })
 
-// Seam for PAN-010: replaced by @mmlabs/auth-client; src/api/ stays untouched.
-setAccessTokenProvider(() => useAuthStore.getState().auth.accessToken || null)
-setUnauthorizedHandler(() => {
-  toast.error('Session expired!')
-  useAuthStore.getState().auth.reset()
-  queryClient.clear()
-  // Relative path only; validated on consume in PAN-010.
-  const redirect = router.history.location.href
-  router.navigate({ to: '/sign-in', search: { redirect } })
-})
+// A final 401 from the API: the auth gate checks the session again.
+setUnauthorizedHandler(() => useSessionRecheck.getState().request())
 
 // Register the router instance for type safety
 declare module '@tanstack/react-router' {
@@ -47,17 +39,36 @@ declare module '@tanstack/react-router' {
 const rootElement = document.getElementById('root')!
 if (!rootElement.innerHTML) {
   const root = ReactDOM.createRoot(rootElement)
-  root.render(
-    <StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <FontProvider>
-            <DirectionProvider>
-              <RouterProvider router={router} />
-            </DirectionProvider>
-          </FontProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
-    </StrictMode>
-  )
+  let auth: ReturnType<typeof getAuthClient> | undefined
+  try {
+    auth = getAuthClient()
+  } catch {
+    // Build without its VITE_API_BASE_URL / VITE_APP_KEY: nothing can work.
+  }
+  if (!auth) {
+    root.render(
+      <p role='alert' className='p-6 text-sm'>
+        This build is missing its API configuration (VITE_API_BASE_URL /
+        VITE_APP_KEY).
+      </p>
+    )
+  } else {
+    const client = auth
+    clearOnAuthChange(queryClient, (l) => client.onChange(l))
+    root.render(
+      <StrictMode>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider client={client}>
+            <ThemeProvider>
+              <FontProvider>
+                <DirectionProvider>
+                  <RouterProvider router={router} />
+                </DirectionProvider>
+              </FontProvider>
+            </ThemeProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </StrictMode>
+    )
+  }
 }

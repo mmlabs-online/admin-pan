@@ -1,6 +1,11 @@
+import { QueryClient } from '@tanstack/react-query'
 import { ApiError } from '@/api'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createQueryClient, shouldRetryQuery } from './query-client'
+import {
+  clearOnAuthChange,
+  createQueryClient,
+  shouldRetryQuery,
+} from './query-client'
 
 const toastError = vi.hoisted(() => vi.fn())
 vi.mock('sonner', () => ({ toast: { error: toastError } }))
@@ -20,6 +25,16 @@ describe('shouldRetryQuery', () => {
       .concat(kind('aborted'))) {
       expect(shouldRetryQuery(0, e, prod)).toBe(false)
     }
+  })
+
+  it('does not retry kind auth', () => {
+    const e = new ApiError({
+      kind: 'auth',
+      status: 403,
+      code: 'not_member',
+      message: 'm',
+    })
+    expect(shouldRetryQuery(0, e, prod)).toBe(false)
   })
 
   it('retries network, timeout and 5xx at most 3 times in production', () => {
@@ -46,5 +61,22 @@ describe('createQueryClient', () => {
     expect(toastError).not.toHaveBeenCalled()
     for (const e of [kind('network'), kind('timeout'), http(500)]) onError(e, q)
     expect(toastError).toHaveBeenCalledTimes(3)
+  })
+})
+
+describe('clearOnAuthChange', () => {
+  it('cancels and clears the cache on an auth event', () => {
+    const qc = new QueryClient()
+    qc.setQueryData(['x'], 1)
+    let fire = () => {}
+    const unsubscribe = vi.fn()
+    const ret = clearOnAuthChange(qc, (l) => {
+      fire = l
+      return unsubscribe
+    })
+    expect(qc.getQueryData(['x'])).toBe(1)
+    fire()
+    expect(qc.getQueryData(['x'])).toBeUndefined()
+    expect(ret).toBe(unsubscribe)
   })
 })

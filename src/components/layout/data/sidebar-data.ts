@@ -15,13 +15,7 @@ import {
 } from 'lucide-react'
 import { type SidebarData } from '../types'
 
-// Mock staff profile until sign-in is wired to @mmlabs/auth-client (PAN-010).
 export const sidebarData: SidebarData = {
-  user: {
-    name: 'Admin (mock)',
-    email: 'admin@example.com',
-    avatar: '',
-  },
   teams: [
     {
       name: 'mmlabs Admin',

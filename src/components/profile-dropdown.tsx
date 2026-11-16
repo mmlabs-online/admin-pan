@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import useDialogState from '@/hooks/use-dialog-state'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { useAuth } from '@mmlabs/auth-client/react'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -15,7 +16,10 @@ import {
 import { SignOutDialog } from '@/components/sign-out-dialog'
 
 export function ProfileDropdown() {
-  const [open, setOpen] = useDialogState()
+  const { accounts, accountId } = useAuth()
+  const [signOut, setSignOut] = useState<'account' | 'all' | null>(null)
+  const current = accounts.find((a) => a.accountId === accountId)
+  const label = current?.displayName ?? current?.email ?? ''
 
   return (
     <>
@@ -23,17 +27,16 @@ export function ProfileDropdown() {
         <DropdownMenuTrigger asChild>
           <Button variant='ghost' className='relative h-8 w-8 rounded-full'>
             <Avatar className='h-8 w-8'>
-              <AvatarImage src='/avatars/01.png' alt='@shadcn' />
-              <AvatarFallback>AD</AvatarFallback>
+              <AvatarFallback>{label.slice(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className='w-56' align='end' forceMount>
           <DropdownMenuLabel className='font-normal'>
             <div className='flex flex-col gap-1.5'>
-              <p className='text-sm leading-none font-medium'>Admin (mock)</p>
+              <p className='text-sm leading-none font-medium'>{label}</p>
               <p className='text-xs leading-none text-muted-foreground'>
-                admin@example.com
+                {current?.email}
               </p>
             </div>
           </DropdownMenuLabel>
@@ -41,35 +44,35 @@ export function ProfileDropdown() {
           <DropdownMenuGroup>
             <DropdownMenuItem asChild>
               <Link to='/settings'>
-                Profile
-                <DropdownMenuShortcut>⇧⌘P</DropdownMenuShortcut>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link to='/settings'>
-                Billing
-                <DropdownMenuShortcut>⌘B</DropdownMenuShortcut>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link to='/settings'>
                 Settings
                 <DropdownMenuShortcut>⌘S</DropdownMenuShortcut>
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem>New Team</DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          <DropdownMenuItem variant='destructive' onClick={() => setOpen(true)}>
+          <DropdownMenuItem
+            variant='destructive'
+            onClick={() => setSignOut('account')}
+          >
             Sign out
             <DropdownMenuShortcut className='text-current'>
               ⇧⌘Q
             </DropdownMenuShortcut>
           </DropdownMenuItem>
+          <DropdownMenuItem
+            variant='destructive'
+            onClick={() => setSignOut('all')}
+          >
+            Sign out of all accounts
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <SignOutDialog open={!!open} onOpenChange={setOpen} />
+      <SignOutDialog
+        open={signOut !== null}
+        onOpenChange={(o) => !o && setSignOut(null)}
+        scope={signOut ?? 'account'}
+      />
     </>
   )
 }
