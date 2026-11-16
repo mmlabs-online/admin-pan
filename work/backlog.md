@@ -25,7 +25,7 @@ Phases: **1. UI with mock data** (PAN-001…008, done) → **2. Foundations** (P
 | PAN-012b | Verify-email page | DONE | P2 | auth, ui, security | 1 | 2026-11-15 |
 | PAN-010b | Resend verification email from the admin UI | BACKLOG | P2 | auth, ui, security | 0 | 2026-11-16 |
 | PAN-012c | Retire the forgot-password page on admin (ADM-002d) | BACKLOG | P2 | auth, ui, security | 0 | 2026-11-16 |
-| PAN-013 | Users screen on the real API | BACKLOG | P1 | api, ui | 0 | 2026-11-11 |
+| PAN-013 | Users screen on the real API | PLANNING | P1 | api, ui | 0 | 2026-11-16 |
 | PAN-014 | Organizations screen on the real API | BACKLOG | P1 | api, ui | 0 | 2026-11-11 |
 | PAN-015 | Apps, permissions, roles and assignments on the real API | BACKLOG | P1 | api, ui, auth | 0 | 2026-11-11 |
 | PAN-016 | Audit log on the real API | BACKLOG | P2 | api, ui | 0 | 2026-11-11 |
