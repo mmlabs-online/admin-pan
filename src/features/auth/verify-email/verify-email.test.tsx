@@ -134,15 +134,18 @@ describe('VerifyEmail', () => {
     expect(seen).toHaveLength(1)
   })
 
-  it('while pending the button is disabled and "Verifying…" is in the status region', async () => {
+  it('while pending the button is aria-disabled, keeps focus, and "Verifying…" is announced', async () => {
     let release!: (r: Response) => void
     respond = () => new Promise((r) => (release = r))
     const screen = await mount()
     await userEvent.click(confirm(screen))
-    await expect.element(confirm(screen)).toBeDisabled()
     await expect
-      .element(screen.getByRole('status'))
-      .toHaveTextContent('Verifying…')
+      .element(confirm(screen))
+      .toHaveAttribute('aria-disabled', 'true')
+    await expect.element(confirm(screen)).toHaveFocus()
+    const status = screen.getByRole('status').element()
+    expect(status).toHaveTextContent('Verifying…')
+    expect(status.closest('[aria-busy="true"]')).toBeNull()
     release(ok())
     await expect
       .element(screen.getByText('Email address verified'))
@@ -190,6 +193,15 @@ describe('VerifyEmail', () => {
     await userEvent.click(confirm(screen))
     await vi.waitFor(() => expect(seen).toHaveLength(2))
     expect((await seen[1].json()).token).toBe(TOKEN)
+  })
+
+  it('keeps focus on the Confirm button after a network error', async () => {
+    respond = () => Promise.reject(new TypeError('fail'))
+    const screen = await mount()
+    await userEvent.click(confirm(screen))
+    await expect.element(screen.getByRole('alert')).toBeInTheDocument()
+    await expect.element(confirm(screen)).toHaveFocus()
+    await expect.element(confirm(screen)).not.toHaveAttribute('aria-disabled')
   })
 
   it('network failure shows an alert; retry with the same token then succeeds', async () => {

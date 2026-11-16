@@ -92,7 +92,7 @@ export function VerifyEmailPanel({
   }
 
   return (
-    <div className='grid gap-2 text-sm' aria-busy={mutation.isPending}>
+    <div className='grid gap-2 text-sm'>
       <p>Confirm the email address for your mmlabs account.</p>
       <p role='status' className='sr-only'>
         {mutation.isPending ? 'Verifying…' : ''}
@@ -102,7 +102,15 @@ export function VerifyEmailPanel({
           {error}
         </p>
       )}
-      <Button type='button' onClick={onConfirm} disabled={mutation.isPending}>
+      {/* aria-disabled (not disabled) keeps focus on the button while pending,
+          so it is still focused after a 429 or network error (WCAG 2.4.3).
+          Double clicks are blocked by the inFlight ref in onConfirm. */}
+      <Button
+        type='button'
+        onClick={onConfirm}
+        aria-disabled={mutation.isPending || undefined}
+        className='aria-disabled:cursor-not-allowed aria-disabled:opacity-50'
+      >
         Confirm my email
         {mutation.isPending && <Loader2 className='animate-spin' />}
       </Button>
