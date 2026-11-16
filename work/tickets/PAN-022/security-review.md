@@ -34,3 +34,28 @@
 - PAN-010: validate sign-in `redirect`, remove mock sign-in, keep token in memory only.
 - org-admin-api docs: Host policy / `set-admin-origins` examples → `admin-portal.mmlabs.online`; `admin.mmlabs.online` must have no DNS record or route.
 - Mock data: app `admin` mock origin still `https://admin.mmlabs.online`.
+
+## Attempt 2
+
+**Verdict: no blockers.** 🟡 1 and 🟡 2 closed; the rework adds no new risk. Built HEAD's Dockerfile from a scratchpad copy (proxy CA only); `scripts/smoke-image.sh` passed (43 ok); manual curl of the hardened container; hostile build args tried in a busybox harness and via real `docker build`. Merge commit cb9ccfd only touches work/ files.
+
+### Re-checked
+- **🟡 1 closed:** `release.yml:76` now points to the GitHub Environment `release` (matches `docs/deploy.md:74-75`).
+- **🟡 2 closed:** `validate()` (`Dockerfile:17-23`) rejects any newline (`wc -l != 0`), empty required values, and requires a whole-value match (`grep -Eqx`); unset required args fail under `set -u`. Rejected API URLs: `&`, `|`, `\`, `;`, `#`, `"`, `'`, `$`, space, `*`, CR, `https://a.com"; add_header X 1; #`; Turnstile: `a<LF>b`, `<LF>`, `a;b`. The URL pattern admits none of sed's or nginx's special characters, so the CSP line cannot be broken out of; hostile values fail before `pnpm build`/`sed`. Positive cases still pass.
+- **Asset caching fixed** (`nginx/default.conf:22`): real asset → `public, max-age=31536000, immutable`; `/assets/does-not-exist.js`, `HEAD /assets/nope.css`, `/assets/` → 404 without Cache-Control, still with full security headers.
+- **Smoke additions** (`scripts/smoke-image.sh:116-124`): security headers on 404/405; asset 404 not immutable. `/healthz` still not asserted (headers present by hand).
+- **`ubuntu-24.04` pins** (`ci.yml:17,37`, `release.yml:36`): no security impact; justified in impl-log.
+
+### Findings
+1. 💭 Asset 404s send no Cache-Control (`nginx/default.conf:20-24`) — Cloudflare may cache a 404 for `.js`/`.css` ~3 min during a deploy (availability only). Optional `error_page 404 = @asset404` with `Cache-Control: no-store`.
+2. 💭 Host pattern loose but not injectable (`Dockerfile:21`) — accepts `https://-`, `https://..`, ports > 65535. Optional tighter regex.
+
+### Still open from attempt 1 (unchanged)
+3 (`style-src 'unsafe-inline'`, accepted), 4 (nginx config ownership), 5 (pnpm exact pin), 6 (image public before smoke), 8 (no compose resource limits).
+
+### Follow-ups (carried over)
+- SHA-pin Actions in `ci.yml`/`release.yml`; Dependabot (github-actions, npm, docker); `pnpm audit --prod` in CI.
+- Deployment repo: move the committed tunnel token to a secret and rotate it (highest impact); SHA-pin `actions/checkout`, pin `cloudflared`.
+- Mandatory `release/v*` / `v*` rulesets. Trusted Types after PAN-010.
+- PAN-010: validate sign-in `redirect`, remove mock sign-in, token in memory only.
+- org-admin-api docs and admin-pan mock data: `admin.mmlabs.online` → `admin-portal.mmlabs.online`; old host with no DNS record/route.
