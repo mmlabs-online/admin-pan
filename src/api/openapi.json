@@ -3559,6 +3559,9 @@
           "403": {
             "description": "Missing permission"
           },
+          "409": {
+            "description": "Last active super-admin"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -3774,6 +3777,9 @@
           },
           "403": {
             "description": "Missing permission"
+          },
+          "409": {
+            "description": "Last active super-admin"
           },
           "422": {
             "content": {
