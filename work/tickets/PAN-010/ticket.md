@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| State | BACKLOG |
+| State | PLANNING |
 | Priority | P1 |
 | Areas | architecture, auth, security, api, ui |
 | Attempts | 0 |
@@ -16,7 +16,7 @@ Replace the mock sign-in: login via `@mmlabs/auth-client` with app key `admin`, 
 `docs/spec-v1.md` §5.1
 
 ## Depends on
-PAN-009; org-admin-api USR-03, USR-03b, USR-03c, ADM-002c (all done 2026-11-15) and **USR-08** (`@mmlabs/auth-client`, separate repo — not started)
+PAN-009; org-admin-api USR-03, USR-03b, USR-03c, ADM-002c (all done 2026-11-15) and USR-08 (`@mmlabs/auth-client`, repo `mmlabs-online/mmlabs-auth`, tag `ts-v0.1.0`) — all DONE and merged on org-admin-api `main` (checked 2026-11-16); ADM-012 (non-credentialed CORS for Bearer admin endpoints) DONE too
 
 ## Acceptance criteria
 - [ ] Sign-in posts through auth-client only; no password handling elsewhere (R3)
@@ -31,3 +31,4 @@ PAN-009; org-admin-api USR-03, USR-03b, USR-03c, ADM-002c (all done 2026-11-15) 
 - 2026-11-15 (owner, via PAN-012 Q2): resend-verification and the post-verify `/token` refresh belong here.
 - From PAN-009/PAN-012 security reviews: drop the hash from the 401 `redirect` value (`src/main.tsx`); validate `redirect` on the sign-in page (same-origin relative path only).
 - 2026-11-16 (owner): reaffirmed — keep waiting for `@mmlabs/auth-client` (USR-08); no hand-written client like tudocuatui's.
+- 2026-11-16 (owner): org-admin-api reports USR-08 and ADM-012 done; admin-pan can sign in, pick an account, get an `aud=admin` token and log out via `@mmlabs/auth-client` `ts-v0.1.0`, and call the existing admin APIs with Bearer. Ticket unblocked.
