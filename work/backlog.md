@@ -35,7 +35,7 @@ Phases: **1. UI with mock data** (PAN-001…008, done) → **2. Foundations** (P
 | PAN-023 | End-to-end smoke tests | BACKLOG | P2 | ui, a11y | 0 | 2026-11-11 |
 | PAN-024 | UI language | BACKLOG | P3 | ui | 0 | 2026-11-11 |
 | PAN-025 | Self-host the Inter and Manrope fonts | DONE | P2 | ui, security | 1 | 2026-11-16 |
-| PAN-026 | Upgrade dependencies with known security advisories | REVIEW | P1 | architecture, security | 0 | 2026-11-16 |
+| PAN-026 | Upgrade dependencies with known security advisories | DONE | P1 | architecture, security | 1 | 2026-11-16 |
 
 Order of work (dependencies): PAN-001 → PAN-002…008 → PAN-009 → PAN-010 → PAN-011 → PAN-013, PAN-014, PAN-015 → PAN-016 → PAN-012, PAN-019, PAN-022, PAN-023 → PAN-025 → PAN-026 → PAN-017, PAN-018, PAN-020, PAN-021, PAN-024.
 Waiting on org-admin-api (state 2026-11-15): PAN-010 ← **USR-08** (`@mmlabs/auth-client`, owner: wait for it) · PAN-011 ← ADM-002 (done), USR-02 (done) · PAN-012 ← USR-04, USR-04b (done) · PAN-013 ← USR-01b (done), **ADM-002b** · PAN-014 ← ADM-001 (done) · PAN-015 ← USR-02 (done), **ADM-002b** · PAN-016 ← ADM-004 · PAN-018 ← USR-06 · PAN-019 ← ADM-006.
