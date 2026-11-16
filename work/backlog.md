@@ -19,7 +19,8 @@ Phases: **1. UI with mock data** (PAN-001…008, done) → **2. Foundations** (P
 | PAN-008 | Audit log viewer with mock data | DONE | P2 | ui | 1 | 2026-11-11 |
 | PAN-009 | API client, error envelope and generated OpenAPI types | DONE | P1 | architecture, api, security | 1 | 2026-11-15 |
 | PAN-010 | Sign-in with @mmlabs/auth-client, account switch, logout and route guard | DONE | P1 | architecture, auth, security, api, ui | 1 | 2026-11-16 |
-| PAN-011 | Permission-aware UI and 403 handling | BACKLOG | P1 | auth, ui, security | 0 | 2026-11-11 |
+| PAN-011b | Hide/disable nav and actions from the caller's real admin permissions | BACKLOG | P2 | auth, ui, security | 0 | 2026-11-16 |
+| PAN-011 | Permission-aware UI and 403 handling | DONE | P1 | auth, ui, security | 1 | 2026-11-16 |
 | PAN-012 | Forgot password and reset password pages | DONE | P2 | auth, ui, security | 1 | 2026-11-15 |
 | PAN-012b | Verify-email page | DONE | P2 | auth, ui, security | 1 | 2026-11-15 |
 | PAN-010b | Resend verification email from the admin UI | BACKLOG | P2 | auth, ui, security | 0 | 2026-11-16 |
@@ -40,6 +41,6 @@ Phases: **1. UI with mock data** (PAN-001…008, done) → **2. Foundations** (P
 | PAN-026 | Upgrade dependencies with known security advisories | DONE | P1 | architecture, security | 1 | 2026-11-16 |
 
 Order of work (dependencies): PAN-001 → PAN-002…008 → PAN-009 → PAN-010 → PAN-011 → PAN-013, PAN-014, PAN-015 → PAN-016 → PAN-012, PAN-019, PAN-022, PAN-023 → PAN-025 → PAN-026 → PAN-017, PAN-018, PAN-020, PAN-021, PAN-024.
-Waiting on org-admin-api (state 2026-11-15): PAN-010 ← **USR-08** (`@mmlabs/auth-client`, owner: wait for it) · PAN-011 ← ADM-002 (done), USR-02 (done) · PAN-012 ← USR-04, USR-04b (done) · PAN-013 ← USR-01b (done), **ADM-002b** · PAN-014 ← ADM-001 (done) · PAN-015 ← USR-02 (done), **ADM-002b** · PAN-016 ← ADM-004 · PAN-018 ← USR-06 · PAN-019 ← ADM-006.
-API gaps (no org-admin-api ticket yet): admin sessions list/revoke (PAN-017), dashboard stats (PAN-020), reports (PAN-021), member count per app (PAN-015).
-Ready now: nothing without the API — PAN-012 and PAN-012b done. Everything that needs a staff token waits for PAN-010, which waits for USR-08.
+Waiting on org-admin-api (state 2026-11-16, origin/main 0899731): PAN-010b ← new org-admin-api ticket allowing resend for `admin` (ADM-002d refuses it) · PAN-011 ← an endpoint returning the caller's effective admin permissions (no ticket yet) · PAN-018 ← USR-06 · PAN-019 ← ADM-006. Met: USR-08, ADM-002, ADM-002b, ADM-004, ADM-012.
+API gaps (no org-admin-api ticket yet): caller's admin permissions (PAN-011), resend for `admin` (PAN-010b), admin sessions list/revoke (PAN-017). Proposed on org-admin-api: dashboard stats ADM-015 (PAN-020), member_count ADM-016 (PAN-015), reports ADM-017 (PAN-021).
+Ready now (2026-11-16, PAN-010 merged): PAN-013, PAN-014, PAN-015, PAN-016 (real API per screen), PAN-012c, PAN-023.

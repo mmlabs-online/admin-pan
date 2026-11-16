@@ -1,3 +1,4 @@
+import { WithPermissions } from '@/test-utils/permissions'
 import { toast } from 'sonner'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
@@ -155,5 +156,21 @@ describe('ReportsTable', () => {
     expect(toast.success).toHaveBeenCalledWith(
       'Report "Weekly sign-ups" deleted.'
     )
+  })
+
+  it('pending actions stay visible under a deny-all source', async () => {
+    const screen = await render(
+      <WithPermissions granted={[]}>
+        <ReportsTestHarness reports={REPORTS} />
+      </WithPermissions>
+    )
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Actions for Weekly sign-ups' })
+    )
+    for (const name of [/Edit/, /Run now/, /Download/, /Delete/])
+      await expect
+        .element(screen.getByRole('menuitem', { name }))
+        .toBeInTheDocument()
   })
 })

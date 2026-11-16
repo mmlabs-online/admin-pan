@@ -10,6 +10,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Can } from '@/components/permissions/can'
 import { type Report } from '../data/schema'
 import { canDownload } from '../lib/csv'
 import { useReports } from './reports-provider'
@@ -35,53 +36,59 @@ export function ReportsRowActions({ row }: ReportsRowActionsProps) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align='end' className='w-44'>
-        {/* admin:reports:write (planned name) */}
-        <DropdownMenuItem
-          onClick={() => {
-            setCurrentRow(report)
-            setOpen('edit')
-          }}
-        >
-          Edit
-          <DropdownMenuShortcut>
-            <Pencil size={16} aria-hidden='true' />
-          </DropdownMenuShortcut>
-        </DropdownMenuItem>
-        {/* admin:reports:run (planned name) */}
-        <DropdownMenuItem
-          disabled={isRunning}
-          onClick={() => runReport(report.id)}
-        >
-          Run now
-          <DropdownMenuShortcut>
-            <Play size={16} aria-hidden='true' />
-          </DropdownMenuShortcut>
-        </DropdownMenuItem>
-        {/* admin:reports:read (planned name) */}
-        <DropdownMenuItem
-          disabled={!canDownload(report)}
-          onClick={() => downloadReport(report)}
-        >
-          Download
-          <DropdownMenuShortcut>
-            <Download size={16} aria-hidden='true' />
-          </DropdownMenuShortcut>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        {/* admin:reports:delete (planned name) */}
-        <DropdownMenuItem
-          disabled={isRunning}
-          onClick={() => {
-            setCurrentRow(report)
-            setOpen('delete')
-          }}
-          variant='destructive'
-        >
-          Delete
-          <DropdownMenuShortcut>
-            <Trash2 size={16} aria-hidden='true' />
-          </DropdownMenuShortcut>
-        </DropdownMenuItem>
+        <Can action='reports.update'>
+          <DropdownMenuItem
+            onClick={() => {
+              setCurrentRow(report)
+              setOpen('edit')
+            }}
+          >
+            Edit
+            <DropdownMenuShortcut>
+              <Pencil size={16} aria-hidden='true' />
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+        </Can>
+        <Can action='reports.run'>
+          <DropdownMenuItem
+            disabled={isRunning}
+            onClick={() => runReport(report.id)}
+          >
+            Run now
+            <DropdownMenuShortcut>
+              <Play size={16} aria-hidden='true' />
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+        </Can>
+        <Can action='reports.export'>
+          <DropdownMenuItem
+            disabled={!canDownload(report)}
+            onClick={() => downloadReport(report)}
+          >
+            Download
+            <DropdownMenuShortcut>
+              <Download size={16} aria-hidden='true' />
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+        </Can>
+        <Can action='reports.delete'>
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              disabled={isRunning}
+              onClick={() => {
+                setCurrentRow(report)
+                setOpen('delete')
+              }}
+              variant='destructive'
+            >
+              Delete
+              <DropdownMenuShortcut>
+                <Trash2 size={16} aria-hidden='true' />
+              </DropdownMenuShortcut>
+            </DropdownMenuItem>
+          </>
+        </Can>
       </DropdownMenuContent>
     </DropdownMenu>
   )

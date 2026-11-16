@@ -1,3 +1,4 @@
+import { WithPermissions } from '@/test-utils/permissions'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { userEvent } from 'vitest/browser'
@@ -159,6 +160,58 @@ describe('Roles page', () => {
       .element(
         sheet.getByRole('cell', { name: 'thao.vo@example.com', exact: true })
       )
+      .toBeInTheDocument()
+  })
+
+  it('without admin:roles:manage and admin:roles:assign, New role and Assign role are disabled and Edit, Delete and Revoke are hidden', async () => {
+    const screen = await render(
+      <WithPermissions granted={['admin:users:read']}>
+        <RolesContent search={{}} navigate={vi.fn()} />
+      </WithPermissions>
+    )
+    await expect
+      .element(screen.getByRole('button', { name: 'New role' }))
+      .toBeDisabled()
+    await expect
+      .element(
+        screen.getByRole('button', { name: 'Open actions for admin:auditor' })
+      )
+      .not.toBeInTheDocument()
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Assignments of admin:super-admin' })
+    )
+    await expect
+      .element(screen.getByRole('button', { name: 'Assign role' }))
+      .toBeDisabled()
+    await expect
+      .element(screen.getByRole('button', { name: /^Revoke / }))
+      .not.toBeInTheDocument()
+  })
+
+  it('with admin:roles:manage and admin:roles:assign the controls are available', async () => {
+    const screen = await render(
+      <WithPermissions
+        granted={[
+          'admin:roles:manage',
+          'admin:roles:assign',
+          'admin:users:read',
+        ]}
+      >
+        <RolesContent search={{}} navigate={vi.fn()} />
+      </WithPermissions>
+    )
+    await expect
+      .element(screen.getByRole('button', { name: 'New role' }))
+      .toBeEnabled()
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Assignments of admin:super-admin' })
+    )
+    await expect
+      .element(screen.getByRole('button', { name: 'Assign role' }))
+      .toBeEnabled()
+    await expect
+      .element(screen.getByRole('button', { name: /^Revoke / }).first())
       .toBeInTheDocument()
   })
 })
