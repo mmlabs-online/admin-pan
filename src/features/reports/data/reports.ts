@@ -14,7 +14,7 @@ const toIsoDate = (d: Date) => d.toISOString().slice(0, 10)
 const staff = Array.from(
   { length: 6 },
   () =>
-    `${faker.person.firstName().toLowerCase()}.${faker.person.lastName().toLowerCase()}@mmlabs.online`
+    `${faker.person.firstName().toLowerCase()}.${faker.person.lastName().toLowerCase()}@example.com`
 )
 
 export const reports: Report[] = Array.from({ length: 25 }, () => {

@@ -20,7 +20,7 @@ const staff = Array.from({ length: 8 }, () => {
   return {
     id: faker.string.uuid(),
     email: faker.internet
-      .email({ firstName, provider: 'mmlabs.online' })
+      .email({ firstName, provider: 'example.com' })
       .toLowerCase(),
   }
 })

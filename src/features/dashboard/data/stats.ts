@@ -95,14 +95,14 @@ export const recentEvents: RecentEvent[] = [
   {
     id: 'e1',
     occurred_at: '2026-11-11T08:42:00Z',
-    actor_email: 'linh@mmlabs.online',
+    actor_email: 'linh@example.com',
     action: 'user.disable',
     target: 'user · hoang.tran@example.com',
   },
   {
     id: 'e2',
     occurred_at: '2026-11-11T08:15:00Z',
-    actor_email: 'minh@mmlabs.online',
+    actor_email: 'minh@example.com',
     action: 'role.assign',
     target: 'role · calechip:org-owner',
   },
@@ -116,14 +116,14 @@ export const recentEvents: RecentEvent[] = [
   {
     id: 'e4',
     occurred_at: '2026-11-11T07:30:00Z',
-    actor_email: 'minh@mmlabs.online',
+    actor_email: 'minh@example.com',
     action: 'organization.create',
     target: 'organization · green-farm',
   },
   {
     id: 'e5',
     occurred_at: '2026-11-11T06:47:00Z',
-    actor_email: 'an@mmlabs.online',
+    actor_email: 'an@example.com',
     action: 'app.update',
     target: 'app · stoktok',
   },

@@ -33,7 +33,7 @@ export function ProfileDropdown() {
             <div className='flex flex-col gap-1.5'>
               <p className='text-sm leading-none font-medium'>Admin (mock)</p>
               <p className='text-xs leading-none text-muted-foreground'>
-                admin@mmlabs.online
+                admin@example.com
               </p>
             </div>
           </DropdownMenuLabel>

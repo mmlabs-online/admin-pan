@@ -21,7 +21,7 @@ pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build
 `pnpm test` runs Vitest in browser mode; install the browser once with `pnpm test:browser:install`
 (or set `PLAYWRIGHT_CHROMIUM_PATH` to an existing Chromium).
 
-Stack and rules: [`CLAUDE.md`](CLAUDE.md). Scope: [`docs/spec-v1.md`](docs/spec-v1.md).
+Stack and rules: [`CLAUDE.md`](CLAUDE.md). Scope: [`docs/spec-v1.md`](docs/spec-v1.md). Release and deploy: [`docs/deploy.md`](docs/deploy.md).
 
 ## Local development with org-admin-api
 

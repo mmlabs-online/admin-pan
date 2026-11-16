@@ -15,7 +15,7 @@ const entry: AuditLogEntry = {
   id: 'e1',
   occurred_at: '2026-11-10T10:00:00.000Z',
   actor_user_id: 'u1',
-  actor_email: 'admin@mmlabs.online',
+  actor_email: 'admin@example.com',
   action: 'organization.update',
   target_type: 'organization',
   target_id: 'org-1',

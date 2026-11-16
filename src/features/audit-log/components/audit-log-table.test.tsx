@@ -10,7 +10,7 @@ function makeEntry(
   return {
     occurred_at: '2026-11-01T12:00:00.000Z',
     actor_user_id: 'user-1',
-    actor_email: 'ops@mmlabs.online',
+    actor_email: 'ops@example.com',
     action: 'auth.login.success',
     target_type: 'session',
     target_id: 'session-0001',
@@ -35,7 +35,7 @@ const DATA: AuditLogEntry[] = [
     id: 'newest',
     occurred_at: '2026-11-10T09:00:00.000Z',
     actor_user_id: 'user-2',
-    actor_email: 'alice@mmlabs.online',
+    actor_email: 'alice@example.com',
     action: 'organization.update',
     target_type: 'organization',
     target_id: 'org-acme-1234',

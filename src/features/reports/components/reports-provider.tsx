@@ -14,7 +14,7 @@ import {
 type ReportsDialogType = 'create' | 'edit' | 'delete'
 
 /** Signed-in staff email; mock until auth-client is wired in. */
-export const CURRENT_USER_EMAIL = 'you@mmlabs.online'
+export const CURRENT_USER_EMAIL = 'you@example.com'
 
 type ReportsContextType = {
   reports: Report[]

@@ -31,7 +31,7 @@ Phases: **1. UI with mock data** (PAN-001…008, done) → **2. Foundations** (P
 | PAN-019 | Org product entitlements screen | BACKLOG | P2 | ui, api | 0 | 2026-11-11 |
 | PAN-020 | Dashboard stats on the real API | BACKLOG | P3 | api, ui | 0 | 2026-11-11 |
 | PAN-021 | Reports on the real API | BACKLOG | P3 | api, ui | 0 | 2026-11-11 |
-| PAN-022 | Release and deploy to admin-portal.mmlabs.online | PLANNING | P2 | architecture, security | 0 | 2026-11-16 |
+| PAN-022 | Release and deploy to admin-portal.mmlabs.online | DONE | P2 | architecture, security | 1 | 2026-11-16 |
 | PAN-023 | End-to-end smoke tests | BACKLOG | P2 | ui, a11y | 0 | 2026-11-11 |
 | PAN-024 | UI language | BACKLOG | P3 | ui | 0 | 2026-11-11 |
 
