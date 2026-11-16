@@ -7,7 +7,7 @@
 | Areas | auth, ui, security |
 | Attempts | 0 |
 | Created | 2026-11-11 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/11 |
 
 ## Goal
 Navigation, routes and actions declare their `admin:*` permission in one typed registry, generated from or checked against the OpenAPI `x-permission`. A tri-state `usePermission()` (`granted | denied | unknown`) sits behind a `PermissionSource` seam, which returns `unknown` in production until PAN-011b. Every API 403 shows a clear, code-specific message in place. Amended by the owner on 2026-11-16: the earlier wording "from the token's roles" is dropped, because the UI never reads the token.
