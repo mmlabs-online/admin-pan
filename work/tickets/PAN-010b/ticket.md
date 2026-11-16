@@ -17,7 +17,7 @@ Add a "Send the link again" action to the "Email not verified" page that PAN-010
 
 ## Depends on
 - PAN-010.
-- An org-admin-api ticket (not yet created) that lets `X-MM-App: admin` call `POST /api/v1/auth/verify-email/resend`. Today ADM-002d refuses it with 403 `origin_not_allowed` (`app/modules/auth/deps.py` `get_mail_link_app_context`).
+- org-admin-api USR-12 (allow verify-email resend for the admin app). DONE and merged as of 2026-11-16 (origin/main a417ddb).
 
 ## Acceptance criteria
 - [ ] The resend button uses `@mmlabs/auth-client` `resendVerification()` only (R3).

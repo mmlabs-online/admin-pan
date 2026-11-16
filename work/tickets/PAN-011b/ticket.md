@@ -17,7 +17,7 @@ Plug the real data source into the `PermissionSource` seam that PAN-011 built. T
 
 ## Depends on
 - PAN-011.
-- An org-admin-api ticket (not yet created) for `GET /api/v1/me/permissions` (Bearer `aud=admin`, self-scoped). The proposal is `work/tickets/PAN-011/org-admin-api-request.md`.
+- org-admin-api USR-11 (`GET /api/v1/me/permissions`). DONE and merged as of 2026-11-16 (origin/main a417ddb).
 
 ## Acceptance criteria
 - [ ] `PermissionSource` reads the new endpoint through `src/api/`. Request and response types come from the regenerated OpenAPI snapshot.
