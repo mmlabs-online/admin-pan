@@ -7,7 +7,7 @@
 | Areas | api, ui |
 | Attempts | 0 |
 | Created | 2026-11-11 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/12 |
 
 ## Goal
 Replace Users mock data with `GET /api/v1/users`, `GET/PATCH /api/v1/users/{id}`: server-side pagination and filters, enable/disable mutation with query invalidation.
