@@ -90,12 +90,14 @@ One orchestrated loop per ticket. **The main session is the orchestrator** (suba
 ```
 /idea "..."     →  spec section + proposed tickets (optional, for new scope)
 /ticket "..."   →  BACKLOG
+/bug "..."      →  BACKLOG as BUG-XXX, then: A) record PR · B) record another bug · C) fix the batch now (one PR)
 /run [ID]       →  CONSULT (specialists by area) → PLAN (= technical design) → IMPLEMENT → REVIEW ─PASS→ DONE → PR (owner merges)
                                                                                  ^                │
                                                                                  └──── REWORK ────┘  max 2 reworks → ESCALATED (stop, ask owner)
 ```
 
 - No human gate between PLAN and IMPLEMENT. The loop stops only when: the planner returns blocking questions (`BLOCKED`), reworks are exhausted (`ESCALATED`), or the ticket is `DONE`.
+- Bugs (`BUG-XXX`, [ADR 0003](docs/adr/0003-bug-tickets.md)) run through the same loop. Every bug fix ships with a **regression test that fails before the fix** (Vitest browser mode; `scripts/smoke-image.sh` for nginx headers; Playwright e2e once PAN-023 lands); the reviewer gives REWORK without it. `/run` picks a runnable S1 bug first.
 - Each ticket runs on branch `ticket/<ID>` (or the session's mandated branch in cloud sessions). On `DONE` the loop **opens a PR into `main`**. **The owner approves and merges** — agents never merge.
 
 ### Commands (`.claude/commands/`)
@@ -103,8 +105,9 @@ One orchestrated loop per ticket. **The main session is the orchestrator** (suba
 |---|---|
 | `/idea <idea>` | Shape new scope into `docs/spec-v1.md` and propose tickets |
 | `/ticket <description> [P1-P3]` | Create `work/tickets/<ID>/ticket.md` and a backlog row |
-| `/run [ID]` | Run the full loop for a ticket (no ID = highest-priority BACKLOG ticket whose dependencies are done) |
-| `/status` | Board summary from `work/backlog.md` |
+| `/bug <description> [S1-S3]` | Record a bug as `work/tickets/BUG-XXX/ticket.md` (repro, expected/actual, root cause, severity) and a backlog row on a batch branch `bug/<first ID>`, then ask: A) open the record PR and stop, B) record another bug (asks again), C) fix the batch now and open one PR |
+| `/run [ID]` | Run the full loop for a ticket (no ID = a runnable S1 bug, else the highest-priority BACKLOG ticket whose dependencies are done) |
+| `/status` | Board summary from `work/backlog.md`, with open bugs by severity |
 | `/solo <description>` | Small direct change outside the loop (still must pass checks; logged) |
 
 ### Agents (`.claude/agents/`)
@@ -131,7 +134,7 @@ Specialists (read-only; `/run` saves their output to the ticket folder):
 ```
 work/backlog.md                 board: one row per ticket
 work/solo-log.md                log of /solo changes
-work/templates/                 ticket, plan, impl-log, review, escalation
+work/templates/                 ticket, bug, plan, impl-log, review, escalation
 work/tickets/<ID>/
   ticket.md                     goal, acceptance criteria, areas, state, attempts, dependencies, PR
   consult-<agent>.md            specialist notes (optional)
@@ -150,8 +153,8 @@ Ticket states: `BACKLOG` → `PLANNING` → `IN_PROGRESS` → `REVIEW` → `DONE
 ## Conventions
 
 - Language: code, comments, docs, commit messages in English. Reports to the owner in Vietnamese. UI label language: spec §8 Q3.
-- Ticket IDs: **`PAN-XXX`** (3 digits).
+- Ticket IDs: **`PAN-XXX`** (3 digits); bugs **`BUG-XXX`** (3 digits, `/bug`, ADR 0003).
 - Formatting: prettier (single quotes, no semicolons, sorted imports — `.prettierrc`); run `pnpm format` before committing.
-- Commits: `PAN-XXX: <imperative summary>` (or `solo: <summary>`).
+- Commits: `PAN-XXX: <imperative summary>` / `BUG-XXX: <imperative summary>` (or `solo: <summary>`).
 - Secrets: none belong in this repo. Local config in `.env.local` (git-ignored); `.env.example` lists `VITE_*` keys without values.
 - Third-party: agent definitions from msitarzewski/agency-agents (MIT) and the app template satnaing/shadcn-admin (MIT) — see `THIRD_PARTY_NOTICES.md`.

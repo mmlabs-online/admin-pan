@@ -1,6 +1,6 @@
 ---
 description: Run the full consult → plan → implement → review loop for one ticket, dispatching subagents automatically, then open a PR.
-argument-hint: "[PAN-xxx]"
+argument-hint: "[PAN-xxx | BUG-xxx]"
 ---
 
 <!-- Orchestration logic adapted from agency-agents: specialized/agents-orchestrator.md and strategy/coordination/handoff-templates.md (MIT),
@@ -9,15 +9,18 @@ argument-hint: "[PAN-xxx]"
 You are the **orchestrator** for ticket `$ARGUMENTS`. You dispatch subagents and keep the board true. You write **no product code, no plan, no review** yourself — only ticket state, backlog rows, consult files, security/a11y review files and the escalation report.
 
 ## 0. Select and prepare
-1. If `$ARGUMENTS` is empty, pick from `work/backlog.md` the first `BACKLOG` (or answered `BLOCKED`) ticket, by priority (P1 > P2 > P3) and then by its order in the table, **whose dependencies are all met** (see 2). Skip tickets with unmet dependencies and say which ones you skipped and why. If none, report "Nothing ready in BACKLOG" and stop.
+1. If `$ARGUMENTS` is empty, pick the first runnable `BUG-xxx` with `Severity: S1` (ADR 0003); otherwise pick from `work/backlog.md` the first `BACKLOG` (or answered `BLOCKED`) ticket, by priority (P1 > P2 > P3) and then by its order in the table, **whose dependencies are all met** (see 2). Skip tickets with unmet dependencies and say which ones you skipped and why. If none, report "Nothing ready in BACKLOG" and stop.
 2. Dependencies (from "Depends on" in ticket.md and the "Order of work" line in backlog.md):
-   - `PAN-xxx` → must be `DONE` here.
+   - `PAN-xxx` / `BUG-xxx` → must be `DONE` here.
    - `org-admin-api <ID>` → read `work/backlog.md` of `mmlabs-online/org-admin-api` on `main` (GitHub MCP `get_file_contents`, or a shallow clone). Met only if that ticket is `DONE` and its PR is merged. If you cannot reach the repo, treat it as unmet and say so.
 3. Read `work/tickets/<ID>/ticket.md`. Refuse to run if state is `DONE` or `ESCALATED` (say why). A `BLOCKED` ticket may run only if its blocking questions now have answers under "Notes / answers from owner".
 4. Make sure the working tree is clean (`git status --porcelain`). If not, stop and report.
 5. Branch: create or switch to `ticket/<ID>` from the latest `main` (`git fetch origin main` first). If the environment mandates a different working branch (e.g. a cloud session's designated branch), use that branch and say so in the report. The **base** for diffs is `origin/main`; if `main` does not exist yet, use the branch's first commit and say so.
 6. If `package.json` exists, run `pnpm install --frozen-lockfile` so checks can run.
 7. Set state `PLANNING` in ticket.md and backlog.md.
+
+## Bug tickets (`BUG-xxx`, `Type: bug`)
+Same loop (ADR 0003), plus: the planner's first test is a **regression test** that reproduces the bug (Vitest browser mode; `scripts/smoke-image.sh` for nginx headers / CSP / caching; Playwright e2e for multi-page flows once PAN-023 adds `pnpm e2e`, else a one-off Playwright check recorded in impl-log); the implementer writes it first and records in impl-log that it failed before the fix; the reviewer gives REWORK without that evidence. A bug whose cause is in org-admin-api is not worked around in the UI (R1): it waits on its `org-admin-api <ID>` dependency. The PR body adds **Root cause** and **Regression test** (name, fails before / passes after). Bugs recorded by `/bug` with option C run on their batch branch (see `/bug` step 8).
 
 ## 1. Consult (only for the ticket's `areas`)
 | Area | Subagent |
