@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| State | REVIEW |
+| State | DONE |
 | Priority | P2 |
 | Areas | architecture, security |
 | Attempts | 1 |
@@ -19,11 +19,11 @@ nginx image serving the static build with security headers (CSP, frame-ancestors
 PAN-001 (PAN-010 dependency dropped by the owner, 2026-11-16)
 
 ## Acceptance criteria
-- [ ] Dockerfile + nginx config with SPA fallback and security headers (R6)
-- [ ] `release.yml` mirrors org-admin-api's flow; smoke test of the image
-- [ ] Runbook `docs/deploy.md`
-- [ ] Origin registration on org-admin-api app `admin` documented
-- [ ] Deployment side prepared as a PR on `mmlabs-online/deployment` (app folder, deploy workflow, proxy/tunnel route), following that repo's conventions
+- [x] Dockerfile + nginx config with SPA fallback and security headers (R6)
+- [x] `release.yml` mirrors org-admin-api's flow; smoke test of the image
+- [x] Runbook `docs/deploy.md`
+- [x] Origin registration on org-admin-api app `admin` documented
+- [x] Deployment side prepared as a PR on `mmlabs-online/deployment` (app folder, deploy workflow, proxy/tunnel route), following that repo's conventions
 
 ## Notes / answers from owner
 - Hostname to confirm (spec §8 Q2).

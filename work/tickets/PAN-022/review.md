@@ -105,3 +105,104 @@ None. No `security-review.md` exists in the ticket folder at the time of this re
   - Mock `admin` origin.
   - Template leftovers.
 - **PASS condition after rework:** the committed Dockerfile's `npm install -g pnpm@10` step was not run unmodified in this sandbox (the proxy CA was added only in a scratchpad copy). PASS on the next attempt will still depend on the PAN-022 PR's CI `image` job being green, since that job builds the exact Dockerfile and runs `smoke-image.sh`.
+
+## Attempt 2 — 2026-11-16
+Verdict: PASS
+
+Reviewed the rework commit `23f4b5b` (diff `2e4445e..23f4b5b`, outside `work/`), and the full `git diff origin/main...HEAD` at HEAD `60b4854`.
+- `cb9ccfd` is the merge of origin/main. Outside `work/` it changes nothing compared with `23f4b5b`.
+- `7a33b79` and `60b4854` are bookkeeping and only touch `work/`.
+- The deployment branches have not changed since attempt 1: `admin-pan-setup` is at `fca5003` and `org-admin-api-turnstile-admin-portal` at `387a282`. The checkout stayed on `main`.
+
+### Checks (run by reviewer)
+- pnpm typecheck: clean (`tsc -b`).
+- pnpm lint: clean (`eslint .`).
+- pnpm format:check: "All matched files use Prettier code style!"
+- pnpm test (`PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium`): 45 files, 274 tests passed. Matches impl-log attempt 2.
+- pnpm build: built.
+  - `grep -rlE '@mmlabs\.online' dist src` is empty.
+  - `dist` has no `*.map` and no dotfiles.
+- pnpm e2e: not planned.
+- Docker build: I used a scratchpad copy, `Dockerfile.rev2`.
+  - `diff Dockerfile Dockerfile.rev2` shows only the two proxy-CA lines in the build stage (`COPY --from=ca …`, `ENV NODE_EXTRA_CA_CERTS=…`).
+  - Built with `--build-context ca=/root/.ccr` and `VITE_API_BASE_URL=https://api.mmlabs.online VITE_APP_KEY=admin`: exit 0.
+- `scripts/smoke-image.sh admin-pan:rev2 https://api.mmlabs.online`: every line `ok`, "smoke test passed", exit 0. This includes the new checks:
+  - "404 <path> security headers" for 4 paths
+  - "asset 404 is not cached as immutable"
+  - "405 security headers"
+- Mutation test of the fix: I made a derived image with `always` put back on the `/assets/` Cache-Control. The smoke test printed `FAIL asset 404 is not cached as immutable`, then "smoke test FAILED", exit 1. The new check catches the regression.
+- Manual probe (`--read-only --cap-drop ALL`):
+  - `GET /assets/nope.js` returns 404 with no Cache-Control and the full CSP.
+  - `/healthz` returns 200 with `X-Frame-Options: DENY`.
+- Negative builds: all exit 1 in the build stage, before `pnpm build`.
+
+  | Input | Error |
+  |---|---|
+  | `http://evil` | "VITE_API_BASE_URL is invalid: must be an https origin…" |
+  | URL missing | "VITE_API_BASE_URL: parameter not set" (`set -u`) |
+  | URL empty | invalid |
+  | URL with trailing slash | invalid |
+  | URL with an embedded newline (`https://a.com<LF>evil; script-src *`) | invalid (the attempt-1 hole is closed) |
+  | `VITE_APP_KEY=Adm;in` | invalid |
+  | `VITE_APP_KEY` empty | invalid |
+  | `VITE_APP_KEY` with an embedded newline | invalid |
+  | site key `a"b` | invalid |
+  | site key with an embedded newline | invalid |
+
+  Positive builds: a valid site key (`0x4AAAAAAAabcdef_-`) gives exit 0, and an empty site key gives exit 0 (main build).
+- **PR CI** (mmlabs-online/admin-pan PR #6, draft, read via `gh api` REST; GraphQL is blocked in this session):
+  - On `cb9ccfd`, run 43787528447, both jobs were `completed/success` on runner label `ubuntu-24.04`:
+    - `check`: every step was green, including `pnpm test:browser:install`, `pnpm test`, the `api:types` drift check and `pnpm build`.
+    - `image`: `docker/build-push-action` built the committed Dockerfile unmodified, then `bash scripts/smoke-image.sh admin-pan:ci https://api.mmlabs.online` passed.
+  - This meets the attempt-1 PASS condition that the exact Dockerfile builds in CI.
+  - On HEAD `60b4854`, run 43787791846, `image` was `in_progress` and `check` was `queued` when I checked. `cb9ccfd..60b4854` only adds `work/tickets/PAN-022/security-review.md`, so the code is identical. The orchestrator should still confirm this run before DONE.
+
+### Acceptance criteria
+- [x] AC1 Dockerfile + nginx config with SPA fallback and security headers.
+  - `nginx/default.conf:22` no longer has `always` on the asset Cache-Control. A real asset still gets `immutable` (smoke "GET /assets/index-….js 200 javascript immutable"), and the asset 404 does not (smoke + manual probe + mutation test).
+  - Security headers keep `always` and are now asserted on 404 and 405 (`scripts/smoke-image.sh:116,124`).
+  - Review Issue 1 is fixed.
+- [x] AC2 `release.yml` mirrors org-admin-api's flow; the image is smoke-tested. The delta since attempt 1 is two changes:
+  - the runner pin (see Scope);
+  - the guard message (`release.yml:76`) now points to GitHub Environment `release`. Security 🟡 1 is fixed.
+
+  The CI `image` job is green (see above).
+- [x] AC3 Runbook `docs/deploy.md`. The rollback is no longer broken by cached asset 404s, because of the AC1 fix.
+- [x] AC4 Origin registration documented. `docs/deploy.md:113-115` now says `origins:` is the set after the change and `- origin …` lines are removals. This matches org-admin-api `_print_admin_origins` (attempt-1 analysis). The `+ origin https://admin-portal.mmlabs.online` check is kept. Review Issue 2 is fixed.
+- [x] AC5 Deployment side. The two branches are unchanged and still pass the attempt-1 evidence.
+- [x] AC6 Mock emails are `@example.com`. `grep` on `src` and `dist` is empty, and the smoke check in the image is `ok`.
+- [x] AC7 Production config baked in. Smoke confirms the bundle contains `https://api.mmlabs.online` and the CSP has `connect-src 'self' https://api.mmlabs.online;`. The `validate()` function (`Dockerfile:17-23`) now checks the whole value and rejects newlines. Security 🟡 2 is fixed.
+- [x] AC8 R8 green, locally and in PR CI on `cb9ccfd`.
+
+### Scope
+The out-of-plan files are `.github/workflows/ci.yml:17,37` and `.github/workflows/release.yml:36`, which change `ubuntu-latest` to `ubuntu-24.04`. They are justified in impl-log attempt 2 under "Out-of-plan files", and the orchestrator asked for them.
+- The evidence supports the change: the PR's `check` job now passes `pnpm test:browser:install` on `ubuntu-24.04`.
+- The `release.yml` pin is not strictly needed, because that job runs no Playwright. It keeps every job on one known image and has no security impact. Accepted.
+- It is a small deviation from org-admin-api's `release.yml:33` (`ubuntu-latest`), which is acceptable.
+
+No other unplanned change.
+
+### Issues
+None.
+
+### Rules R1–R11
+No violations found. R6: the headers are on every response class (200/404/405), and the build-arg values that reach the CSP can no longer carry a newline or other special characters. R7: the only out-of-plan change is the runner pin, which is justified. R8: green.
+
+### Security / a11y blockers
+None. `security-review.md` Attempt 2 reports "no blockers" and says 🟡 1–2 are closed. Its new findings are both 💭: no Cache-Control on asset 404s, and a loose host regex. The a11y review was not triggered (areas: architecture, security).
+
+### Nits (do not block)
+- `.github/workflows/release.yml:36`: the inline comment's spacing shifted by one column after the pin. This is cosmetic.
+- `scripts/smoke-image.sh`: `/healthz` security headers are still not asserted. I verified them by hand.
+- Appsec 💭 (optional): an `error_page 404 = @asset404` with `Cache-Control: no-store` would stop the edge from briefly caching 404s by default; a stricter host regex in `Dockerfile:21`.
+
+### Follow-ups (out of scope)
+- Carried over from attempt 1 and from the security review:
+  - SHA-pin Actions, Dependabot, `pnpm audit --prod` in CI.
+  - Deployment repo: move the committed tunnel token to a secret and rotate it; pin checkout and cloudflared.
+  - Mandatory `release/v*` and `v*` rulesets.
+  - PAN-010: redirect validation, remove mock sign-in.
+  - org-admin-api: docs Host policy and `set-admin-origins` examples should use `admin-portal.mmlabs.online`.
+  - Mock `admin` origin still `https://admin.mmlabs.online`.
+- admin-pan: when Playwright supports Ubuntu 26.04, drop the `ubuntu-24.04` pin or move to an explicit, deliberate image bump.
+- After merge (owner): cut `release/v0.1.0`, merge the two deployment PRs, register the origin, and add the hostname to the Turnstile widget, as `docs/deploy.md` describes.
