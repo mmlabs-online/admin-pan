@@ -54,7 +54,7 @@ version: pick the next patch.
 
 | Header | Value |
 |---|---|
-| Content-Security-Policy | `default-src 'none'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.mmlabs.online; frame-src https://challenges.cloudflare.com; manifest-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'` |
+| Content-Security-Policy | `default-src 'none'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.mmlabs.online; frame-src https://challenges.cloudflare.com; manifest-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'` |
 | Strict-Transport-Security | `max-age=31536000; includeSubDomains` |
 | X-Content-Type-Options | `nosniff` |
 | X-Frame-Options | `DENY` |
@@ -63,8 +63,8 @@ version: pick the next patch.
 | Permissions-Policy | camera, microphone, geolocation, payment, usb, ... all `()` |
 | X-Robots-Tag | `noindex, nofollow, noarchive` |
 
-Why the external origins: Cloudflare Turnstile (script and widget frame), Google Fonts (owner,
-2026-11-16: kept, not self-hosted), the API (`connect-src`).
+Why the external origins: Cloudflare Turnstile (script and widget frame), the API (`connect-src`).
+Fonts are self-hosted under `/assets/` (owner, 2026-11-16, PAN-025).
 
 ## One-time setup (owner)
 
