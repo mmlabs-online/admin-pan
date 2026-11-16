@@ -81,11 +81,12 @@ check "Server header has no version" test "$(header_value "$WORK/root.h" Server)
 check "GET / security headers" full_headers "$WORK/root.h"
 csp="$(header_value "$WORK/root.h" Content-Security-Policy)"
 for s in "default-src 'none'" "script-src 'self' https://challenges.cloudflare.com" \
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com" "font-src 'self' https://fonts.gstatic.com" \
+  "style-src 'self' 'unsafe-inline';" "font-src 'self';" \
   "connect-src 'self' $API;" "frame-src https://challenges.cloudflare.com" "frame-ancestors 'none'" \
   "base-uri 'none'" "object-src 'none'" "form-action 'self'"; do
   check "CSP contains: $s" grep -qF -- "$s" <<<"$csp"
 done
+check "CSP has no Google Fonts hosts" test -z "$(grep -E 'fonts\.(googleapis|gstatic)\.com' <<<"$csp" || true)"
 check "CSP has no unsafe-eval" test -z "$(grep -F 'unsafe-eval' <<<"$csp" || true)"
 check "CSP script-src has no unsafe-inline" test -z "$(grep -F "script-src 'self' 'unsafe-inline'" <<<"$csp" || true)"
 
@@ -109,6 +110,16 @@ fetch "$asset" asset
 check "GET $asset 200 javascript immutable" check_status_type_cache asset 200 javascript "public, max-age=31536000, immutable"
 check "asset security headers" full_headers "$WORK/asset.h"
 
+# 6b. a font asset keeps the headers
+css="$(grep -oE '/assets/[^"]+\.css' "$WORK/root.b" | head -n 1 || true)"
+check "index.html references a CSS asset" test -n "$css"
+fetch "$css" css
+font="$(grep -oE '/assets/[^)"'\'' ]+\.woff2' "$WORK/css.b" | head -n 1 || true)"
+check "CSS references a woff2 asset" test -n "$font"
+fetch "$font" font
+check "GET $font 200 font/woff2 immutable" check_status_type_cache font 200 font/woff2 "public, max-age=31536000, immutable"
+check "font security headers" full_headers "$WORK/font.h"
+
 # 7. things that must 404
 for p in /assets/does-not-exist.js /.env /.git/config /x.map; do
   fetch "$p" nf
@@ -126,6 +137,8 @@ check "405 security headers" full_headers "$WORK/post.h"
 # 9. baked content
 check "bundle contains $API" docker exec "$NAME" sh -c "grep -rl -F '$API' /usr/share/nginx/html/assets | grep -q ."
 check "no @mmlabs.online addresses in the bundle" docker exec "$NAME" sh -c "! grep -rlE '@mmlabs\\.online' /usr/share/nginx/html | grep -q ."
+check "no Google Fonts hosts in the image" docker exec "$NAME" sh -c "! grep -rlE 'fonts\\.(googleapis|gstatic)\\.com' /usr/share/nginx/html | grep -q ."
+check "no inlined data: fonts" docker exec "$NAME" sh -c "! grep -rlE 'data:(font|application/font)' /usr/share/nginx/html/assets | grep -q ."
 check "no source maps in the image" docker exec "$NAME" sh -c "! find /usr/share/nginx/html -name '*.map' | grep -q ."
 
 if [ "$failed" -ne 0 ]; then echo "smoke test FAILED"; exit 1; fi

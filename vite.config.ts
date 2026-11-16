@@ -21,6 +21,10 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    // Never inline fonts as data: URLs; the CSP font-src is 'self' only.
+    assetsInlineLimit: (file) => (/\.woff2?$/.test(file) ? false : undefined),
+  },
   server: {
     // Dev only (not part of dist/, so not a BFF): admin Bearer paths have no CORS yet.
     proxy: {
@@ -32,6 +36,7 @@ export default defineConfig({
   test: {
     silent: 'passed-only',
     unstubEnvs: true,
+    css: { include: [/@fontsource-variable\//] },
     browser: {
       enabled: true,
       // Set PLAYWRIGHT_CHROMIUM_PATH to use a preinstalled Chromium (e.g. cloud
