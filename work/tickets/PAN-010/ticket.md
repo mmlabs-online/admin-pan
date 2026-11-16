@@ -7,7 +7,7 @@
 | Areas | architecture, auth, security, api, ui |
 | Attempts | 0 |
 | Created | 2026-11-11 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/9 |
 
 ## Goal
 Replace the mock sign-in: login via `@mmlabs/auth-client` with app key `admin`, in-memory `aud=admin` token, account picker/switch, logout (one/all), and the auth guard on every route except the auth pages.
