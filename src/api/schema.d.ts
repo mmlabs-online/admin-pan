@@ -2681,6 +2681,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Last active super-admin */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -2818,6 +2825,13 @@ export interface operations {
             };
             /** @description Missing permission */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Last active super-admin */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

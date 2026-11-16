@@ -1,18 +1,16 @@
 import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
-  type SortingState,
   type VisibilityState,
   flexRender,
   getCoreRowModel,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
+import { queryView } from '@/lib/query-view'
 import { cn } from '@/lib/utils'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { type NavigateFn, useTableUrlState } from '@/hooks/use-table-url-state'
+import { Button } from '@/components/ui/button'
 import {
   Table,
   TableBody,
@@ -22,24 +20,26 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { DataTablePagination, DataTableToolbar } from '@/components/data-table'
+import { ForbiddenPanel } from '@/components/forbidden-panel'
+import { toUsersListParams, usersListQueryOptions } from '../api/queries'
 import { statusOptions } from '../data/data'
-import { type User } from '../data/schema'
-import { DataTableBulkActions } from './data-table-bulk-actions'
+import { type UserStatus } from '../data/schema'
 import { usersColumns as columns } from './users-columns'
+import { useUsers } from './users-provider'
 
 type DataTableProps = {
-  data: User[]
   search: Record<string, unknown>
   navigate: NavigateFn
 }
 
-export function UsersTable({ data, search, navigate }: DataTableProps) {
-  // Local UI-only states
-  const [rowSelection, setRowSelection] = useState({})
+export function UsersTable({ search, navigate }: DataTableProps) {
+  const { api } = useUsers()
+  // Local UI-only state
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
-  const [sorting, setSorting] = useState<SortingState>([])
 
-  // Synced with URL states (keys/defaults mirror users route search schema)
+  // Only `status` and paging live in the URL. The typed email stays in the
+  // hook's local state (no column filter entry for it), so it never reaches the
+  // URL (R5, ADR 0005).
   const {
     columnFilters,
     onColumnFiltersChange,
@@ -51,42 +51,53 @@ export function UsersTable({ data, search, navigate }: DataTableProps) {
     navigate,
     pagination: { defaultPage: 1, defaultPageSize: 10 },
     globalFilter: { enabled: false },
-    columnFilters: [
-      // Mirror GET /api/v1/users?email=&status= query params
-      { columnId: 'email', searchKey: 'email', type: 'string' },
-      { columnId: 'status', searchKey: 'status', type: 'array' },
-    ],
+    columnFilters: [{ columnId: 'status', searchKey: 'status', type: 'array' }],
   })
+
+  const emailInput =
+    (columnFilters.find((f) => f.id === 'email')?.value as string) ?? ''
+  const email = useDebouncedValue(emailInput, 300)
+  const status =
+    (columnFilters.find((f) => f.id === 'status')?.value as UserStatus[]) ?? []
+
+  const params = toUsersListParams({ pagination, status, email })
+  const q = useQuery(usersListQueryOptions(params, api))
+  const view = queryView(q)
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
-    data,
+    data: q.data?.items ?? [],
     columns,
-    state: {
-      sorting,
-      pagination,
-      rowSelection,
-      columnFilters,
-      columnVisibility,
-    },
-    enableRowSelection: true,
+    rowCount: q.data?.total ?? 0,
+    manualPagination: true,
+    manualFiltering: true,
+    enableSorting: false,
+    enableRowSelection: false,
+    state: { pagination, columnFilters, columnVisibility },
     getRowId: (row) => row.id,
     onPaginationChange,
     onColumnFiltersChange,
-    onRowSelectionChange: setRowSelection,
-    onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
-    getPaginationRowModel: getPaginationRowModel(),
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFacetedRowModel: getFacetedRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
   })
 
+  const pageCount = table.getPageCount()
+  const settled = q.isSuccess && !q.isPlaceholderData
   useEffect(() => {
-    ensurePageInRange(table.getPageCount())
-  }, [table, ensurePageInRange])
+    if (settled) ensurePageInRange(pageCount)
+  }, [settled, pageCount, ensurePageInRange])
+
+  if (view.status === 'forbidden')
+    return (
+      <ForbiddenPanel
+        variant='page'
+        copy={view.copy}
+        onRetry={() => void q.refetch()}
+      />
+    )
+
+  const filtered = email.trim() !== '' || status.length > 0
+  const rows = table.getRowModel().rows
 
   return (
     <div
@@ -104,7 +115,7 @@ export function UsersTable({ data, search, navigate }: DataTableProps) {
         ]}
       />
       <div className='overflow-hidden rounded-md border'>
-        <Table>
+        <Table aria-busy={q.isFetching}>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className='group/row'>
@@ -114,7 +125,7 @@ export function UsersTable({ data, search, navigate }: DataTableProps) {
                       key={header.id}
                       colSpan={header.colSpan}
                       className={cn(
-                        'bg-background group-hover/row:bg-muted group-data-[state=selected]/row:bg-muted',
+                        'bg-background group-hover/row:bg-muted',
                         header.column.columnDef.meta?.className,
                         header.column.columnDef.meta?.thClassName
                       )}
@@ -132,18 +143,27 @@ export function UsersTable({ data, search, navigate }: DataTableProps) {
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && 'selected'}
-                  className='group/row'
-                >
+            {view.status === 'pending' ? (
+              <MessageRow>
+                <span role='status'>Loading users…</span>
+              </MessageRow>
+            ) : view.status === 'error' ? (
+              <MessageRow>
+                <div role='alert' className='space-y-2'>
+                  <p>Couldn&apos;t load users.</p>
+                  <Button size='sm' onClick={() => void q.refetch()}>
+                    Retry
+                  </Button>
+                </div>
+              </MessageRow>
+            ) : rows.length ? (
+              rows.map((row) => (
+                <TableRow key={row.id} className='group/row'>
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
                       className={cn(
-                        'bg-background group-hover/row:bg-muted group-data-[state=selected]/row:bg-muted',
+                        'bg-background group-hover/row:bg-muted',
                         cell.column.columnDef.meta?.className,
                         cell.column.columnDef.meta?.tdClassName
                       )}
@@ -157,20 +177,24 @@ export function UsersTable({ data, search, navigate }: DataTableProps) {
                 </TableRow>
               ))
             ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className='h-24 text-center'
-                >
-                  No results.
-                </TableCell>
-              </TableRow>
+              <MessageRow>
+                {filtered ? 'No users match these filters.' : 'No users yet.'}
+              </MessageRow>
             )}
           </TableBody>
         </Table>
       </div>
       <DataTablePagination table={table} className='mt-auto' />
-      <DataTableBulkActions table={table} />
     </div>
+  )
+}
+
+function MessageRow({ children }: { children: React.ReactNode }) {
+  return (
+    <TableRow>
+      <TableCell colSpan={columns.length} className='h-24 text-center'>
+        {children}
+      </TableCell>
+    </TableRow>
   )
 }

@@ -1,20 +1,16 @@
 import { useState } from 'react'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { type ApiClient } from '@/api'
+import { apiError, fakeApi, json, testQueryClient } from '@/test-utils/api'
 import { WithPermissions } from '@/test-utils/permissions'
-import { toast } from 'sonner'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { userEvent } from 'vitest/browser'
 import { type NavigateFn } from '@/hooks/use-table-url-state'
 import { type User } from '../data/schema'
-import { users as mockUsers } from '../data/users'
 import { UsersDialogs } from './users-dialogs'
-import { UsersProvider, useUsers } from './users-provider'
+import { UsersProvider } from './users-provider'
 import { UsersTable } from './users-table'
-
-vi.mock('sonner', async (orig) => ({
-  ...(await orig()),
-  toast: { success: vi.fn() },
-}))
 
 const USERS: User[] = [
   {
@@ -35,19 +31,12 @@ const USERS: User[] = [
     created_at: '2026-03-10T12:00:00Z',
     updated_at: '2026-04-01T09:00:00Z',
   },
-  {
-    id: '0b9c6a2e-3f5d-4c1a-9a7e-1d2f3a4b5c03',
-    email: 'carol@example.com',
-    display_name: 'Carol Tran',
-    status: 'active',
-    email_verified_at: '2026-05-05T05:05:00Z',
-    created_at: '2026-05-01T07:00:00Z',
-    updated_at: '2026-05-05T05:05:00Z',
-  },
 ]
 
+const usersPage = (items: User[] = USERS, total = items.length) =>
+  json({ items, total, limit: 10, offset: 0 })
+
 function Table() {
-  const { users } = useUsers()
   const [search, setSearch] = useState<Record<string, unknown>>({})
   const navigate: NavigateFn = ({ search: next }) => {
     if (next === true) return
@@ -56,198 +45,209 @@ function Table() {
   return (
     <>
       <output data-testid='search'>{JSON.stringify(search)}</output>
-      <UsersTable data={users} search={search} navigate={navigate} />
+      <UsersTable search={search} navigate={navigate} />
       <UsersDialogs />
     </>
   )
 }
 
-function renderUsers(initialUsers: User[] = USERS) {
+function renderUsers(
+  client: ApiClient,
+  granted?: Parameters<typeof WithPermissions>[0]['granted']
+) {
+  const tree = (
+    <QueryClientProvider client={testQueryClient()}>
+      <UsersProvider api={client}>
+        <Table />
+      </UsersProvider>
+    </QueryClientProvider>
+  )
   return render(
-    <UsersProvider initialUsers={initialUsers}>
-      <Table />
-    </UsersProvider>
+    granted ? <WithPermissions granted={granted}>{tree}</WithPermissions> : tree
   )
 }
 
-describe('mock users data', () => {
-  it('has ~200 users matching the UserRead shape', () => {
-    expect(mockUsers).toHaveLength(200)
-    expect(Object.keys(mockUsers[0]).sort()).toEqual(
-      [
-        'created_at',
-        'display_name',
-        'email',
-        'email_verified_at',
-        'id',
-        'status',
-        'updated_at',
-      ].sort()
-    )
-  })
-})
+const lastListUrl = (seen: Request[]) =>
+  listCalls(seen)[listCalls(seen).length - 1]?.url
+const listCalls = (seen: Request[]) =>
+  seen.filter((r) => new URL(r.url).pathname === '/api/v1/users')
 
 describe('UsersTable', () => {
-  beforeEach(() => vi.clearAllMocks())
+  it('loading: a never-resolving fetch shows the loading status', async () => {
+    const { client } = fakeApi(() => new Promise<Response>(() => {}))
+    const screen = await renderUsers(client)
+    await expect.element(screen.getByText('Loading users…')).toBeVisible()
+  })
 
-  it('renders one row per user with status and verification', async () => {
-    const screen = await renderUsers()
-
+  it('renders rows from the API', async () => {
+    const { client } = fakeApi(() => usersPage())
+    const screen = await renderUsers(client)
     await expect
       .element(screen.getByText('alice@example.com', { exact: true }))
       .toBeVisible()
-    await expect
-      .element(screen.getByText('bob@example.com', { exact: true }))
-      .toBeVisible()
-    await expect.element(screen.getByText('Carol Tran')).toBeVisible()
+    await expect.element(screen.getByText('Alice Nguyen')).toBeVisible()
     await expect.element(screen.getByText('Disabled')).toBeVisible()
     await expect.element(screen.getByText('Not verified')).toBeVisible()
-    // header row + 3 data rows
-    expect(screen.getByRole('row').elements()).toHaveLength(4)
+    // header row + 2 data rows
+    expect(screen.getByRole('row').elements()).toHaveLength(3)
   })
 
-  it('filters by email and syncs it to the URL search', async () => {
-    const screen = await renderUsers()
+  it('empty (no filters)', async () => {
+    const { client } = fakeApi(() => usersPage([]))
+    const screen = await renderUsers(client)
+    await expect.element(screen.getByText('No users yet.')).toBeVisible()
+  })
 
-    await userEvent.fill(screen.getByPlaceholder('Filter by email...'), 'carol')
-
+  it('empty (filtered)', async () => {
+    const { client } = fakeApi(() => usersPage([]))
+    const screen = await renderUsers(client)
+    await userEvent.fill(screen.getByPlaceholder('Filter by email...'), 'zzz')
     await expect
-      .element(screen.getByText('carol@example.com', { exact: true }))
+      .element(screen.getByText('No users match these filters.'))
       .toBeVisible()
+  })
+
+  it('error shows an alert and Retry refetches', async () => {
+    let fail = true
+    const { client, seen } = fakeApi(() =>
+      fail ? apiError(500, 'internal_error') : usersPage()
+    )
+    const screen = await renderUsers(client)
+    await expect
+      .element(screen.getByRole('alert'))
+      .toHaveTextContent("Couldn't load users.")
+    fail = false
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
     await expect
       .element(screen.getByText('alice@example.com', { exact: true }))
-      .not.toBeInTheDocument()
-    await expect
-      .element(screen.getByTestId('search'))
-      .toHaveTextContent('"email":"carol"')
+      .toBeVisible()
+    expect(listCalls(seen)).toHaveLength(2)
   })
 
-  it('filters by status facet', async () => {
-    const screen = await renderUsers()
+  it('403 renders ForbiddenPanel and hides the table', async () => {
+    const { client } = fakeApi(() =>
+      apiError(403, 'permission_denied', { required: 'admin:users:read' })
+    )
+    const screen = await renderUsers(client)
+    await expect
+      .element(screen.getByText('admin:users:read', { exact: true }))
+      .toBeVisible()
+    await expect.element(screen.getByRole('table')).not.toBeInTheDocument()
+    await expect
+      .element(screen.getByPlaceholder('Filter by email...'))
+      .not.toBeInTheDocument()
+  })
 
+  it('403 on refetch replaces stale rows', async () => {
+    let forbid = false
+    const { client } = fakeApi(() =>
+      forbid ? apiError(403, 'permission_denied') : usersPage()
+    )
+    const screen = await renderUsers(client)
+    await expect
+      .element(screen.getByText('alice@example.com', { exact: true }))
+      .toBeVisible()
+    forbid = true
+    // Changing the status filter issues a new request that is now forbidden.
     await userEvent.click(screen.getByRole('button', { name: /Status/ }))
     await userEvent.click(screen.getByRole('option', { name: /Disabled/ }))
-
     await expect
-      .element(screen.getByText('bob@example.com', { exact: true }))
+      .element(screen.getByText("You don't have permission to do this"))
       .toBeVisible()
     await expect
       .element(screen.getByText('alice@example.com', { exact: true }))
       .not.toBeInTheDocument()
+  })
+
+  it('next page requests offset=10 and updates ?page', async () => {
+    const { client, seen } = fakeApi(() => usersPage(USERS, 25))
+    const screen = await renderUsers(client)
+    await expect
+      .element(screen.getByText('alice@example.com', { exact: true }))
+      .toBeVisible()
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Go to next page' })
+    )
+    await expect
+      .element(screen.getByTestId('search'))
+      .toHaveTextContent('"page":2')
+    await expect
+      .poll(() =>
+        listCalls(seen).map((r) => new URL(r.url).searchParams.get('offset'))
+      )
+      .toContain('10')
+  })
+
+  it('typed email is debounced, trimmed and sent as email=, and resets the page', async () => {
+    const { client, seen } = fakeApi(() => usersPage())
+    const screen = await renderUsers(client)
+    await expect
+      .element(screen.getByText('alice@example.com', { exact: true }))
+      .toBeVisible()
+    await userEvent.fill(screen.getByPlaceholder('Filter by email...'), ' bob ')
+    await expect
+      .poll(() =>
+        listCalls(seen).map((r) => new URL(r.url).searchParams.get('email'))
+      )
+      .toEqual([null, 'bob'])
+  })
+
+  it('typed email never reaches the URL search', async () => {
+    const { client, seen } = fakeApi(() => usersPage())
+    const screen = await renderUsers(client)
+    await userEvent.fill(
+      screen.getByPlaceholder('Filter by email...'),
+      'alice@example.com'
+    )
+    await expect
+      .poll(() =>
+        listCalls(seen).some((r) => r.url.includes('email=alice%40example.com'))
+      )
+      .toBe(true)
+    const search = screen.getByTestId('search').element().textContent ?? ''
+    expect(search).not.toContain('email')
+    expect(search).not.toContain('alice')
+  })
+
+  it('one status sends status=disabled; both statuses send none', async () => {
+    const { client, seen } = fakeApi(() => usersPage())
+    const screen = await renderUsers(client)
+    await userEvent.click(screen.getByRole('button', { name: /Status/ }))
+    await userEvent.click(screen.getByRole('option', { name: /Disabled/ }))
     await expect
       .element(screen.getByTestId('search'))
       .toHaveTextContent('"status":["disabled"]')
+    await expect.poll(() => lastListUrl(seen)).toContain('status=disabled')
+    await userEvent.click(screen.getByRole('option', { name: /Active/ }))
+    await expect.poll(() => lastListUrl(seen)).not.toContain('status=')
   })
 
-  it('disables a user after confirming the dialog naming the user', async () => {
-    const screen = await renderUsers()
-
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Open actions for alice@example.com' })
-    )
-    await userEvent.click(screen.getByRole('menuitem', { name: /Disable/ }))
-
-    const dialog = screen.getByRole('alertdialog')
+  it('column headers have no sort buttons', async () => {
+    const { client } = fakeApi(() => usersPage())
+    const screen = await renderUsers(client)
     await expect
-      .element(dialog.getByRole('heading', { name: 'Disable user' }))
+      .element(screen.getByRole('columnheader', { name: 'Email', exact: true }))
       .toBeVisible()
-    await expect.element(dialog.getByText('alice@example.com')).toBeVisible()
-
-    await userEvent.click(dialog.getByRole('button', { name: 'Disable' }))
-
-    await expect.element(dialog).not.toBeInTheDocument()
-    expect(toast.success).toHaveBeenCalledWith('Disabled alice@example.com')
-    // Alice and Bob are now both disabled
-    expect(
-      screen.getByText('Disabled', { exact: true }).elements()
-    ).toHaveLength(2)
-  })
-
-  it('keeps the user active when the confirm dialog is cancelled', async () => {
-    const screen = await renderUsers()
-
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Open actions for alice@example.com' })
-    )
-    await userEvent.click(screen.getByRole('menuitem', { name: /Disable/ }))
-    const dialog = screen.getByRole('alertdialog')
-    await userEvent.click(dialog.getByRole('button', { name: 'Cancel' }))
-
-    await expect.element(dialog).not.toBeInTheDocument()
-    expect(toast.success).not.toHaveBeenCalled()
-    expect(
-      screen.getByText('Disabled', { exact: true }).elements()
-    ).toHaveLength(1)
-  })
-
-  it('enables a disabled user', async () => {
-    const screen = await renderUsers()
-
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Open actions for bob@example.com' })
-    )
-    await userEvent.click(screen.getByRole('menuitem', { name: /Enable/ }))
-    const dialog = screen.getByRole('alertdialog')
-    await userEvent.click(dialog.getByRole('button', { name: 'Enable' }))
-
-    expect(toast.success).toHaveBeenCalledWith('Enabled bob@example.com')
     await expect
-      .element(screen.getByText('Disabled', { exact: true }))
+      .element(screen.getByRole('columnheader').getByRole('button'))
       .not.toBeInTheDocument()
   })
 
-  it('shows user details with the apps & roles preview', async () => {
-    const screen = await renderUsers()
-
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Open actions for alice@example.com' })
-    )
-    await userEvent.click(
-      screen.getByRole('menuitem', { name: /View details/ })
-    )
-
-    const sheet = screen.getByRole('dialog')
+  it('has no row-selection checkboxes and no bulk toolbar', async () => {
+    const { client } = fakeApi(() => usersPage())
+    const screen = await renderUsers(client)
     await expect
-      .element(sheet.getByRole('heading', { name: 'Alice Nguyen' }))
+      .element(screen.getByText('alice@example.com', { exact: true }))
       .toBeVisible()
-    await expect.element(sheet.getByText(USERS[0].id)).toBeVisible()
-    await expect.element(sheet.getByText('Preview')).toBeVisible()
+    await expect.element(screen.getByRole('checkbox')).not.toBeInTheDocument()
+    await expect
+      .element(screen.getByRole('button', { name: 'Disable selected users' }))
+      .not.toBeInTheDocument()
   })
 
-  it('bulk disables selected active users after confirmation', async () => {
-    const screen = await renderUsers()
-
-    await userEvent.click(
-      screen.getByRole('checkbox', { name: 'Select alice@example.com' })
-    )
-    await userEvent.click(
-      screen.getByRole('checkbox', { name: 'Select carol@example.com' })
-    )
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Disable selected users' })
-    )
-
-    const dialog = screen.getByRole('alertdialog')
-    await expect
-      .element(dialog.getByRole('heading', { name: 'Disable 2 users' }))
-      .toBeVisible()
-    await expect.element(dialog.getByText('carol@example.com')).toBeVisible()
-    await userEvent.click(dialog.getByRole('button', { name: 'Disable' }))
-
-    expect(toast.success).toHaveBeenCalledWith('Disabled 2 users')
-    expect(
-      screen.getByText('Disabled', { exact: true }).elements()
-    ).toHaveLength(3)
-  })
-
-  it('without admin:users:write Enable/Disable and bulk Disable are hidden', async () => {
-    const screen = await render(
-      <WithPermissions granted={['admin:users:read']}>
-        <UsersProvider initialUsers={USERS}>
-          <Table />
-        </UsersProvider>
-      </WithPermissions>
-    )
+  it('without admin:users:write Enable/Disable are hidden and View details shows', async () => {
+    const { client } = fakeApi(() => usersPage())
+    const screen = await renderUsers(client, ['admin:users:read'])
     await userEvent.click(
       screen.getByRole('button', { name: 'Open actions for alice@example.com' })
     )
@@ -256,14 +256,6 @@ describe('UsersTable', () => {
       .toBeInTheDocument()
     await expect
       .element(screen.getByRole('menuitem', { name: /Disable/ }))
-      .not.toBeInTheDocument()
-    await userEvent.keyboard('{Escape}')
-
-    await userEvent.click(
-      screen.getByRole('checkbox', { name: 'Select alice@example.com' })
-    )
-    await expect
-      .element(screen.getByRole('button', { name: 'Disable selected users' }))
       .not.toBeInTheDocument()
   })
 })

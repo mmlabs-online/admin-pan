@@ -6,7 +6,7 @@ import { ProfileDropdown } from '@/components/profile-dropdown'
 import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { UsersDialogs } from './components/users-dialogs'
-import { UsersProvider, useUsers } from './components/users-provider'
+import { UsersProvider } from './components/users-provider'
 import { UsersTable } from './components/users-table'
 
 const route = getRouteApi('/_authenticated/users/')
@@ -23,7 +23,6 @@ export function Users() {
 function UsersPage() {
   const search = route.useSearch()
   const navigate = route.useNavigate()
-  const { users } = useUsers()
 
   return (
     <>
@@ -41,7 +40,7 @@ function UsersPage() {
             mmlabs accounts across all apps
           </p>
         </div>
-        <UsersTable data={users} search={search} navigate={navigate} />
+        <UsersTable search={search} navigate={navigate} />
       </Main>
 
       <UsersDialogs />
