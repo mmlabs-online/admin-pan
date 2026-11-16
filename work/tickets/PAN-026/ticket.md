@@ -7,7 +7,7 @@
 | Areas | architecture, security |
 | Attempts | 0 |
 | Created | 2026-11-16 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/8 |
 
 ## Goal
 Clear the `pnpm audit --prod` advisories (2 critical, 12 high, 7 moderate, 1 low on 2026-11-16) by upgrading the packages that pull them in, without changing app behaviour, and keep them from coming back unnoticed.
