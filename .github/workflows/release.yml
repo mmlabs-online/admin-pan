@@ -33,7 +33,7 @@ env:
 
 jobs:
   release:
-    runs-on: ubuntu-latest           # GitHub's runner: app code never runs on the home server
+    runs-on: ubuntu-24.04           # GitHub's runner: app code never runs on the home server
     timeout-minutes: 30
     environment: release             # secrets live here, limited to release/v* branches
     permissions:
@@ -73,7 +73,7 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           for name in DH_USER DH_TOKEN DEPLOY_TOKEN; do
             if [ -z "${!name}" ]; then
-              echo "::error::repository secret for $name is empty (see docs/deploy.md, One-time setup)"; exit 1
+              echo "::error::secret for $name is empty in GitHub Environment 'release' (not a repository secret; see docs/deploy.md, One-time setup)"; exit 1
             fi
           done
           if ! [[ "$TURNSTILE_SITE_KEY" =~ ^0x[A-Za-z0-9_-]{10,}$ ]]; then

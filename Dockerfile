@@ -14,12 +14,13 @@ ARG VITE_APP_KEY
 ARG VITE_TURNSTILE_SITE_KEY=
 # The values end up in the bundle and in the nginx CSP, so validate them before use.
 RUN set -eu; \
-    printf '%s\n' "$VITE_API_BASE_URL" | grep -Eq '^https://[a-z0-9.-]+(:[0-9]{1,5})?$' \
-      || { echo "VITE_API_BASE_URL must be an https origin (no path, no trailing slash)"; exit 1; }; \
-    printf '%s\n' "$VITE_APP_KEY" | grep -Eq '^[a-z][a-z0-9-]*$' \
-      || { echo "VITE_APP_KEY must match ^[a-z][a-z0-9-]*$"; exit 1; }; \
-    printf '%s\n' "$VITE_TURNSTILE_SITE_KEY" | grep -Eq '^[0-9A-Za-z_-]*$' \
-      || { echo "VITE_TURNSTILE_SITE_KEY has invalid characters"; exit 1; }; \
+    validate() { \
+      if [ "$(printf '%s' "$2" | wc -l)" != 0 ] || { [ "$4" = required ] && [ -z "$2" ]; } \
+        || { [ -n "$2" ] && ! printf '%s' "$2" | grep -Eqx "$3"; }; then echo "$1 is invalid: $5"; exit 1; fi; \
+    }; \
+    validate VITE_API_BASE_URL "$VITE_API_BASE_URL" '^https://[a-z0-9.-]+(:[0-9]{1,5})?$' required "must be an https origin (no path, no trailing slash)"; \
+    validate VITE_APP_KEY "$VITE_APP_KEY" '^[a-z][a-z0-9-]*$' required "must match ^[a-z][a-z0-9-]*$"; \
+    validate VITE_TURNSTILE_SITE_KEY "$VITE_TURNSTILE_SITE_KEY" '^[0-9A-Za-z_-]*$' optional "invalid characters"; \
     export VITE_API_BASE_URL VITE_APP_KEY VITE_TURNSTILE_SITE_KEY; \
     pnpm build; \
     extra="$(find dist -mindepth 1 \( -name '*.map' -o -name '.*' \))"; \

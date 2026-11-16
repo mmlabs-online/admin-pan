@@ -49,3 +49,22 @@ None.
 ### Scope self-check
 - Could the diff be smaller? No; every file is in the plan.
 - Diff size: mostly new config/script/docs files (about 700 lines in admin-pan), 188 + 1 lines in the deployment repo.
+
+## Attempt 2 (REWORK)
+
+### Fixed
+- review Issue 1: `nginx/default.conf` `/assets/` Cache-Control no longer has `always`, so a 404 is not `immutable`. `scripts/smoke-image.sh` asserts the `/assets/does-not-exist.js` 404 has no `immutable`/`max-age=31536000`. Also (optional nit) `full_headers` is now checked on the 404 and 405 responses.
+- review Issue 2: `docs/deploy.md` set-admin-origins bullet replaced with the exact text from review.md.
+- security 1: `release.yml` guard message now points to GitHub Environment `release`, not repository secrets.
+- security 2: `Dockerfile` uses one `validate` function for all three args: rejects embedded newlines (`wc -l`), empty when required, then whole-value `grep -Eqx` (empty allowed only for the optional Turnstile key).
+
+### Out-of-plan files (required)
+- `.github/workflows/ci.yml` (jobs `check`, `image`) and `.github/workflows/release.yml`: `runs-on: ubuntu-latest` -> `ubuntu-24.04`. Reason: `ubuntu-latest` is now Ubuntu 26.04 and Playwright 1.59.1 has no Chromium for it, so `pnpm test:browser:install` fails on every CI run (orchestrator request).
+
+### Checks (actual)
+- typecheck, lint: clean; format:check: "All matched files use Prettier code style!"
+- pnpm test (PLAYWRIGHT_CHROMIUM_PATH set): 45 files, 274 tests passed
+- pnpm build: built; pnpm api:types: no diff
+- Docker build (scratchpad copy with proxy CA only) + `scripts/smoke-image.sh`: "smoke test passed", incl. "asset 404 is not cached as immutable" and 404/405 security headers.
+- Negative builds all fail in the build stage: http://evil, missing API URL ("parameter not set"), empty APP_KEY, Turnstile `a;b`, API URL with embedded newline ("VITE_API_BASE_URL is invalid"). Positive build with empty Turnstile key succeeds.
+- Deployment repo: no change needed.

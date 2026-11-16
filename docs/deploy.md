@@ -110,8 +110,9 @@ workflow in the deployment repo offers the command `set-admin-origins`.
    `set-admin-origins`, origins `https://admin-portal.mmlabs.online` (no trailing slash, no
    wildcard), `dry_run` **on**.
 2. Approve the `org-admin-api-ops` environment and read the run summary.
-   - The `origins:` line shows the current set. The command **replaces** the set (at most 2
-     origins): if another origin must stay, list both.
+   - The `origins:` line shows the set **after** the change; any `- origin …` line is an origin
+     this run would remove. The command **replaces** the set (at most 2 origins): if a
+     `- origin` line names an origin that must stay, re-run with both origins.
    - Check the line `+ origin https://admin-portal.mmlabs.online`.
 3. Run again with `dry_run` off. The API applies the change within 60 s.
 4. Check: open `https://admin-portal.mmlabs.online/forgot-password`, submit an address you own and

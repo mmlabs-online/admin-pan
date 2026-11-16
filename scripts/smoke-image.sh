@@ -113,11 +113,15 @@ check "asset security headers" full_headers "$WORK/asset.h"
 for p in /assets/does-not-exist.js /.env /.git/config /x.map; do
   fetch "$p" nf
   check "GET $p is 404" test "$(status_of "$WORK/nf.h")" = 404
+  check "404 $p security headers" full_headers "$WORK/nf.h"
 done
+fetch /assets/does-not-exist.js nf
+check "asset 404 is not cached as immutable" test -z "$(header_value "$WORK/nf.h" Cache-Control | grep -E 'immutable|max-age=31536000' || true)"
 
 # 8. other methods
 fetch / post -X POST
 check "POST / is 405" test "$(status_of "$WORK/post.h")" = 405
+check "405 security headers" full_headers "$WORK/post.h"
 
 # 9. baked content
 check "bundle contains $API" docker exec "$NAME" sh -c "grep -rl -F '$API' /usr/share/nginx/html/assets | grep -q ."
