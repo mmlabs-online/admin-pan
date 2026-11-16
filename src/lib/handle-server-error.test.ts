@@ -73,4 +73,32 @@ describe('handleServerError', () => {
     expect(log).not.toHaveBeenCalled()
     log.mockRestore()
   })
+
+  it('403 toasts the code-specific copy, not the server message', () => {
+    handleServerError(
+      apiError({
+        status: 403,
+        code: 'permission_denied',
+        message: 'secret text',
+        details: { required: 'admin:users:write' },
+      })
+    )
+
+    expect(toastError).toHaveBeenCalledWith(
+      "You don't have permission to do this",
+      {
+        description:
+          "Your admin role doesn't include the permission this needs. Required permission: admin:users:write.",
+      }
+    )
+    expect(JSON.stringify(toastError.mock.calls)).not.toContain('secret text')
+  })
+
+  it('auth-kind 403s stay silent', () => {
+    handleServerError(
+      apiError({ kind: 'auth', status: 403, code: 'not_member' })
+    )
+
+    expect(toastError).not.toHaveBeenCalled()
+  })
 })

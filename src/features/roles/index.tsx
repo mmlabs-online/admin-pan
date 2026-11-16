@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { ConfigDrawer } from '@/components/config-drawer'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
+import { Can } from '@/components/permissions/can'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
@@ -59,11 +60,18 @@ export function RolesContent({ search, navigate }: RolesContentProps) {
 
 function NewRoleButton() {
   const { setOpen } = useRoles()
-  // admin:apps:write (planned name)
   return (
-    <Button onClick={() => setOpen('create')}>
-      <Plus className='size-4' />
-      New role
-    </Button>
+    <Can action='roles.create' disable>
+      {({ disabled, describedBy }) => (
+        <Button
+          disabled={disabled}
+          aria-describedby={describedBy}
+          onClick={() => setOpen('create')}
+        >
+          <Plus className='size-4' />
+          New role
+        </Button>
+      )}
+    </Can>
   )
 }

@@ -1,3 +1,4 @@
+import { WithPermissions } from '@/test-utils/permissions'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { userEvent } from 'vitest/browser'
@@ -177,5 +178,40 @@ describe('Apps page', () => {
       })
     )
     await expect.element(toggle).toBeChecked()
+  })
+
+  it('without admin:apps:write and admin:roles:manage, Register app is disabled, the row menu is hidden and the admin-only switch is disabled', async () => {
+    const screen = await render(
+      <WithPermissions granted={['admin:apps:read']}>
+        <AppsContent search={{}} navigate={vi.fn()} />
+      </WithPermissions>
+    )
+    await expect
+      .element(screen.getByRole('button', { name: 'Register app' }))
+      .toBeDisabled()
+    await expect
+      .element(screen.getByRole('button', { name: 'Open actions for stoktok' }))
+      .not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'View stoktok' }))
+    await userEvent.click(screen.getByRole('tab', { name: /Permissions/ }))
+    await expect
+      .element(screen.getByRole('button', { name: 'Add permission' }))
+      .toBeDisabled()
+    await expect.element(screen.getByRole('switch').first()).toBeDisabled()
+  })
+
+  it('with admin:apps:write and admin:roles:manage the controls are enabled', async () => {
+    const screen = await render(
+      <WithPermissions granted={['admin:apps:write', 'admin:roles:manage']}>
+        <AppsContent search={{}} navigate={vi.fn()} />
+      </WithPermissions>
+    )
+    await expect
+      .element(screen.getByRole('button', { name: 'Register app' }))
+      .toBeEnabled()
+    await expect
+      .element(screen.getByRole('button', { name: 'Open actions for stoktok' }))
+      .toBeInTheDocument()
   })
 })

@@ -1,4 +1,5 @@
 import { type LinkProps } from '@tanstack/react-router'
+import { type Requirement } from '@/lib/permissions/registry'
 
 type Team = {
   name: string
@@ -14,11 +15,15 @@ type BaseNavItem = {
 
 type NavLink = BaseNavItem & {
   url: LinkProps['to'] | (string & {})
+  permission: Requirement
   items?: never
 }
 
 type NavCollapsible = BaseNavItem & {
-  items: (BaseNavItem & { url: LinkProps['to'] | (string & {}) })[]
+  items: (BaseNavItem & {
+    url: LinkProps['to'] | (string & {})
+    permission: Requirement
+  })[]
   url?: never
 }
 

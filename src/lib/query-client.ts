@@ -46,7 +46,7 @@ export function createQueryClient() {
     },
     queryCache: new QueryCache({
       onError: (error) => {
-        // 401 is handled once by the API client's hook; 403 is left to the caller.
+        // 401 is handled once by the API client's hook; 403 is left to the caller (queryView + ForbiddenPanel, ADR 0004).
         if (isTransient(error)) toast.error('Server or network error')
       },
     }),

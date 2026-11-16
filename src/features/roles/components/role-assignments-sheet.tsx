@@ -31,6 +31,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { ConfirmDialog } from '@/components/confirm-dialog'
+import { Can } from '@/components/permissions/can'
 import { SelectDropdown } from '@/components/select-dropdown'
 import {
   assignRole,
@@ -93,11 +94,19 @@ export function RoleAssignmentsSheet({
         </SheetHeader>
         <div className='flex-1 space-y-4 overflow-y-auto px-4 pb-4'>
           {!assigning && (
-            // admin:roles:assign (planned name)
-            <Button size='sm' onClick={() => setAssigning(true)}>
-              <UserPlus className='size-4' />
-              Assign role
-            </Button>
+            <Can action='roles.assign' disable>
+              {({ disabled, describedBy }) => (
+                <Button
+                  size='sm'
+                  disabled={disabled}
+                  aria-describedby={describedBy}
+                  onClick={() => setAssigning(true)}
+                >
+                  <UserPlus className='size-4' />
+                  Assign role
+                </Button>
+              )}
+            </Can>
           )}
           {assigning && (
             <AssignRoleForm role={role} onDone={() => setAssigning(false)} />
@@ -124,16 +133,17 @@ export function RoleAssignmentsSheet({
                         {row.expires_at ? formatDate(row.expires_at) : 'Never'}
                       </TableCell>
                       <TableCell className='text-end'>
-                        {/* admin:roles:assign (planned name) */}
-                        <Button
-                          variant='ghost'
-                          size='sm'
-                          className='text-red-600'
-                          aria-label={`Revoke ${role.key} from ${row.email} (${row.scope})`}
-                          onClick={() => setPendingRevoke(row)}
-                        >
-                          Revoke
-                        </Button>
+                        <Can action='roles.revoke'>
+                          <Button
+                            variant='ghost'
+                            size='sm'
+                            className='text-red-600'
+                            aria-label={`Revoke ${role.key} from ${row.email} (${row.scope})`}
+                            onClick={() => setPendingRevoke(row)}
+                          >
+                            Revoke
+                          </Button>
+                        </Can>
                       </TableCell>
                     </TableRow>
                   ))

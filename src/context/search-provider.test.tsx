@@ -1,3 +1,4 @@
+import { WithPermissions } from '@/test-utils/permissions'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, type RenderResult } from 'vitest-browser-react'
 import { userEvent } from 'vitest/browser'
@@ -157,5 +158,22 @@ describe('SearchProvider and CommandMenu', () => {
     await expect
       .element(screen.getByText('No results found.'))
       .toBeInTheDocument()
+  })
+
+  it('hides denied nav items in the command menu', async () => {
+    const screen = await render(
+      <WithPermissions granted={[]}>
+        <SearchProvider>{null}</SearchProvider>
+      </WithPermissions>
+    )
+
+    await openCommandPalette(screen)
+
+    await expect
+      .element(screen.getByRole('option', { name: 'Settings Account' }))
+      .toBeInTheDocument()
+    await expect
+      .element(screen.getByRole('option', { name: 'Users' }))
+      .not.toBeInTheDocument()
   })
 })

@@ -1,5 +1,6 @@
 import { isApiError } from '@/api'
 import { toast } from 'sonner'
+import { forbiddenCopy, isForbidden } from '@/lib/forbidden'
 import { formatRetryAfter } from '@/lib/retry-after'
 
 export function handleServerError(error: unknown) {
@@ -12,6 +13,15 @@ export function handleServerError(error: unknown) {
         toast.error(
           `Too many requests. Try again in ${formatRetryAfter(error.retryAfter)}.`
         )
+      return
+    }
+    if (isForbidden(error)) {
+      const c = forbiddenCopy(error)
+      toast.error(c.title, {
+        description:
+          c.description +
+          (c.required ? ` Required permission: ${c.required}.` : ''),
+      })
       return
     }
     toast.error(error.message.slice(0, 200))

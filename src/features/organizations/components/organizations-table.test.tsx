@@ -1,3 +1,4 @@
+import { WithPermissions } from '@/test-utils/permissions'
 import { describe, expect, it } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { userEvent } from 'vitest/browser'
@@ -64,5 +65,35 @@ describe('OrganizationsTable', () => {
     await expect
       .element(screen.getByText('Initech', { exact: true }))
       .not.toBeInTheDocument()
+  })
+
+  it('with only admin:organizations:read the row menu and New organization are hidden/disabled; with write they are shown', async () => {
+    const readOnly = await render(
+      <WithPermissions granted={['admin:organizations:read']}>
+        <OrganizationsHarness />
+      </WithPermissions>
+    )
+    await expect
+      .element(readOnly.getByRole('button', { name: 'New organization' }))
+      .toBeDisabled()
+    await expect
+      .element(readOnly.getByText('Requires admin:organizations:write'))
+      .toBeVisible()
+    await expect
+      .element(readOnly.getByRole('button', { name: /^Actions for/ }))
+      .not.toBeInTheDocument()
+    await readOnly.unmount()
+
+    const writer = await render(
+      <WithPermissions granted={['admin:organizations:write']}>
+        <OrganizationsHarness />
+      </WithPermissions>
+    )
+    await expect
+      .element(writer.getByRole('button', { name: 'New organization' }))
+      .toBeEnabled()
+    await expect
+      .element(writer.getByRole('button', { name: 'Actions for Acme Corp' }))
+      .toBeInTheDocument()
   })
 })

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { WithPermissions } from '@/test-utils/permissions'
 import { toast } from 'sonner'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
@@ -237,5 +238,32 @@ describe('UsersTable', () => {
     expect(
       screen.getByText('Disabled', { exact: true }).elements()
     ).toHaveLength(3)
+  })
+
+  it('without admin:users:write Enable/Disable and bulk Disable are hidden', async () => {
+    const screen = await render(
+      <WithPermissions granted={['admin:users:read']}>
+        <UsersProvider initialUsers={USERS}>
+          <Table />
+        </UsersProvider>
+      </WithPermissions>
+    )
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Open actions for alice@example.com' })
+    )
+    await expect
+      .element(screen.getByRole('menuitem', { name: /View details/ }))
+      .toBeInTheDocument()
+    await expect
+      .element(screen.getByRole('menuitem', { name: /Disable/ }))
+      .not.toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+
+    await userEvent.click(
+      screen.getByRole('checkbox', { name: 'Select alice@example.com' })
+    )
+    await expect
+      .element(screen.getByRole('button', { name: 'Disable selected users' }))
+      .not.toBeInTheDocument()
   })
 })

@@ -25,6 +25,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { ConfirmDialog } from '@/components/confirm-dialog'
+import { Can } from '@/components/permissions/can'
 import {
   addPermission,
   setPermissionAdmin,
@@ -70,11 +71,19 @@ export function AppPermissionsTab({ app }: { app: App }) {
             : 'This app has no default role.'}
         </p>
         {!adding && (
-          // admin:apps:write (planned name)
-          <Button size='sm' onClick={() => setAdding(true)}>
-            <Plus className='size-4' />
-            Add permission
-          </Button>
+          <Can action='apps.createPermission' disable>
+            {({ disabled, describedBy }) => (
+              <Button
+                size='sm'
+                disabled={disabled}
+                aria-describedby={describedBy}
+                onClick={() => setAdding(true)}
+              >
+                <Plus className='size-4' />
+                Add permission
+              </Button>
+            )}
+          </Can>
         )}
       </div>
 
@@ -106,12 +115,17 @@ export function AppPermissionsTab({ app }: { app: App }) {
                     {permission.description}
                   </TableCell>
                   <TableCell className='text-end'>
-                    {/* admin:apps:write (planned name) */}
-                    <Switch
-                      checked={permission.is_admin}
-                      aria-label={`Admin only: ${permission.key}`}
-                      onCheckedChange={() => setPendingToggle(permission)}
-                    />
+                    <Can action='apps.updatePermission' disable>
+                      {({ disabled, describedBy }) => (
+                        <Switch
+                          checked={permission.is_admin}
+                          disabled={disabled}
+                          aria-describedby={describedBy}
+                          aria-label={`Admin only: ${permission.key}`}
+                          onCheckedChange={() => setPendingToggle(permission)}
+                        />
+                      )}
+                    </Can>
                   </TableCell>
                 </TableRow>
               ))
@@ -165,7 +179,7 @@ type AddPermissionFormProps = {
   onDone: () => void
 }
 
-// admin:apps:write (planned name)
+// admin:roles:manage
 function AddPermissionForm({
   app,
   existingKeys,

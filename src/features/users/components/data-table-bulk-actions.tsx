@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/tooltip'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { DataTableBulkActions as BulkActionsToolbar } from '@/components/data-table'
+import { Can } from '@/components/permissions/can'
 import { type User } from '../data/schema'
 import { useUsers } from './users-provider'
 
@@ -45,23 +46,25 @@ export function DataTableBulkActions({ table }: DataTableBulkActionsProps) {
   return (
     <>
       <BulkActionsToolbar table={table} entityName='user'>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant='destructive'
-              size='icon'
-              onClick={() => setConfirmOpen(true)}
-              disabled={targets.length === 0}
-              className='size-8'
-              aria-label='Disable selected users'
-            >
-              <UserX />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Disable selected users</p>
-          </TooltipContent>
-        </Tooltip>
+        <Can action='users.setStatus'>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant='destructive'
+                size='icon'
+                onClick={() => setConfirmOpen(true)}
+                disabled={targets.length === 0}
+                className='size-8'
+                aria-label='Disable selected users'
+              >
+                <UserX />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Disable selected users</p>
+            </TooltipContent>
+          </Tooltip>
+        </Can>
       </BulkActionsToolbar>
 
       <ConfirmDialog
