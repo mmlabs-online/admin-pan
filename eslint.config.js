@@ -6,6 +6,17 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig } from 'eslint/config'
 import tseslint from 'typescript-eslint'
 
+const httpPaths = [
+  { name: 'axios', message: 'HTTP only via src/api (R2)' },
+  { name: 'openapi-fetch', message: 'HTTP only via src/api (R2)' },
+]
+const httpPatterns = [
+  {
+    group: ['ky', 'ofetch', 'axios/*', 'openapi-fetch/*'],
+    message: 'HTTP only via src/api (R2)',
+  },
+]
+
 export default defineConfig(
   { ignores: ['dist', 'src/components/ui', 'src/api/schema.d.ts'] },
   {
@@ -63,15 +74,19 @@ export default defineConfig(
         'error',
         {
           paths: [
-            { name: 'axios', message: 'HTTP only via src/api (R2)' },
-            { name: 'openapi-fetch', message: 'HTTP only via src/api (R2)' },
-          ],
-          patterns: [
+            ...httpPaths,
             {
-              group: ['ky', 'ofetch', 'axios/*', 'openapi-fetch/*'],
-              message: 'HTTP only via src/api (R2)',
+              name: '@mmlabs/auth-client',
+              message: 'Only src/api uses the auth client core (R2/R3)',
+            },
+            {
+              name: '@mmlabs/auth-client/react',
+              importNames: ['useAccessToken'],
+              message:
+                'fetchWithToken bypasses src/api; only the auth gate may use useAccessToken (R2)',
             },
           ],
+          patterns: httpPatterns,
         },
       ],
       'no-restricted-globals': [
@@ -91,6 +106,35 @@ export default defineConfig(
           object: 'navigator',
           property: 'sendBeacon',
           message: 'HTTP only via src/api (R2)',
+        },
+      ],
+    },
+  },
+  {
+    // test-utils builds real auth clients
+    files: ['src/test-utils/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { paths: httpPaths, patterns: httpPatterns },
+      ],
+    },
+  },
+  {
+    // The gate may use useAccessToken (token check), but not the core client.
+    files: ['src/features/auth/gate/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            ...httpPaths,
+            {
+              name: '@mmlabs/auth-client',
+              message: 'Only src/api uses the auth client core (R2/R3)',
+            },
+          ],
+          patterns: httpPatterns,
         },
       ],
     },

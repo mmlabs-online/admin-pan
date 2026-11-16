@@ -22,6 +22,17 @@ export function shouldRetryQuery(
   return failureCount < 3
 }
 
+/** Drops cached server data on every auth event, so one account never sees another's. */
+export function clearOnAuthChange(
+  queryClient: QueryClient,
+  subscribe: (listener: () => void) => () => void
+) {
+  return subscribe(() => {
+    void queryClient.cancelQueries()
+    queryClient.clear()
+  })
+}
+
 export function createQueryClient() {
   return new QueryClient({
     defaultOptions: {

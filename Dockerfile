@@ -7,6 +7,9 @@ WORKDIR /app
 ENV CI=true PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 RUN npm install -g pnpm@10 --no-fund --no-audit
 COPY package.json pnpm-lock.yaml ./
+# The auth library is vendored from its release artifact: verify it before installing.
+COPY vendor/ vendor/
+RUN sha256sum -c vendor/SHA256SUMS
 RUN pnpm install --frozen-lockfile
 COPY . .
 ARG VITE_API_BASE_URL

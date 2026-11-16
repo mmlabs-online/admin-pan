@@ -1,12 +1,15 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Link, useNavigate } from '@tanstack/react-router'
+import { useMutation } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
+import { authFailure } from '@/api'
+import { useAuth } from '@mmlabs/auth-client/react'
 import { Loader2, LogIn } from 'lucide-react'
-import { toast } from 'sonner'
-import { useAuthStore } from '@/stores/auth-store'
-import { sleep, cn } from '@/lib/utils'
+import { formatRetryAfter } from '@/lib/retry-after'
+import { safeRedirect } from '@/lib/safe-redirect'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -18,16 +21,35 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/password-input'
+import { Turnstile, type TurnstileHandle } from '@/components/turnstile'
 
+// The server owns the password policy, so only "not empty" is checked here.
 const formSchema = z.object({
   email: z.email({
     error: (iss) => (iss.input === '' ? 'Please enter your email.' : undefined),
   }),
-  password: z
-    .string()
-    .min(1, 'Please enter your password.')
-    .min(7, 'Password must be at least 7 characters long.'),
+  password: z.string().min(1, 'Please enter your password.'),
 })
+
+function messageFor(e: unknown): string {
+  const f = authFailure(e)
+  switch (f.kind) {
+    case 'invalid_credentials':
+      return 'Email or password is incorrect.'
+    case 'turnstile_required':
+      return 'Complete the verification, then sign in again.'
+    case 'turnstile_failed':
+      return 'Verification failed. Please try again.'
+    case 'rate_limited':
+      return `Too many attempts. Try again in ${formatRetryAfter(f.retryAfter)}.`
+    case 'network':
+      return 'Could not reach the server. Please try again.'
+    case 'validation':
+      return 'Please check your email and password.'
+    default:
+      return 'Something went wrong. Please try again later.'
+  }
+}
 
 interface UserAuthFormProps extends React.HTMLAttributes<HTMLFormElement> {
   redirectTo?: string
@@ -38,52 +60,53 @@ export function UserAuthForm({
   redirectTo,
   ...props
 }: UserAuthFormProps) {
-  const [isLoading, setIsLoading] = useState(false)
   const navigate = useNavigate()
-  const { auth } = useAuthStore()
+  const { login } = useAuth()
+  const [needsTurnstile, setNeedsTurnstile] = useState(false)
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
+  const turnstile = useRef<TurnstileHandle>(null)
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      email: '',
-      password: '',
+    defaultValues: { email: '', password: '' },
+  })
+
+  // The password goes straight to the auth library and nowhere else (R3).
+  const mutation = useMutation({
+    retry: false,
+    gcTime: 0,
+    meta: { handlesOwnErrors: true },
+    mutationFn: (v: {
+      email: string
+      password: string
+      turnstileToken?: string
+    }) => login(v),
+    onError: (e) => {
+      if (authFailure(e).kind === 'turnstile_required') setNeedsTurnstile(true)
+    },
+    onSuccess: () => {
+      void navigate({ href: safeRedirect(redirectTo), replace: true })
+    },
+    onSettled: () => {
+      form.resetField('password')
+      // the Turnstile token is single-use
+      turnstile.current?.reset()
     },
   })
 
   function onSubmit(data: z.infer<typeof formSchema>) {
-    setIsLoading(true)
-
-    toast.promise(sleep(2000), {
-      loading: 'Signing in...',
-      success: () => {
-        setIsLoading(false)
-
-        // Mock sign-in until @mmlabs/auth-client is wired (PAN-010)
-        const mockUser = {
-          accountNo: 'ACC001',
-          email: data.email,
-          role: ['admin:*'],
-          exp: Date.now() + 24 * 60 * 60 * 1000, // 24 hours from now
-        }
-
-        // Set user and access token
-        auth.setUser(mockUser)
-        auth.setAccessToken('mock-access-token')
-
-        // Redirect to the stored location or default to dashboard
-        const targetPath = redirectTo || '/'
-        navigate({ to: targetPath, replace: true })
-
-        return `Welcome back, ${data.email}!`
-      },
-      error: 'Error',
+    mutation.mutate({
+      ...data,
+      ...(needsTurnstile && turnstileToken ? { turnstileToken } : {}),
     })
   }
 
   return (
     <Form {...form}>
       <form
-        onSubmit={form.handleSubmit(onSubmit)}
+        method='post'
+        noValidate
+        onSubmit={(e) => void form.handleSubmit(onSubmit)(e)}
         className={cn('grid gap-3', className)}
         {...props}
       >
@@ -94,7 +117,12 @@ export function UserAuthForm({
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input placeholder='name@example.com' {...field} />
+                <Input
+                  type='email'
+                  autoComplete='username'
+                  placeholder='name@example.com'
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -104,23 +132,40 @@ export function UserAuthForm({
           control={form.control}
           name='password'
           render={({ field }) => (
-            <FormItem className='relative'>
+            <FormItem>
               <FormLabel>Password</FormLabel>
               <FormControl>
-                <PasswordInput placeholder='********' {...field} />
+                <PasswordInput
+                  autoComplete='current-password'
+                  placeholder='********'
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
-              <Link
-                to='/forgot-password'
-                className='absolute inset-e-0 -top-0.5 text-sm font-medium text-muted-foreground hover:opacity-75'
-              >
-                Forgot password?
-              </Link>
             </FormItem>
           )}
         />
-        <Button className='mt-2' disabled={isLoading}>
-          {isLoading ? <Loader2 className='animate-spin' /> : <LogIn />}
+        <p className='text-sm text-muted-foreground'>
+          Forgot your password? Reset it from any mmlabs app you use.
+        </p>
+        {needsTurnstile && (
+          <Turnstile ref={turnstile} onToken={setTurnstileToken} />
+        )}
+        {mutation.isError && (
+          <p role='alert' className='text-sm text-destructive'>
+            {messageFor(mutation.error)}
+          </p>
+        )}
+        <Button
+          className='mt-2'
+          disabled={mutation.isPending || (needsTurnstile && !turnstileToken)}
+          aria-busy={mutation.isPending}
+        >
+          {mutation.isPending ? (
+            <Loader2 className='animate-spin' />
+          ) : (
+            <LogIn />
+          )}
           Sign in
         </Button>
       </form>

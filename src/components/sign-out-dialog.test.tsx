@@ -1,56 +1,97 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render } from 'vitest-browser-react'
+import {
+  ACCOUNT_A,
+  ACCOUNT_B,
+  createTestAuthClient,
+  fakeIdentityApi,
+  memoryStorage,
+  renderWithAuth,
+  row,
+  type Handler,
+} from '@/test-utils/auth'
+import { toast } from 'sonner'
+import { describe, expect, it, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { SignOutDialog } from './sign-out-dialog'
 
-const navigate = vi.fn()
-const reset = vi.fn()
+vi.mock('sonner', () => ({ toast: { error: vi.fn() } }))
 
-const MOCK_HREF = 'https://app.test/dashboard?tab=1'
+const LOGOUT = 'POST /api/v1/auth/logout'
 
-vi.mock('@/stores/auth-store', () => ({
-  useAuthStore: () => ({
-    auth: { reset },
-  }),
-}))
-
-vi.mock('@tanstack/react-router', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@tanstack/react-router')>()
-  return {
-    ...actual,
-    useNavigate: () => navigate,
-    useLocation: () => ({ href: MOCK_HREF }),
-  }
-})
+async function setup(scope: 'account' | 'all', logout?: Handler) {
+  const api = fakeIdentityApi({
+    accounts: [row(ACCOUNT_A, 'a@staff.test'), row(ACCOUNT_B, 'b@staff.test')],
+    routes: logout ? { [LOGOUT]: logout } : {},
+  })
+  const client = createTestAuthClient(api, {
+    storage: memoryStorage({ mm_account_id: ACCOUNT_A }).storage,
+  })
+  const onOpenChange = vi.fn()
+  const rendered = await renderWithAuth({
+    client,
+    path: '/users?x=1',
+    // The dialog sits inside the app (below the gate), like NavUser.
+    extra: <SignOutDialog open onOpenChange={onOpenChange} scope={scope} />,
+  })
+  return { api, onOpenChange, ...rendered }
+}
 
 describe('SignOutDialog', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  it('calls auth.reset and navigates to sign-in with current location as redirect', async () => {
-    const { getByRole } = await render(
-      <SignOutDialog open onOpenChange={vi.fn()} />
-    )
-
-    await userEvent.click(getByRole('button', { name: /^Sign out$/i }))
-
-    expect(reset).toHaveBeenCalledOnce()
-    expect(navigate).toHaveBeenCalledWith({
-      to: '/sign-in',
-      search: { redirect: MOCK_HREF },
-      replace: true,
+  it('account scope: confirmation names the email; confirm POSTs logout for that account and lands on the picker/sign-in without redirect', async () => {
+    const t = await setup('account')
+    await expect
+      .element(t.screen.getByText(/Sign out a@staff\.test on this browser/))
+      .toBeInTheDocument()
+    await userEvent.click(t.screen.getByRole('button', { name: /^Sign out$/ }))
+    await vi.waitFor(() => expect(t.api.count(LOGOUT)).toBe(1))
+    expect(t.api.calls.find((c) => c.path.endsWith('/logout'))?.body).toEqual({
+      account_id: ACCOUNT_A,
     })
+    expect(t.router.state.location.pathname).toBe('/')
+    expect(t.router.state.location.searchStr).toBe('')
+    await vi.waitFor(() => expect(t.onOpenChange).toHaveBeenCalledWith(false))
   })
 
-  it('does not call reset or navigate when Cancel is clicked', async () => {
-    const { getByRole } = await render(
-      <SignOutDialog open onOpenChange={vi.fn()} />
+  it('all scope: names "all N accounts"; confirm logs out all and goes to /sign-in with no redirect', async () => {
+    const t = await setup('all')
+    await expect
+      .element(t.screen.getByText(/Sign out all 2 accounts on this browser/))
+      .toBeInTheDocument()
+    await userEvent.click(
+      t.screen.getByRole('button', { name: /^Sign out all$/ })
     )
+    await vi.waitFor(() => expect(t.api.count(LOGOUT)).toBe(1))
+    expect(t.api.calls.find((c) => c.path.endsWith('/logout'))?.body).toEqual({
+      all: true,
+    })
+    await vi.waitFor(() =>
+      expect(t.router.state.location.pathname).toBe('/sign-in')
+    )
+    expect(t.router.state.location.searchStr).toBe('')
+  })
 
-    await userEvent.click(getByRole('button', { name: /^Cancel$/i }))
+  it('cancel sends nothing', async () => {
+    const t = await setup('account')
+    await userEvent.click(t.screen.getByRole('button', { name: /^Cancel$/ }))
+    expect(t.api.count(LOGOUT)).toBe(0)
+    expect(t.router.state.location.pathname).toBe('/users')
+  })
 
-    expect(reset).not.toHaveBeenCalled()
-    expect(navigate).not.toHaveBeenCalled()
+  it('server failure shows an error toast (not "signed out") and still ends local state', async () => {
+    const t = await setup('all', () => {
+      throw new TypeError('Failed to fetch')
+    })
+    await userEvent.click(
+      t.screen.getByRole('button', { name: /^Sign out all$/ })
+    )
+    await vi.waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        expect.stringContaining('Could not reach the server')
+      )
+    )
+    // The library cleared the local selection before the failed call; the
+    // server still lists the device session, so the picker shows.
+    await expect
+      .element(t.screen.getByRole('heading', { name: 'Choose an account' }))
+      .toBeInTheDocument()
   })
 })

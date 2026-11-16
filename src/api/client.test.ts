@@ -1,5 +1,16 @@
+import {
+  ACCOUNT_A,
+  TOKEN,
+  createTestAuthClient,
+  envelope as identityEnvelope,
+  fakeIdentityApi,
+  json as identityJson,
+  memoryStorage,
+  row,
+  type Handler,
+} from '@/test-utils/auth'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { setAccessTokenProvider, setUnauthorizedHandler } from './auth-hooks'
+import { setUnauthorizedHandler } from './auth-hooks'
 import { createApiClient, unwrap } from './client'
 import { ApiError } from './errors'
 
@@ -28,19 +39,11 @@ function setup(respond: (req: Request) => Response | Promise<Response>) {
 const page = { items: [], total: 0, limit: 20, offset: 0 }
 
 afterEach(() => {
-  setAccessTokenProvider(() => null)
   setUnauthorizedHandler(() => {})
 })
 
 describe('createApiClient', () => {
-  it('sends Authorization: Bearer <token> when the provider returns a token', async () => {
-    setAccessTokenProvider(() => 'abc')
-    const { api, seen } = setup(() => json(page))
-    await api.GET('/api/v1/organizations')
-    expect(seen[0].headers.get('authorization')).toBe('Bearer abc')
-  })
-
-  it('sends no Authorization header when the provider returns null', async () => {
+  it('sends no Authorization header without a bearerFetch', async () => {
     const { api, seen } = setup(() => json(page))
     await api.GET('/api/v1/organizations')
     expect(seen[0].headers.has('authorization')).toBe(false)
@@ -176,22 +179,6 @@ describe('createApiClient', () => {
 })
 
 describe('public auth paths', () => {
-  it('never sends Authorization to /api/v1/auth/* even with a token', async () => {
-    setAccessTokenProvider(() => 'abc')
-    const { api, seen } = setup(() => new Response(null, { status: 204 }))
-    await api.POST('/api/v1/auth/password/reset', {
-      body: { token: 't', new_password: 'p' },
-    })
-    expect(seen[0].headers.has('authorization')).toBe(false)
-  })
-
-  it('still sends Authorization to admin paths', async () => {
-    setAccessTokenProvider(() => 'abc')
-    const { api, seen } = setup(() => json(page))
-    await api.GET('/api/v1/organizations')
-    expect(seen[0].headers.get('authorization')).toBe('Bearer abc')
-  })
-
   it('does not notify unauthorized for /api/v1/auth/* 401', async () => {
     const handler = vi.fn()
     setUnauthorizedHandler(handler)
@@ -210,5 +197,122 @@ describe('public auth paths', () => {
       body: { token: 't', new_password: 'p' },
     })
     expect(seen[0].credentials).toBe('omit')
+  })
+})
+
+const orgs = 'GET /api/v1/organizations'
+
+// A real AuthClient whose network is the fake identity API; bearerFetch is the
+// same wiring as getApi().
+function bearerSetup(routes: Record<string, Handler | Handler[]> = {}) {
+  const identity = fakeIdentityApi({
+    accounts: [row(ACCOUNT_A, 'a@b.c')],
+    routes,
+  })
+  const auth = createTestAuthClient(identity, {
+    storage: memoryStorage({ mm_account_id: ACCOUNT_A }).storage,
+  })
+  const bearerFetch = vi.fn((req: Request) => auth.fetchWithToken(req))
+  const api = createApiClient({
+    baseUrl: BASE,
+    fetch: identity.fakeFetch as typeof globalThis.fetch,
+    bearerFetch,
+  })
+  return { api, identity, bearerFetch }
+}
+
+describe('bearer transport (auth library)', () => {
+  it('admin paths go through bearerFetch and get Authorization: Bearer from a real AuthClient', async () => {
+    const { api, identity, bearerFetch } = bearerSetup()
+    await api.GET('/api/v1/organizations')
+    expect(bearerFetch).toHaveBeenCalledOnce()
+    const call = identity.calls.find((c) => c.path === '/api/v1/organizations')
+    expect(call?.headers.get('authorization')).toBe(`Bearer ${TOKEN}`)
+    expect(identity.count('POST /api/v1/auth/token')).toBe(1)
+  })
+
+  it('/api/v1/auth/* never goes through bearerFetch and never carries Authorization', async () => {
+    const { api, identity, bearerFetch } = bearerSetup({
+      'POST /api/v1/auth/password/reset': () =>
+        new Response(null, { status: 204 }),
+    })
+    await api.POST('/api/v1/auth/password/reset', {
+      body: { token: 't', new_password: 'p' },
+    })
+    expect(bearerFetch).not.toHaveBeenCalled()
+    expect(identity.calls[0].headers.has('authorization')).toBe(false)
+  })
+
+  it('GET 401 -> the library refreshes the token once and retries; success does not notify unauthorized', async () => {
+    const handler = vi.fn()
+    setUnauthorizedHandler(handler)
+    const { api, identity } = bearerSetup({
+      [orgs]: [
+        () => identityEnvelope(401, 'unauthorized'),
+        () => identityJson(200, page),
+      ],
+    })
+    expect(unwrap(await api.GET('/api/v1/organizations'))).toEqual(page)
+    expect(identity.count('POST /api/v1/auth/token')).toBe(2)
+    expect(handler).not.toHaveBeenCalled()
+  })
+
+  it('401 twice -> the unauthorized handler fires once', async () => {
+    const handler = vi.fn()
+    setUnauthorizedHandler(handler)
+    const { api } = bearerSetup({
+      [orgs]: () => identityEnvelope(401, 'unauthorized'),
+    })
+    await expect(api.GET('/api/v1/organizations')).rejects.toMatchObject({
+      status: 401,
+    })
+    expect(handler).toHaveBeenCalledTimes(1)
+  })
+
+  it('403 does not notify unauthorized', async () => {
+    const handler = vi.fn()
+    setUnauthorizedHandler(handler)
+    const { api } = bearerSetup({
+      [orgs]: () => identityEnvelope(403, 'permission_denied'),
+    })
+    await expect(api.GET('/api/v1/organizations')).rejects.toMatchObject({
+      status: 403,
+    })
+    expect(handler).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['not_member', 403],
+    ['email_unverified', 403],
+    ['session_invalid', 401],
+  ])(
+    'getToken rejecting with %s -> ApiError kind auth and one unauthorized notification',
+    async (code, status) => {
+      const handler = vi.fn()
+      setUnauthorizedHandler(handler)
+      const { api } = bearerSetup({
+        'POST /api/v1/auth/token': () => identityEnvelope(status, code),
+      })
+      await expect(api.GET('/api/v1/organizations')).rejects.toMatchObject({
+        kind: 'auth',
+        code,
+      })
+      expect(handler).toHaveBeenCalledTimes(1)
+    }
+  )
+
+  it('rate_limited from getToken -> kind auth with retryAfter, no notification', async () => {
+    const handler = vi.fn()
+    setUnauthorizedHandler(handler)
+    const { api } = bearerSetup({
+      'POST /api/v1/auth/token': () =>
+        identityEnvelope(429, 'rate_limited', null, { 'Retry-After': '30' }),
+    })
+    await expect(api.GET('/api/v1/organizations')).rejects.toMatchObject({
+      kind: 'auth',
+      code: 'rate_limited',
+      retryAfter: 30,
+    })
+    expect(handler).not.toHaveBeenCalled()
   })
 })

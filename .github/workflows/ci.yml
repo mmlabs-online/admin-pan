@@ -24,6 +24,7 @@ jobs:
         with:
           node-version-file: .node-version
           cache: pnpm
+      - run: sha256sum -c vendor/SHA256SUMS
       - run: pnpm install --frozen-lockfile
       - run: pnpm api:types && git diff --exit-code src/api/schema.d.ts
       - run: pnpm typecheck
