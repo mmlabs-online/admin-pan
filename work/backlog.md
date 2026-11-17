@@ -27,7 +27,7 @@ Phases: **1. UI with mock data** (PAN-001…008, done) → **2. Foundations** (P
 | PAN-012c | Retire the forgot-password page on admin (ADM-002d) | DONE | P2 | auth, ui, security | 1 | 2026-11-17 |
 | PAN-013 | Users screen on the real API | DONE | P1 | api, ui | 1 | 2026-11-16 |
 | PAN-014 | Organizations screen on the real API | DONE | P1 | api, ui | 1 | 2026-11-17 |
-| PAN-015 | Apps registry and app permissions on the real API | REVIEW | P1 | api, ui, auth | 0 | 2026-11-17 |
+| PAN-015 | Apps registry and app permissions on the real API | DONE | P1 | api, ui, auth | 1 | 2026-11-17 |
 | PAN-015b | Roles and role permissions on the real API | BACKLOG | P1 | api, ui, auth | 0 | 2026-11-17 |
 | PAN-015c | Role assignments (assign, revoke, holders of a role) on the real API | BACKLOG | P1 | api, ui, auth, security | 0 | 2026-11-17 |
 | PAN-016 | Audit log on the real API | DONE | P2 | api, ui | 1 | 2026-11-17 |
