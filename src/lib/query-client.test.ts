@@ -1,4 +1,4 @@
-import { QueryClient } from '@tanstack/react-query'
+import { QueryClient, QueryObserver } from '@tanstack/react-query'
 import { ApiError } from '@/api'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -78,5 +78,69 @@ describe('clearOnAuthChange', () => {
     fire()
     expect(qc.getQueryData(['x'])).toBeUndefined()
     expect(ret).toBe(unsubscribe)
+  })
+})
+
+describe('permission refresh wiring', () => {
+  const denied = new ApiError({
+    kind: 'http',
+    status: 403,
+    code: 'permission_denied',
+    message: 'm',
+  })
+  const mounted = (qc: QueryClient) => {
+    let n = 0
+    const observer = new QueryObserver(qc, {
+      queryKey: ['me', 'permissions', 'acc'],
+      queryFn: () => ++n,
+      staleTime: 60_000,
+    })
+    const unsubscribe = observer.subscribe(() => {})
+    return { count: () => n, unsubscribe }
+  }
+
+  it('clearOnAuthChange removes the me/permissions query', () => {
+    const qc = new QueryClient()
+    qc.setQueryData(['me', 'permissions', 'acc'], { user_id: 'u' })
+    let fire = () => {}
+    clearOnAuthChange(qc, (l) => {
+      fire = l
+      return () => {}
+    })
+    fire()
+    expect(qc.getQueryData(['me', 'permissions', 'acc'])).toBeUndefined()
+  })
+
+  it('a burst of three 403 permission_denied query errors triggers exactly one permission refetch', async () => {
+    const qc = createQueryClient()
+    const m = mounted(qc)
+    await vi.waitFor(() => expect(m.count()).toBe(1))
+    await vi.waitFor(() => expect(qc.isFetching()).toBe(0))
+    const onError = qc.getQueryCache().config.onError!
+    const q = { queryKey: ['users'] } as never
+    for (let i = 0; i < 3; i++) onError(denied, q)
+    await vi.waitFor(() => expect(m.count()).toBe(2))
+    await new Promise((r) => setTimeout(r, 50))
+    expect(m.count()).toBe(2)
+    m.unsubscribe()
+  })
+
+  it('a 403 from a mutation with handlesOwnErrors triggers the refetch; the failed call is not retried', async () => {
+    const qc = createQueryClient()
+    const m = mounted(qc)
+    await vi.waitFor(() => expect(m.count()).toBe(1))
+    await vi.waitFor(() => expect(qc.isFetching()).toBe(0))
+    let calls = 0
+    const mutation = qc.getMutationCache().build(qc, {
+      meta: { handlesOwnErrors: true },
+      mutationFn: async () => {
+        calls++
+        throw denied
+      },
+    })
+    await mutation.execute(undefined).catch(() => {})
+    await vi.waitFor(() => expect(m.count()).toBe(2))
+    expect(calls).toBe(1)
+    m.unsubscribe()
   })
 })

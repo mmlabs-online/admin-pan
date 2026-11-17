@@ -1,6 +1,6 @@
 # ADR 0004: permission mirroring and 403 handling
 
-Status: Accepted pending owner merge (PAN-011). Builds on [ADR 0003](0003-auth-client-integration.md).
+Status: Accepted pending owner merge (PAN-011). Builds on [ADR 0003](0003-auth-client-integration.md). Amended by PAN-011b (see "Amendment" below).
 
 ## Context
 R4: each route and action declares the `admin:<resource>:<action>` permission its API endpoint declares; the UI hides or disables without it but never relies on that, and a 403 is always handled. The API owns authorization. Today the UI has no permission data: the `aud=admin` token carries role keys, not permissions, the UI never reads the token (R3, ADR 0003), and org-admin-api has no "my permissions" endpoint yet (requested in `work/tickets/PAN-011/org-admin-api-request.md`, PAN-011b).
@@ -25,3 +25,11 @@ R4: each route and action declares the `admin:<resource>:<action>` permission it
 - Until PAN-011b, controls and navigation are visible in production; the interim state is a spec §5.1 note for the owner.
 - Each real-API ticket (PAN-013 to PAN-016) renders its queries through `queryView` + `ForbiddenPanel`, and PAN-016 adds `admin:audit:read` to the registry.
 - PAN-011b adds a real source built from `GET /api/v1/me/permissions` (cleared on auth change) without touching the call sites.
+
+## Amendment (PAN-011b, 2026-11-17)
+- **Production source.** `AuthPermissionProvider` reads TanStack Query `['me','permissions', accountId]` on `GET /api/v1/me/permissions`. In-memory cache only: cleared by `clearOnAuthChange`, no persister, the token is never read, `roles` is ignored. `permits()` is a port of org-admin-api `authz.py`: the exact key or `admin:*`.
+- **State.** Derived from `status === 'success'` only. Loading, any error (including an error after an earlier success, a 403/404 on the endpoint) and a malformed body give `unknown`. During the first load navigation is fail-open (no skeleton).
+- **Refetch on 403.** A 403 `permission_denied` or `admin_wildcard_required` (not `self_*`, not gate codes, not the permission query itself) invalidates the query at most once per 5 s and never while it is fetching.
+- **Retry.** The route 403 panel offers "Try again", which refetches the permission query.
+- **`user_id`** is used only to disable self-actions (users row menu).
+- **Consequences.** A revoked permission keeps controls visible for up to `staleTime` (60 s) or until the next focus or 403; the API still refuses. An endpoint outage shows everything (fail-open, intended). If org-admin-api withdraws the USR-11 endpoint, its 403/404 degrade to `unknown`.
