@@ -18,7 +18,7 @@ const httpPatterns = [
 ]
 
 export default defineConfig(
-  { ignores: ['dist', 'src/components/ui', 'src/api/schema.d.ts'] },
+  { ignores: ['dist', 'dist-e2e', 'src/components/ui', 'src/api/schema.d.ts'] },
   {
     extends: [
       js.configs.recommended,

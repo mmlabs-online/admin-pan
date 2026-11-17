@@ -18,6 +18,7 @@
     "test:browser": "vitest",
     "test:coverage": "vitest run --coverage --browser.headless",
     "api:types": "openapi-typescript src/api/openapi.json -o src/api/schema.d.ts",
+    "e2e": "playwright test",
     "test:browser:install": "playwright install chromium --with-deps"
   },
   "dependencies": {
@@ -68,8 +69,10 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
     "@eslint/js": "^10.0.1",
     "@faker-js/faker": "^10.6.0",
+    "@playwright/test": "1.59.1",
     "@tanstack/eslint-plugin-query": "^5.99.0",
     "@tanstack/react-query-devtools": "^5.99.0",
     "@tanstack/react-router-devtools": "^1.167.3",
