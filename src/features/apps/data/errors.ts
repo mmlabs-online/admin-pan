@@ -48,7 +48,7 @@ function detailObjects(error: unknown): Record<string, unknown>[] {
   )
 }
 
-const firstReason = (error: unknown): string | undefined => {
+export const firstReason = (error: unknown): string | undefined => {
   const reason = detailObjects(error)[0]?.reason
   return typeof reason === 'string' ? reason : undefined
 }
@@ -262,4 +262,42 @@ export function credentialRevokeError(error: unknown): AppAlert {
       "We couldn't confirm the revoke. Check the list; revoking again is safe."
     )
   return fallback(error)
+}
+
+/** The first 409 `details[].reason` of a failed decision, if any. */
+export const joinRequestRefusal = (error: unknown): string | undefined =>
+  isApiError(error, 409) ? firstReason(error) : undefined
+
+const DECISION_409: Record<string, string> = {
+  not_pending:
+    'Someone already decided this request. The list has been refreshed.',
+  app_disabled: 'This app is disabled. Enable it before approving requests.',
+  join_policy_changed:
+    "This app no longer requires approval, so the request can't be approved. You can still reject it.",
+  user_disabled:
+    "This user's account is disabled, so the request can't be approved.",
+  email_unverified:
+    "This user hasn't verified their email, so the request can't be approved.",
+  default_role_unusable:
+    "This app's default role is missing or can't be granted. Fix the app's default role, then try again.",
+}
+
+/** Maps a failed approve/reject to fixed copy; server text is never shown. */
+export function joinRequestDecisionError(error: unknown): AppAlert {
+  if (isUnknownOutcome(error))
+    return message(
+      "We couldn't confirm the decision. Check the list before trying again."
+    )
+  if (isApiError(error, 404))
+    return message('This join request no longer exists.')
+  if (isApiError(error, 409))
+    return message(
+      DECISION_409[firstReason(error) ?? ''] ??
+        'The API refused this decision. Refresh the list and try again.'
+    )
+  if (isForbidden(error))
+    return { kind: 'forbidden', copy: forbiddenCopy(error) }
+  return message(
+    'The API refused this decision. Refresh the list and try again.'
+  )
 }

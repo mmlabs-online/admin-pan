@@ -128,6 +128,15 @@ export const ACTIONS = {
     'admin:apps:write',
     'DELETE /api/v1/apps/{key}/credentials/{credential_id}'
   ),
+  'apps.viewJoinRequests': perm(
+    'admin:users:read',
+    'GET /api/v1/apps/{key}/join-requests'
+  ),
+  'apps.decideJoinRequest': perm(
+    'admin:roles:assign',
+    'POST /api/v1/apps/{key}/join-requests/{request_id}/approve',
+    'POST /api/v1/apps/{key}/join-requests/{request_id}/reject'
+  ),
   'apps.createPermission': perm(
     'admin:roles:manage',
     'POST /api/v1/apps/{key}/permissions'

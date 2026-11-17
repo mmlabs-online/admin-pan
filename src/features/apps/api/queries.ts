@@ -12,10 +12,12 @@ import {
   unwrap,
   type ApiClient,
   type components,
+  type paths,
 } from '@/api'
 import { mePermissionsKeys } from '@/lib/permissions/me-permissions'
+import { usersKeys } from '@/features/users/api/queries'
 import { ADMIN_APP_KEY, type AppCredential } from '../data/app-schema'
-import { isUnknownOutcome } from '../data/errors'
+import { isUnknownOutcome, joinRequestRefusal } from '../data/errors'
 
 type AppCreate = components['schemas']['AppCreate']
 type AppUpdate = components['schemas']['AppUpdate']
@@ -24,12 +26,21 @@ type PermissionUpdate = components['schemas']['PermissionUpdate']
 
 export const PERMISSIONS_PAGE_SIZE = 50
 export const CREDENTIALS_PAGE_SIZE = 20
+export const JOIN_REQUESTS_PAGE_SIZE = 20
 
 // `GET /api/v1/apps` takes only limit/offset (order is fixed: by key). Add
 // status/join_policy/q/sort here when the API ships them.
 export type AppsListParams = { limit: number; offset: number }
 export type PermissionsParams = { limit: number; offset: number }
 export type CredentialsParams = { limit: number; offset: number }
+export type JoinRequestStatus = NonNullable<
+  paths['/api/v1/apps/{key}/join-requests']['get']['parameters']['query']
+>['status']
+export type JoinRequestsParams = {
+  status: JoinRequestStatus
+  limit: number
+  offset: number
+}
 
 export const appsKeys = {
   all: ['apps'] as const,
@@ -49,6 +60,14 @@ export const appsKeys = {
     [
       ...appsKeys.credentialsAll(key),
       { limit: p.limit, offset: p.offset },
+    ] as const,
+  joinRequestsAll: (key: string) =>
+    [...appsKeys.detail(key), 'join-requests'] as const,
+  // Only the app key, status and paging: never an email or a name (R5).
+  joinRequests: (key: string, p: JoinRequestsParams) =>
+    [
+      ...appsKeys.joinRequestsAll(key),
+      { status: p.status, limit: p.limit, offset: p.offset },
     ] as const,
 }
 
@@ -130,6 +149,28 @@ export function appCredentialsQueryOptions(
         })
       ),
     placeholderData: keepPreviousData,
+  })
+}
+
+/**
+ * GET /api/v1/apps/{key}/join-requests — admin:users:read. No
+ * keepPreviousData: rows of another status must not show with the wrong actions.
+ */
+export function appJoinRequestsQueryOptions(
+  key: string,
+  params: JoinRequestsParams,
+  api: ApiClient = getApi()
+) {
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps
+  return queryOptions({
+    queryKey: appsKeys.joinRequests(key, params),
+    queryFn: async ({ signal }) =>
+      unwrap(
+        await api.GET('/api/v1/apps/{key}/join-requests', {
+          params: { path: { key }, query: params },
+          signal,
+        })
+      ),
   })
 }
 
@@ -286,5 +327,60 @@ export function useRevokeCredentialMutation(
         })
       ),
     ...useMutationOptions(appsKeys.credentialsAll(appKey)),
+  })
+}
+
+/**
+ * POST /api/v1/apps/{key}/join-requests/{request_id}/approve|reject — no body,
+ * admin:roles:assign. Never optimistic (R9). Approve may create an app-scope
+ * assignment, so the user's detail is refetched; `me/permissions` is not (the
+ * grant never targets the admin app).
+ */
+export function useDecideJoinRequestMutation(
+  appKey: string,
+  decision: 'approve' | 'reject',
+  api: ApiClient = getApi()
+) {
+  const queryClient = useQueryClient()
+  const invalidate = (key: readonly unknown[]) =>
+    void queryClient.invalidateQueries({ queryKey: key })
+  return useMutation({
+    mutationFn: async (requestId: string) => {
+      const params = {
+        params: { path: { key: appKey, request_id: requestId } },
+      }
+      return unwrap(
+        decision === 'approve'
+          ? await api.POST(
+              '/api/v1/apps/{key}/join-requests/{request_id}/approve',
+              params
+            )
+          : await api.POST(
+              '/api/v1/apps/{key}/join-requests/{request_id}/reject',
+              params
+            )
+      )
+    },
+    retry: false,
+    meta: { handlesOwnErrors: true },
+    onSuccess: (data) => {
+      invalidate(appsKeys.joinRequestsAll(appKey))
+      if (decision === 'approve') invalidate(usersKeys.detail(data.user_id))
+    },
+    onError: (error: unknown) => {
+      if (
+        isApiError(error, 404) ||
+        isApiError(error, 409) ||
+        isUnknownOutcome(error)
+      )
+        invalidate(appsKeys.joinRequestsAll(appKey))
+      const reason = joinRequestRefusal(error)
+      if (
+        reason === 'app_disabled' ||
+        reason === 'join_policy_changed' ||
+        reason === 'default_role_unusable'
+      )
+        invalidate(appsKeys.detail(appKey))
+    },
   })
 }

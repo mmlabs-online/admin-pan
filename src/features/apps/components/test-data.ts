@@ -1,6 +1,7 @@
 import {
   type App,
   type AppCredential,
+  type JoinRequest,
   type Permission,
 } from '../data/app-schema'
 
@@ -120,6 +121,43 @@ export const CREDENTIALS: Record<string, AppCredential[]> = {
 /** A `Page<AppCredentialRead>` body. */
 export const credentialsPage = (
   items: AppCredential[],
+  total = items.length,
+  limit = 20,
+  offset = 0
+) => ({ items, total, limit, offset })
+
+export const SELF_USER_ID = 'a0a0a0a0-0000-4000-8000-000000000001'
+
+const joinRequest = (
+  n: number,
+  over: Partial<JoinRequest> = {}
+): JoinRequest => ({
+  id: `8b8b8b8${n}-8888-4888-8888-888888888888`,
+  app_key: 'stoktok',
+  user_id: `9c9c9c9${n}-9999-4999-8999-999999999999`,
+  email: `person${n}@people.test`,
+  display_name: null,
+  email_verified: true,
+  user_status: 'active',
+  status: 'pending',
+  created_at: '2026-05-01T10:00:00.000Z',
+  decided_at: null,
+  decided_by: null,
+  ...over,
+})
+
+export const JOIN_REQUESTS: JoinRequest[] = [
+  joinRequest(1, { display_name: 'Ada Lovelace', email: 'ada@people.test' }),
+  joinRequest(2),
+  joinRequest(3, {
+    email_verified: false,
+    user_status: 'disabled',
+  }),
+]
+
+/** A `Page<JoinRequestRead>` body. */
+export const joinRequestsPage = (
+  items: JoinRequest[],
   total = items.length,
   limit = 20,
   offset = 0

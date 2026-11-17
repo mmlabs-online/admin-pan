@@ -32,6 +32,28 @@ export const orgModeLabels: Record<OrgMode, string> = {
   required: 'Required',
 }
 
+export const joinRequestStatusOptions: {
+  label: string
+  value: 'pending' | 'approved' | 'rejected'
+}[] = [
+  { label: 'Pending', value: 'pending' },
+  { label: 'Approved', value: 'approved' },
+  { label: 'Rejected', value: 'rejected' },
+]
+
+/** The schema types `status` as a plain string, so unexpected values are named. */
+export function joinRequestStatusLabel(status: string): string {
+  return (
+    joinRequestStatusOptions.find((o) => o.value === status)?.label ?? 'Unknown'
+  )
+}
+
+/** Name when it has visible text, else the email. */
+export const requesterLabel = (r: {
+  display_name?: string | null
+  email: string
+}): string => r.display_name?.trim() || r.email
+
 // Key segments of apps, roles and permissions: lowercase, digits, hyphens.
 export const KEY_SEGMENT_PATTERN = /^[a-z][a-z0-9-]*$/
 

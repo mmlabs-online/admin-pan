@@ -6,6 +6,7 @@ import {
   credentialIssueError,
   credentialRevokeError,
   isUnknownOutcome,
+  joinRequestDecisionError,
   permissionAdminError,
   permissionFormError,
 } from './errors'
@@ -278,5 +279,41 @@ describe('credentialRevokeError', () => {
       kind: 'message',
       text: 'server text',
     })
+  })
+})
+
+describe('joinRequestDecisionError', () => {
+  const reasons = (reason: string) =>
+    err(409, 'conflict', [{ field: 'request_id', reason }])
+  const text = (e: unknown) => {
+    const a = joinRequestDecisionError(e)
+    return a.kind === 'message' ? a.text : a.kind
+  }
+  it('maps every 409 reason to fixed copy; unknown reasons get the generic line, never the server text', () => {
+    const expected: Record<string, string> = {
+      not_pending: 'Someone already decided',
+      app_disabled: 'This app is disabled',
+      join_policy_changed: 'no longer requires approval',
+      user_disabled: 'account is disabled',
+      email_unverified: "hasn't verified their email",
+      default_role_unusable: 'default role is missing',
+      brand_new: 'The API refused this decision.',
+    }
+    for (const [reason, copy] of Object.entries(expected)) {
+      expect(text(reasons(reason))).toContain(copy)
+      expect(text(reasons(reason))).not.toContain('server text')
+    }
+    expect(text(err(409, 'conflict'))).toContain('The API refused')
+  })
+  it('404, 403, unknown outcome and the fallback', () => {
+    expect(text(err(404, 'not_found'))).toBe(
+      'This join request no longer exists.'
+    )
+    expect(text(err(403, 'permission_denied'))).toBe('forbidden')
+    for (const e of [apiErr('network', 0), apiErr('http', 502)])
+      expect(text(e)).toContain("couldn't confirm the decision")
+    expect(text(err(422, 'validation_error'))).toBe(
+      'The API refused this decision. Refresh the list and try again.'
+    )
   })
 })

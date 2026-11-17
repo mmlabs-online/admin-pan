@@ -11,6 +11,7 @@ export type OrgMode = components['schemas']['OrgMode']
 export type Permission = components['schemas']['PermissionRead']
 export type PermissionScope = components['schemas']['PermissionScope']
 export type AppCredential = components['schemas']['AppCredentialRead']
+export type JoinRequest = components['schemas']['JoinRequestRead']
 
 export const ADMIN_APP_KEY = 'admin'
 

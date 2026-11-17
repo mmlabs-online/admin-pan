@@ -314,4 +314,21 @@ describe('apps queries', () => {
     await revoke.result.current.mutateAsync(id).catch(() => {})
     expect(invalidated).toHaveLength(2)
   })
+
+  it('appsKeys.joinRequests is under detail(key) and holds only status, limit and offset', () => {
+    const key = appsKeys.joinRequests('stoktok', {
+      status: 'pending',
+      limit: 20,
+      offset: 0,
+    })
+    expect(key).toEqual([
+      'apps',
+      'detail',
+      'stoktok',
+      'join-requests',
+      { status: 'pending', limit: 20, offset: 0 },
+    ])
+    expect(key.slice(0, 3)).toEqual(appsKeys.detail('stoktok'))
+    expect(appsKeys.joinRequestsAll('stoktok')).toEqual(key.slice(0, 4))
+  })
 })

@@ -2,12 +2,12 @@
 
 | Field | Value |
 |---|---|
-| State | BACKLOG |
+| State | DONE |
 | Priority | P2 |
 | Areas | api, ui, auth |
-| Attempts | 0 |
+| Attempts | 2 |
 | Created | 2026-11-17 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/22 |
 
 ## Goal
 For apps whose join policy needs approval, let staff see pending join requests and approve or reject them. Backed by org-admin-api USR-03g.
@@ -26,3 +26,6 @@ PAN-015 (Apps on the real API); org-admin-api USR-03g (DONE, merged in c41ef57):
 
 ## Notes / answers from owner
 - 2026-11-17: owner asked to build what the API already offers first.
+
+## Orchestrator notes (2026-11-17)
+- Snapshot check done by the orchestrator: regenerated org-admin-api b79cf77 OpenAPI into the scratchpad and diffed it against `src/api/openapi.json` (c41ef57). The only differences are `/api/v1/stats/dashboard` and the stats schemas (ADM-015). The join-request paths and schemas are identical, so no regeneration in this ticket; the plan's pre-coding diff step is already satisfied.
