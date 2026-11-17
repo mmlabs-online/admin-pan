@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| State | BACKLOG |
+| State | PLANNING |
 | Priority | P2 |
 | Areas | api, ui, security |
 | Attempts | 0 |
@@ -16,7 +16,7 @@ In user detail, list the user's device/account sessions and revoke one or all, w
 `docs/spec-v1.md` §5.4
 
 ## Depends on
-PAN-013; org-admin-api endpoint for admin session revoke (identity-architecture §4, not ticketed yet)
+PAN-013; org-admin-api USR-10 (DONE, merged; `GET /api/v1/users/{user_id}/sessions`, `DELETE …/sessions/{session_id}`, `DELETE …/sessions`)
 
 ## Acceptance criteria
 - [ ] Sessions list (created, last seen, user agent, IP)
