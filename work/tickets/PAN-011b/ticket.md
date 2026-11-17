@@ -7,7 +7,7 @@
 | Areas | auth, ui, security |
 | Attempts | 0 |
 | Created | 2026-11-16 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/15 |
 
 ## Goal
 Plug the real data source into the `PermissionSource` seam that PAN-011 built. The source is a TanStack Query on the new org-admin-api endpoint that returns the caller's effective admin permissions. With it, navigation, routes and actions hide or disable controls the staff member cannot use.
