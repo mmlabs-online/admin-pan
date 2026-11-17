@@ -7,7 +7,7 @@
 | Areas | ui, api |
 | Attempts | 1 |
 | Created | 2026-11-11 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/21 |
 
 ## Goal
 Enable/disable a product for an org and set plan/limits.
