@@ -25,3 +25,22 @@ Static review of code, unit tests and e2e; axe and e2e not run by the auditor. *
 ### Follow-ups
 - Shared pager component using `aria-disabled` (finding 1).
 - Shared sr-only result-count announcer for filtered tables (finding 3).
+
+## Attempt 2
+
+Static review of the attempt-2 code only; axe, unit tests and e2e not run by the auditor. **No 🔴, nothing regressed.** One new 🟡 (pager unmounts on page change).
+
+### Attempt-1 findings
+1. Pager buttons dropping focus when disabled: **resolved** — `aria-disabled` + click ignored (`app-join-requests-tab.tsx:288-311`).
+2. Success-path focus race with Radix restore: unchanged, 🟡 conditional (fix only if the heading `toBeFocused()` proves flaky).
+3. Filter change not announced: **resolved** — sr-only polite status outside the swapped region (`:160-164`), "N pending join requests found." with singular/plural; also announces the new count after a decision.
+4-7. 💭 unchanged (overflow wrapper `:179`; `truncate` cells `:199`, `:205`; permission note after table `:272-281`; e2e axe coverage).
+
+Requester label fallback is fine: `requesterLabel` falls back to email, sub-line only when a display name exists (`:203`); dialog `who` matches (`app-join-request-decision-dialog.tsx:52-58`).
+
+### New finding
+🟡 **Focus on Next/Previous lost on page change (2.4.3, 4.1.3)** — `app-join-requests-tab.tsx:168-316` with `src/features/apps/api/queries.ts:159-175` (no `keepPreviousData`, `:156-158`). Changing `offset` changes the key, `view.status` becomes `'pending'`, the table and pager are replaced by "Loading join requests…", the focused Next button unmounts and focus falls to `body` on every page change. The "Showing x–y of z" status remounts populated and may not be announced. Not 🔴 (no trap, all operable). Fix: (a) keep the pager mounted across loads (last known total), loading text only in the table body; or (b) `placeholderData` keeping previous data only when paging within the same app and status, plus `aria-busy`; minimum: focus the `h3` after the page settles and fold the range into the sr-only status. Add an assertion that focus is not on `body` after clicking Next.
+
+### Follow-ups
+- Shared pager (aria-disabled, mounted across loads, announces range) for all paginated tables.
+- Shared sr-only result-count announcer for filtered tables.
