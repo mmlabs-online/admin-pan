@@ -7,7 +7,7 @@
 | Areas | api, ui, auth |
 | Attempts | 2 |
 | Created | 2026-11-17 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/22 |
 
 ## Goal
 For apps whose join policy needs approval, let staff see pending join requests and approve or reject them. Backed by org-admin-api USR-03g.
