@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test'
+import { FAKE_CREDENTIAL } from '../src/test-utils/fake-credential'
 import { expectNoSeriousA11y } from './support/a11y'
 import { expect, test } from './support/fixtures'
 
@@ -208,6 +209,71 @@ test('apps: list from the API; detail sheet and permissions pass axe; disable di
         ['POST', 'PATCH', 'DELETE'].includes(c.method)
     )
   ).toHaveLength(0)
+})
+
+test('apps credentials: list, issue shows the value once (masked, Show), close; second issue hits the limit inline; revoke confirm names the key id; no value in storage or URL; axe on tab and dialogs', async ({
+  page,
+  api,
+  signIn,
+}) => {
+  await signIn('/apps')
+  await expect(heading(page, 'Apps')).toBeVisible()
+  await page.getByRole('button', { name: 'View stoktok' }).click()
+  const sheet = page.getByRole('dialog')
+  await selectTab(page, 'Credentials')
+  await expect(sheet.getByText('e2e0000000000001')).toBeVisible()
+  await expectNoSeriousA11y(page, 'apps-credentials')
+
+  await sheet.getByRole('button', { name: 'Issue credential' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Issue credential' })
+  await expect(dialog).toContainText('stoktok')
+  await dialog.getByRole('button', { name: 'Issue credential' }).click()
+  const issued = page.getByRole('dialog', { name: 'Credential issued' })
+  await expect(issued).toBeVisible()
+  const field = issued.getByLabel('Credential', { exact: true })
+  await expect(field).not.toHaveValue(FAKE_CREDENTIAL)
+  await expectNoSeriousA11y(page, 'apps-credential-issued')
+  await issued.getByRole('button', { name: 'Show' }).click()
+  await expect(field).toHaveValue(FAKE_CREDENTIAL)
+  await issued.getByRole('button', { name: "I've saved it" }).click()
+  await expect(issued).toBeHidden()
+
+  expect(await page.content()).not.toContain(FAKE_CREDENTIAL)
+  const stored = await page.evaluate(() =>
+    JSON.stringify([
+      Object.entries(localStorage),
+      Object.entries(sessionStorage),
+    ])
+  )
+  expect(stored).not.toContain(FAKE_CREDENTIAL)
+  expect(page.url()).not.toContain(FAKE_CREDENTIAL)
+  expect(api.count('POST /api/v1/apps/stoktok/credentials')).toBe(1)
+
+  await sheet.getByRole('button', { name: 'Issue credential' }).click()
+  const again = page.getByRole('dialog', { name: 'Issue credential' })
+  await again.getByRole('button', { name: 'Issue credential' }).click()
+  await expect(again).toContainText('already has 2 active credentials')
+  await again.getByRole('button', { name: 'Cancel' }).click()
+  await expect(again).toBeHidden()
+
+  await sheet.getByRole('button', { name: 'Revoke e2e0000000000001' }).click()
+  const revoke = page.getByRole('alertdialog')
+  await expect(revoke).toContainText('e2e0000000000001')
+  await expectNoSeriousA11y(page, 'apps-credential-revoke')
+  await revoke.getByRole('button', { name: 'Cancel' }).click()
+  await expect(revoke).toBeHidden()
+  expect(api.calls.filter((c) => c.method === 'DELETE')).toHaveLength(0)
+
+  await sheet.getByRole('button', { name: 'Revoke e2e0000000000001' }).click()
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: 'Revoke', exact: true })
+    .click()
+  await expect(page.getByRole('alertdialog')).toBeHidden()
+  expect(api.calls.filter((c) => c.method === 'DELETE')).toHaveLength(1)
+  await expect(
+    sheet.getByRole('row', { name: /e2e0000000000001/ })
+  ).toContainText('Revoked')
 })
 
 test('audit-log: detail sheet with raw JSON passes axe', async ({

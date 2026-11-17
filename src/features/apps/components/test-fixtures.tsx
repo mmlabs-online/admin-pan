@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useState } from 'react'
-import { QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider, type QueryClient } from '@tanstack/react-query'
 import { type ApiClient } from '@/api'
 import { apiError, json, testQueryClient } from '@/test-utils/api'
 import { WithPermissions } from '@/test-utils/permissions'
@@ -10,7 +10,14 @@ import { RegisterAppButton } from '../index'
 import { AppsDialogs } from './apps-dialogs'
 import { AppsProvider } from './apps-provider'
 import { AppsTable } from './apps-table'
-import { APPS, PERMISSIONS, appsPage, permissionsPage } from './test-data'
+import {
+  APPS,
+  CREDENTIALS,
+  PERMISSIONS,
+  appsPage,
+  credentialsPage,
+  permissionsPage,
+} from './test-data'
 
 function TableWithUrlState({ initial }: { initial: Record<string, unknown> }) {
   const [search, setSearch] = useState<Record<string, unknown>>(initial)
@@ -35,10 +42,11 @@ export function renderApps(
   opts: {
     granted?: Parameters<typeof WithPermissions>[0]['granted']
     search?: Record<string, unknown>
+    queryClient?: QueryClient
   } = {}
 ) {
   const tree = (
-    <QueryClientProvider client={testQueryClient()}>
+    <QueryClientProvider client={opts.queryClient ?? testQueryClient()}>
       <AppsProvider api={client}>
         <RegisterAppButton />
         <TableWithUrlState initial={opts.search ?? {}} />
@@ -74,9 +82,11 @@ export function appsServer(
     if (req.method !== 'GET') return write(req)
     const p = path(req)
     if (p === '/api/v1/apps') return json(appsPage(apps()))
-    const m = /^\/api\/v1\/apps\/([^/]+)(\/permissions)?$/.exec(p)
+    const m = /^\/api\/v1\/apps\/([^/]+)(\/permissions|\/credentials)?$/.exec(p)
     const app = apps().find((a) => a.key === m?.[1])
     if (!m || !app) return apiError(404, 'not_found')
+    if (m[2] === '/credentials')
+      return json(credentialsPage(CREDENTIALS[app.key] ?? []))
     return m[2] ? json(permissionsPage(PERMISSIONS[app.key] ?? [])) : json(app)
   }
 }

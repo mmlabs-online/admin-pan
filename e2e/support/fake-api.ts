@@ -1,11 +1,16 @@
 import type { BrowserContext, Route } from '@playwright/test'
 import type { components } from '../../src/api/schema'
+import {
+  FAKE_CREDENTIAL,
+  FAKE_KEY_ID,
+} from '../../src/test-utils/fake-credential'
 
 type UserRead = components['schemas']['UserRead']
 type OrganizationRead = components['schemas']['OrganizationRead']
 type AuditLogRead = components['schemas']['AuditLogRead']
 type AppRead = components['schemas']['AppRead']
 type PermissionRead = components['schemas']['PermissionRead']
+type AppCredentialRead = components['schemas']['AppCredentialRead']
 type MePermissions = components['schemas']['MePermissions']
 
 /** The fake API origin baked into the bundle by `.env.e2e`; never resolved. */
@@ -245,10 +250,65 @@ export async function installFakeApi(context: BrowserContext) {
     'GET /api/v1/audit-logs': ({ query }) => json(200, page(AUDIT_LOGS, query)),
     'GET /api/v1/apps': ({ query }) => json(200, page(APPS, query)),
   }
+  // Per-install credential state: issue adds a row, revoke clears `active`.
+  // Only the fake constant is ever served as a credential value.
+  const creds: Record<string, AppCredentialRead[]> = {
+    admin: [],
+    calechip: [],
+    stoktok: [
+      {
+        id: '77777770-7777-4777-8777-777777777777',
+        app: 'stoktok',
+        key_id: 'e2e0000000000001',
+        active: true,
+        created_at: stamp,
+        created_by: null,
+        last_used_at: null,
+        revoked_at: null,
+      },
+    ],
+  }
+  const addRevokeRoute = (appKey: string, c: AppCredentialRead) => {
+    routes[`DELETE /api/v1/apps/${appKey}/credentials/${c.id}`] = () => {
+      c.active = false
+      c.revoked_at = stamp
+      return null
+    }
+  }
   for (const a of APPS) {
     routes[`GET /api/v1/apps/${a.key}`] = () => json(200, a)
     routes[`GET /api/v1/apps/${a.key}/permissions`] = ({ query }) =>
       json(200, page(PERMISSIONS[a.key] ?? [], query))
+    routes[`GET /api/v1/apps/${a.key}/credentials`] = ({ query }) =>
+      json(200, page(creds[a.key], query))
+    for (const c of creds[a.key]) addRevokeRoute(a.key, c)
+    routes[`POST /api/v1/apps/${a.key}/credentials`] = () => {
+      const reason = (r: string) =>
+        json(409, {
+          error: {
+            code: 'conflict',
+            message: 'conflict',
+            details: [{ field: 'key', reason: r }],
+          },
+        })
+      if (a.key === 'admin') return reason('admin_app')
+      if (a.status === 'disabled') return reason('app_disabled')
+      if (creds[a.key].filter((c) => c.active).length >= 2)
+        return reason('credential_limit')
+      const row: AppCredentialRead = {
+        id: '77777771-7777-4777-8777-777777777777',
+        app: a.key,
+        key_id: FAKE_KEY_ID,
+        active: true,
+        created_at: stamp,
+        created_by: null,
+        last_used_at: null,
+        revoked_at: null,
+      }
+      creds[a.key].unshift(row)
+      addRevokeRoute(a.key, row)
+      return json(201, { ...row, credential: FAKE_CREDENTIAL })
+    }
   }
 
   await context.route(`${API_ORIGIN}/**`, async (route: Route) => {

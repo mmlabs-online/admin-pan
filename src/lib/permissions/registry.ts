@@ -109,10 +109,19 @@ export const ACTIONS = {
   'apps.view': perm(
     'admin:apps:read',
     'GET /api/v1/apps/{key}',
-    'GET /api/v1/apps/{key}/permissions'
+    'GET /api/v1/apps/{key}/permissions',
+    'GET /api/v1/apps/{key}/credentials'
   ),
   'apps.register': perm('admin:apps:write', 'POST /api/v1/apps'),
   'apps.update': perm('admin:apps:write', 'PATCH /api/v1/apps/{key}'),
+  'apps.issueCredential': perm(
+    'admin:apps:write',
+    'POST /api/v1/apps/{key}/credentials'
+  ),
+  'apps.revokeCredential': perm(
+    'admin:apps:write',
+    'DELETE /api/v1/apps/{key}/credentials/{credential_id}'
+  ),
   'apps.createPermission': perm(
     'admin:roles:manage',
     'POST /api/v1/apps/{key}/permissions'

@@ -21,6 +21,7 @@ import {
   joinPolicyLabels,
   orgModeLabels,
 } from '../data/data'
+import { AppCredentialsTab } from './app-credentials-tab'
 import { AppPermissionsTab } from './app-permissions-tab'
 import { AppStatusBadge } from './app-status-badge'
 import { useApps } from './apps-provider'
@@ -54,7 +55,9 @@ export function AppDetailSheet({
           <SheetTitle>
             {app.name} <span className='font-mono text-sm'>({app.key})</span>
           </SheetTitle>
-          <SheetDescription>App settings and permissions.</SheetDescription>
+          <SheetDescription>
+            App settings, permissions and credentials.
+          </SheetDescription>
         </SheetHeader>
         {view.status === 'forbidden' ? (
           <div className='px-4'>
@@ -82,6 +85,7 @@ export function AppDetailSheet({
             <TabsList>
               <TabsTrigger value='overview'>Overview</TabsTrigger>
               <TabsTrigger value='permissions'>Permissions</TabsTrigger>
+              <TabsTrigger value='credentials'>Credentials</TabsTrigger>
             </TabsList>
             <div className='min-h-0 flex-1 overflow-y-auto'>
               <TabsContent value='overview'>
@@ -89,6 +93,9 @@ export function AppDetailSheet({
               </TabsContent>
               <TabsContent value='permissions'>
                 <AppPermissionsTab app={app} />
+              </TabsContent>
+              <TabsContent value='credentials'>
+                <AppCredentialsTab app={app} />
               </TabsContent>
             </div>
           </Tabs>

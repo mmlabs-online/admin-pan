@@ -1,4 +1,8 @@
-import { type App, type Permission } from '../data/app-schema'
+import {
+  type App,
+  type AppCredential,
+  type Permission,
+} from '../data/app-schema'
 
 const stamp = '2026-01-05T10:00:00.000Z'
 
@@ -82,5 +86,41 @@ export const permissionsPage = (
   items: Permission[],
   total = items.length,
   limit = 50,
+  offset = 0
+) => ({ items, total, limit, offset })
+
+const credential = (
+  n: number,
+  app: string,
+  over: Partial<AppCredential> = {}
+): AppCredential => ({
+  id: `7a7a7a7${n}-7777-4777-8777-777777777777`,
+  app,
+  key_id: `aaaa00000000000${n}`,
+  active: true,
+  created_at: '2026-03-01T10:00:00.000Z',
+  created_by: null,
+  last_used_at: null,
+  revoked_at: null,
+  ...over,
+})
+
+export const CREDENTIALS: Record<string, AppCredential[]> = {
+  admin: [],
+  calechip: [credential(2, 'calechip')],
+  stoktok: [
+    credential(1, 'stoktok', { last_used_at: '2026-04-01T10:00:00.000Z' }),
+    credential(3, 'stoktok', {
+      active: false,
+      revoked_at: '2026-03-20T10:00:00.000Z',
+    }),
+  ],
+}
+
+/** A `Page<AppCredentialRead>` body. */
+export const credentialsPage = (
+  items: AppCredential[],
+  total = items.length,
+  limit = 20,
   offset = 0
 ) => ({ items, total, limit, offset })

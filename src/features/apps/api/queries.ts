@@ -5,6 +5,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query'
 import {
+  ApiError,
   getApi,
   isApiError,
   toPageParams,
@@ -13,7 +14,8 @@ import {
   type components,
 } from '@/api'
 import { mePermissionsKeys } from '@/lib/permissions/me-permissions'
-import { ADMIN_APP_KEY } from '../data/app-schema'
+import { ADMIN_APP_KEY, type AppCredential } from '../data/app-schema'
+import { isUnknownOutcome } from '../data/errors'
 
 type AppCreate = components['schemas']['AppCreate']
 type AppUpdate = components['schemas']['AppUpdate']
@@ -21,11 +23,13 @@ type PermissionCreate = components['schemas']['PermissionCreate']
 type PermissionUpdate = components['schemas']['PermissionUpdate']
 
 export const PERMISSIONS_PAGE_SIZE = 50
+export const CREDENTIALS_PAGE_SIZE = 20
 
 // `GET /api/v1/apps` takes only limit/offset (order is fixed: by key). Add
 // status/join_policy/q/sort here when the API ships them.
 export type AppsListParams = { limit: number; offset: number }
 export type PermissionsParams = { limit: number; offset: number }
+export type CredentialsParams = { limit: number; offset: number }
 
 export const appsKeys = {
   all: ['apps'] as const,
@@ -37,6 +41,13 @@ export const appsKeys = {
     [
       ...appsKeys.detail(key),
       'permissions',
+      { limit: p.limit, offset: p.offset },
+    ] as const,
+  credentialsAll: (key: string) =>
+    [...appsKeys.detail(key), 'credentials'] as const,
+  credentials: (key: string, p: CredentialsParams) =>
+    [
+      ...appsKeys.credentialsAll(key),
       { limit: p.limit, offset: p.offset },
     ] as const,
 }
@@ -94,6 +105,26 @@ export function appPermissionsQueryOptions(
     queryFn: async ({ signal }) =>
       unwrap(
         await api.GET('/api/v1/apps/{key}/permissions', {
+          params: { path: { key }, query: params },
+          signal,
+        })
+      ),
+    placeholderData: keepPreviousData,
+  })
+}
+
+/** GET /api/v1/apps/{key}/credentials — admin:apps:read. Metadata only. */
+export function appCredentialsQueryOptions(
+  key: string,
+  params: CredentialsParams,
+  api: ApiClient = getApi()
+) {
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps
+  return queryOptions({
+    queryKey: appsKeys.credentials(key, params),
+    queryFn: async ({ signal }) =>
+      unwrap(
+        await api.GET('/api/v1/apps/{key}/credentials', {
           params: { path: { key }, query: params },
           signal,
         })
@@ -194,5 +225,66 @@ export function useUpdatePermissionMutation(
         })
       ),
     ...useAppPermissionMutationOptions(appKey),
+  })
+}
+
+/**
+ * POST /api/v1/apps/{key}/credentials (201) — admin:apps:write + admin:*
+ * (the API checks the latter). The secret never enters TanStack state (R3/R5,
+ * ADR 0007): it goes to the caller's sink and the mutation resolves with
+ * metadata only. No retry: a retry would issue a second key.
+ */
+export function useIssueCredentialMutation(
+  appKey: string,
+  api: ApiClient = getApi()
+) {
+  const queryClient = useQueryClient()
+  const invalidate = (key: readonly unknown[]) =>
+    void queryClient.invalidateQueries({ queryKey: key })
+  return useMutation({
+    mutationFn: async (
+      onSecret: (credential: string) => void
+    ): Promise<AppCredential> => {
+      const { credential, ...meta } = unwrap(
+        await api.POST('/api/v1/apps/{key}/credentials', {
+          params: { path: { key: appKey } },
+        })
+      )
+      if (typeof credential !== 'string' || !credential)
+        throw new ApiError({
+          kind: 'invalid_response',
+          status: 0,
+          code: 'invalid_response',
+          message: 'The server returned no credential',
+        })
+      onSecret(credential)
+      return meta
+    },
+    retry: false,
+    gcTime: 0,
+    meta: { handlesOwnErrors: true },
+    onSuccess: () => invalidate(appsKeys.credentialsAll(appKey)),
+    onError: (error: unknown) => {
+      if (isApiError(error, 404) || isApiError(error, 409))
+        invalidate(appsKeys.detail(appKey))
+      else if (isUnknownOutcome(error))
+        invalidate(appsKeys.credentialsAll(appKey))
+    },
+  })
+}
+
+/** DELETE /api/v1/apps/{key}/credentials/{credential_id} (204) — admin:apps:write. */
+export function useRevokeCredentialMutation(
+  appKey: string,
+  api: ApiClient = getApi()
+) {
+  return useMutation({
+    mutationFn: async (credentialId: string) =>
+      unwrap(
+        await api.DELETE('/api/v1/apps/{key}/credentials/{credential_id}', {
+          params: { path: { key: appKey, credential_id: credentialId } },
+        })
+      ),
+    ...useMutationOptions(appsKeys.credentialsAll(appKey)),
   })
 }
