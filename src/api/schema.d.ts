@@ -364,6 +364,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's own admin roles and effective permissions */
+        get: operations["get_my_permissions_api_v1_me_permissions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations": {
         parameters: {
             query?: never;
@@ -763,6 +780,29 @@ export interface components {
             account_id?: string | null;
             /** All */
             all?: true | null;
+        };
+        /**
+         * MePermissions
+         * @description The caller's own admin authorization (USR-11, ADR-0008 amendment). A UI hint only:
+         *     the API enforces every permission. `admin:*` is returned unexpanded and matches every
+         *     `admin:` key (same rule as `permits()`). Additive within v1: new fields may appear.
+         */
+        MePermissions: {
+            /**
+             * Permissions
+             * @description Effective `admin:` permission keys, sorted; `admin:*` unexpanded
+             */
+            permissions: string[];
+            /**
+             * Roles
+             * @description App-scope `admin` role keys, sorted
+             */
+            roles: string[];
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
         };
         /**
          * OrgMode
@@ -2313,6 +2353,33 @@ export interface operations {
             };
             /** @description Error envelope */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_my_permissions_api_v1_me_permissions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MePermissions"];
+                };
+            };
+            /** @description Missing or invalid Bearer token */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

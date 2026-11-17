@@ -2,6 +2,7 @@ import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query'
 import { isApiError } from '@/api'
 import { toast } from 'sonner'
 import { handleServerError } from '@/lib/handle-server-error'
+import { createPermissionRefresher } from '@/lib/permissions/permission-refresh'
 
 function isTransient(error: unknown) {
   return (
@@ -34,7 +35,8 @@ export function clearOnAuthChange(
 }
 
 export function createQueryClient() {
-  return new QueryClient({
+  const refresh = createPermissionRefresher(() => client)
+  const client = new QueryClient({
     defaultOptions: {
       queries: {
         retry: (failureCount, error) =>
@@ -45,16 +47,19 @@ export function createQueryClient() {
       mutations: { retry: false },
     },
     queryCache: new QueryCache({
-      onError: (error) => {
+      onError: (error, query) => {
+        refresh(error, query?.queryKey)
         // 401 is handled once by the API client's hook; 403 is left to the caller (queryView + ForbiddenPanel, ADR 0004).
         if (isTransient(error)) toast.error('Server or network error')
       },
     }),
     mutationCache: new MutationCache({
       onError: (error, _vars, _ctx, mutation) => {
+        refresh(error)
         if (mutation.meta?.handlesOwnErrors) return
         handleServerError(error)
       },
     }),
   })
+  return client
 }

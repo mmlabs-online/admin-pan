@@ -617,6 +617,40 @@
         "title": "LogoutRequest",
         "type": "object"
       },
+      "MePermissions": {
+        "additionalProperties": false,
+        "description": "The caller's own admin authorization (USR-11, ADR-0008 amendment). A UI hint only:\nthe API enforces every permission. `admin:*` is returned unexpanded and matches every\n`admin:` key (same rule as `permits()`). Additive within v1: new fields may appear.",
+        "properties": {
+          "permissions": {
+            "description": "Effective `admin:` permission keys, sorted; `admin:*` unexpanded",
+            "items": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "array"
+          },
+          "roles": {
+            "description": "App-scope `admin` role keys, sorted",
+            "items": {
+              "type": "string"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "roles",
+          "permissions"
+        ],
+        "title": "MePermissions",
+        "type": "object"
+      },
       "OrgMode": {
         "enum": [
           "none",
@@ -3076,6 +3110,35 @@
         "summary": "Resend Verification",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/v1/me/permissions": {
+      "get": {
+        "operationId": "get_my_permissions_api_v1_me_permissions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MePermissions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or invalid Bearer token"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "The caller's own admin roles and effective permissions",
+        "tags": [
+          "me"
         ]
       }
     },

@@ -53,7 +53,8 @@ function Table() {
 
 function renderUsers(
   client: ApiClient,
-  granted?: Parameters<typeof WithPermissions>[0]['granted']
+  granted?: Parameters<typeof WithPermissions>[0]['granted'],
+  userId?: string
 ) {
   const tree = (
     <QueryClientProvider client={testQueryClient()}>
@@ -63,7 +64,13 @@ function renderUsers(
     </QueryClientProvider>
   )
   return render(
-    granted ? <WithPermissions granted={granted}>{tree}</WithPermissions> : tree
+    granted ? (
+      <WithPermissions granted={granted} userId={userId}>
+        {tree}
+      </WithPermissions>
+    ) : (
+      tree
+    )
   )
 }
 
@@ -257,5 +264,55 @@ describe('UsersTable', () => {
     await expect
       .element(screen.getByRole('menuitem', { name: /Disable/ }))
       .not.toBeInTheDocument()
+  })
+
+  describe('own row (PAN-011b)', () => {
+    const WRITE = ['admin:users:read', 'admin:users:write'] as const
+
+    it('own row: Disable is a disabled item with a visible reason and the trigger names it as your account', async () => {
+      const { client } = fakeApi(() => usersPage())
+      const screen = await renderUsers(
+        client,
+        [...WRITE],
+        USERS[0].id.toUpperCase()
+      )
+      await userEvent.click(
+        screen.getByRole('button', {
+          name: 'Open actions for alice@example.com (your account)',
+        })
+      )
+      const item = screen.getByRole('menuitem', { name: /Disable/ })
+      await expect.element(item).toHaveAttribute('aria-disabled', 'true')
+      await expect
+        .element(screen.getByText("You can't change your own status"))
+        .toBeVisible()
+    })
+
+    it('own row stays enabled while user_id is unknown', async () => {
+      const { client } = fakeApi(() => usersPage())
+      const screen = await renderUsers(client, [...WRITE])
+      await userEvent.click(
+        screen.getByRole('button', {
+          name: 'Open actions for alice@example.com',
+        })
+      )
+      await expect
+        .element(screen.getByRole('menuitem', { name: /Disable/ }))
+        .not.toHaveAttribute('aria-disabled', 'true')
+    })
+
+    it('other rows stay enabled; Disable still opens the confirm naming the target', async () => {
+      const { client } = fakeApi(() => usersPage())
+      const screen = await renderUsers(client, [...WRITE], USERS[1].id)
+      await userEvent.click(
+        screen.getByRole('button', {
+          name: 'Open actions for alice@example.com',
+        })
+      )
+      await userEvent.click(screen.getByRole('menuitem', { name: /Disable/ }))
+      await expect
+        .element(screen.getByRole('alertdialog'))
+        .toHaveTextContent('alice@example.com')
+    })
   })
 })

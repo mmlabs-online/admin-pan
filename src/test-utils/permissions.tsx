@@ -12,13 +12,18 @@ export function fakePermissionSource(
 
 export function WithPermissions({
   granted,
+  userId,
   children,
 }: {
   granted: readonly AdminPermission[]
+  userId?: string
   children: React.ReactNode
 }) {
   return (
-    <PermissionProvider source={fakePermissionSource(granted)}>
+    <PermissionProvider
+      source={fakePermissionSource(granted)}
+      selfUserId={userId}
+    >
       {children}
     </PermissionProvider>
   )

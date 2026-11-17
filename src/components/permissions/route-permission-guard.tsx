@@ -1,7 +1,11 @@
+import { useState } from 'react'
 import { Outlet, useMatches, useRouter } from '@tanstack/react-router'
 import { routeForbiddenCopy, type ForbiddenCopy } from '@/lib/forbidden'
 import { ROUTE_PERMISSIONS } from '@/lib/permissions/registry'
-import { usePermission } from '@/context/permission-provider'
+import {
+  usePermission,
+  usePermissionRefresh,
+} from '@/context/permission-provider'
 import { ConfigDrawer } from '@/components/config-drawer'
 import { ForbiddenPanel } from '@/components/forbidden-panel'
 import { Header } from '@/components/layout/header'
@@ -29,6 +33,40 @@ export function RoutePermissionGate({
   return <>{children}</>
 }
 
+/** 403 panel with "Try again", which refetches the permission query (a stale `denied` must be recoverable). */
+export function RouteForbiddenPanel({
+  copy,
+  onBack,
+}: {
+  copy: ForbiddenCopy
+  onBack: () => void
+}) {
+  const { refresh, refreshing } = usePermissionRefresh()
+  const [retried, setRetried] = useState(false)
+  return (
+    <>
+      <ForbiddenPanel
+        copy={copy}
+        onBack={onBack}
+        onRetry={
+          refresh &&
+          (() => {
+            setRetried(true)
+            refresh()
+          })
+        }
+      />
+      <p role='status' className='text-center text-sm text-muted-foreground'>
+        {refreshing
+          ? 'Checking your permissions…'
+          : retried
+            ? 'Still no access after checking again.'
+            : ''}
+      </p>
+    </>
+  )
+}
+
 /** Never navigates or redirects: the URL stays and the panel renders in the layout. */
 export function RoutePermissionGuard() {
   const router = useRouter()
@@ -45,7 +83,10 @@ export function RoutePermissionGuard() {
             <ProfileDropdown />
           </Header>
           <Main>
-            <ForbiddenPanel copy={copy} onBack={() => router.history.back()} />
+            <RouteForbiddenPanel
+              copy={copy}
+              onBack={() => router.history.back()}
+            />
           </Main>
         </>
       )}
