@@ -20,7 +20,7 @@ Roles moved to PAN-015b and assignments to PAN-015c (owner, 2026-11-17).
 `docs/spec-v1.md` §5.4
 
 ## Depends on
-PAN-005, PAN-006, PAN-011; org-admin-api USR-02, USR-02b/c/d, ADM-002b (all done); **a new org-admin-api ticket for filters on `GET /api/v1/apps`** (`status`, `join_policy`, `q`, `sort`; owner 2026-11-17). The request is in `org-admin-api-request.md`.
+PAN-005, PAN-006, PAN-011, PAN-014; org-admin-api USR-02, USR-02b/c/d, ADM-002b (all done). Filters on `GET /api/v1/apps` (`status`, `join_policy`, `q`, `sort`; request in `org-admin-api-request.md`) are a follow-up, not a blocker (owner, 2026-11-17).
 
 ## Acceptance criteria
 - [ ] Every screen action maps to a USR-02 endpoint (missing ones become org-admin-api follow-ups)
@@ -37,6 +37,10 @@ PAN-005, PAN-006, PAN-011; org-admin-api USR-02, USR-02b/c/d, ADM-002b (all done
 - **Apps list filters.** Wait for the API to add them, as with Organizations. PAN-015 is BLOCKED until org-admin-api adds them.
 - **The `admin` app.** Editable in the UI, and the API decides. Show a note that `admin:*` is needed, and show the API's 403/409 inline.
 - The org-admin-api request for all of this is in `org-admin-api-request.md`.
+
+## Owner answers (2026-11-17, unblock)
+- **Stop waiting for API filters.** Build the Apps screen now on the API as it is (org-admin-api main 33db316). Keep only the filters and sorting `GET /api/v1/apps` actually supports; remove or hide the others, and keep the follow-up open against `org-admin-api-request.md`. Runs after PAN-014.
+- App credentials (USR-05a) are a separate ticket, PAN-027, which depends on this one.
 
 ## Orchestrator notes (2026-11-17)
 - **Dependencies** (checked against org-admin-api origin/main a417ddb): USR-02, USR-02b, USR-02c, USR-02d and ADM-002b are DONE and merged. PAN-005, PAN-006 and PAN-011 are DONE.
