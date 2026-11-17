@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| State | BACKLOG |
+| State | PLANNING |
 | Priority | P2 |
 | Areas | auth, ui, security |
 | Attempts | 0 |
@@ -27,3 +27,11 @@ Add a "Send the link again" action to the "Email not verified" page that PAN-010
 
 ## Notes / answers from owner
 - 2026-11-16 (owner): on the ADM-002d conflict, wait for the API to allow resend for `admin`. Do not fake it, and do not send another app's `X-MM-App`.
+
+## Orchestrator notes (2026-11-17)
+- **Dependencies.** PAN-010 is DONE. org-admin-api USR-12 is DONE and merged (origin/main b87f200). `get_resend_link_origin` accepts `admin`, so links land on `https://admin-portal.mmlabs.online/verify-email`.
+- **Library.** `@mmlabs/auth-client` ts-v0.1.0 `resendVerification(accountId?)` (`client.ts:226`) has no client-side block for `admin`. Its README line 253 ("admin cannot … resend-verification") is out of date since USR-12.
+- **Copy alignment (from PAN-012c).** When the button lands, update together:
+  - the email-unverified gate page (`src/features/auth/gate/access-pages.tsx`), which says "request it from any mmlabs app you use";
+  - the two verify-email strings (`src/features/auth/verify-email/components/verify-email-panel.tsx`, invalid and expired), which say "request a new link from any mmlabs app you use, then sign in".
+- **A11y.** Apply the lessons from PAN-013/PAN-011: use `aria-disabled` rather than native `disabled` for the pending and rate-limited button, and announce the result. The shared ConfirmDialog fix belongs to PAN-014; this ticket does not need ConfirmDialog.
