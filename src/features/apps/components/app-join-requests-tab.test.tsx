@@ -1,6 +1,7 @@
 import { apiError, fakeApi, json, testQueryClient } from '@/test-utils/api'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
+import { appsKeys } from '../api/queries'
 import { JOIN_REQUESTS, SELF_USER_ID, joinRequestsPage } from './test-data'
 import { appsServer, renderApps } from './test-fixtures'
 
@@ -193,8 +194,9 @@ describe('AppJoinRequestsTab', () => {
     await expect.element(sheet.getByText('Showing 1–20 of 25')).toBeVisible()
   })
 
-  it('page clamp: an empty page 2 with total 20 makes the tab request offset 0', async () => {
+  it('page clamp: a refetch that returns an empty page 2 steps the tab back to offset 0', async () => {
     let total = 21
+    const queryClient = testQueryClient()
     const { client, seen } = fakeApi(
       server((req) => {
         const offset = Number(new URL(req.url).searchParams.get('offset'))
@@ -208,18 +210,23 @@ describe('AppJoinRequestsTab', () => {
         )
       })
     )
-    const screen = await renderApps(client)
+    const screen = await renderApps(client, { queryClient })
     const sheet = await openTab(screen, 'stoktok')
     await userEvent.click(sheet.getByRole('button', { name: 'Next' }))
     await expect.element(sheet.getByText('Showing 21–21 of 21')).toBeVisible()
     total = 20
-    await userEvent.click(sheet.getByRole('button', { name: 'Previous' }))
+    await queryClient.invalidateQueries({
+      queryKey: appsKeys.joinRequestsAll('stoktok'),
+    })
     await expect.element(sheet.getByText('Ada Lovelace')).toBeVisible()
-    expect(
-      listCalls(seen, 'stoktok').map((r) =>
-        new URL(r.url).searchParams.get('offset')
+    await expect
+      .poll(() =>
+        listCalls(seen, 'stoktok').map((r) =>
+          new URL(r.url).searchParams.get('offset')
+        )
       )
-    ).toEqual(['0', '20', '0'])
+      .toEqual(['0', '20', '20', '0'])
+    expect(sheet.getByText(/Showing 21–/).elements()).toHaveLength(0)
   })
 
   it('page clamp: an empty page with total 21 at offset 20 does not loop or refetch', async () => {

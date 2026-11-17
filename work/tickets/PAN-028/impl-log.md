@@ -76,3 +76,20 @@ None.
 - pnpm build: built
 - pnpm e2e (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium): 27 passed
 - Not committed (per instruction).
+
+## Attempt 3 — 2026-11-17 (REWORK, fixes review Attempt 2 Issue 1)
+
+### Fixed
+- Rewrote the clamp step-back test (`app-join-requests-tab.test.tsx`, "page clamp: a refetch that returns an empty page 2 steps the tab back to offset 0"). It renders with `testQueryClient()`, clicks Next (offset 20, "Showing 21–21 of 21"), sets the fake total to 20, calls `queryClient.invalidateQueries({ queryKey: appsKeys.joinRequestsAll('stoktok') })` (no Previous click), then asserts "Ada Lovelace" is visible, requested offsets are `['0','20','20','0']`, and no "Showing 21–" text. Product code unchanged.
+
+### Mutation proof
+- With `if (target !== offset) setOffset(target)` (tab.tsx:87) temporarily replaced by a comment: the test FAILED, `AssertionError: expected [ '0', '20', '20' ] to deeply equal [ '0', '20', '20', '0' ]` (1 failed | 13 passed).
+- Line restored (verified identical to backup): `pnpm test src/features/apps/components/app-join-requests-tab.test.tsx` 14 passed.
+
+### Checks
+- pnpm typecheck, lint, format:check: clean
+- pnpm build: built
+- pnpm test (full): 91 files / 680 tests passed on the final run. Two earlier full runs each had one different unrelated failure (organizations-status-dialog, app-form-dialog; dialog tests, not in this diff), both green on rerun.
+- `pnpm test src/features/apps` x3: 12 files / 130 tests passed each time.
+- pnpm e2e (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium): 27 passed
+- Not committed. Pager-focus a11y item remains a follow-up.
