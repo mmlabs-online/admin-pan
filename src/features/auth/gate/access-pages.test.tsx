@@ -135,7 +135,6 @@ describe('email_unverified page', () => {
   })
 })
 
-// The StatusPanel wrapper is also role=status; ours is the sr-only paragraph.
 const statusText = (screen: { container: Element }) =>
   screen.container.querySelector('p[role="status"]')?.textContent ?? ''
 
@@ -188,7 +187,16 @@ describe('resend', () => {
     await userEvent.click(resendButton(screen))
     await expect
       .element(screen.getByRole('alert'))
-      .toHaveTextContent('Too many requests. Try again in 1 s.')
+      .toHaveTextContent('Too many requests.')
+    for (const el of [
+      screen.getByText(/You can send the link again in/).element(),
+      screen.container.querySelector('p[role="status"]'),
+      screen.getByRole('alert').element(),
+    ]) {
+      expect(
+        el?.parentElement?.closest('[role="status"],[role="alert"],[aria-live]')
+      ).toBeNull()
+    }
     const button = resendButton(screen)
     await expect.element(button).toHaveAttribute('aria-disabled', 'true')
     await expect.element(button).toHaveFocus()
@@ -204,6 +212,7 @@ describe('resend', () => {
     await expect
       .poll(() => statusText(screen))
       .toContain('You can send the link again.')
+    expect(screen.container.textContent).not.toContain('Too many requests')
   })
 
   it('403 origin_not_allowed shows the neutral not-allowed alert with the request ID', async () => {

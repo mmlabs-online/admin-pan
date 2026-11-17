@@ -107,6 +107,9 @@ export function EmailUnverifiedPage({
           can&apos;t find the email or the link has expired, send the link
           again.
         </p>
+      </StatusPanel>
+      {/* Outside StatusPanel (role=status): no live region nests another */}
+      <div className='grid gap-2 text-sm'>
         {accountId && (
           <ResendVerification
             accountId={accountId}
@@ -133,7 +136,7 @@ export function EmailUnverifiedPage({
         <AccountList exclude={accountId} />
         <UseAnotherAccount />
         <SignOutButton scope='account' />
-      </StatusPanel>
+      </div>
     </AccessLayout>
   )
 }

@@ -46,3 +46,23 @@ None.
 ### Scope self-check
 - Could the diff be smaller? No.
 - Diff size: about +640 / -60 lines, mostly tests.
+
+## Attempt 2 (REWORK)
+
+### Changes
+- `src/features/auth/gate/access-pages.tsx`: `EmailUnverifiedPage` keeps only the title and the explanatory paragraph inside `StatusPanel`. `ResendVerification`, the page alert, the continue button, `AccountList`, `UseAnotherAccount` and `SignOutButton` moved to a sibling `<div className='grid gap-2 text-sm'>` (review Issue 1). `status-panel.tsx` unchanged.
+- `src/features/auth/gate/resend-verification.tsx`: the `wasWaiting` branch also calls `setAlert(null)` (Issue 2). The rate-limit alert text is now static, "Too many requests." (a11y 3); the countdown carries the time.
+- `src/features/auth/gate/access-pages.test.tsx`: the 429 test asserts the static alert text and that the countdown `<p>`, `p[role=status]` and `role=alert` have no live ancestor. It also asserts the alert is gone after the countdown ends.
+
+### Checks
+- pnpm typecheck: clean
+- pnpm lint: clean
+- pnpm format:check: all files use Prettier code style
+- pnpm test: 65 files, 436 tests passed
+- pnpm build: built OK
+
+### Out-of-plan files
+None.
+
+### Follow-ups
+- Unchanged from attempt 1 (StatusPanel `role=status` on other panels).

@@ -40,6 +40,7 @@ export function ResendVerification({
     } else if (wasWaiting.current) {
       wasWaiting.current = false
       setUntil(null)
+      setAlert(null)
       setStatus('You can send the link again.')
     }
   }, [remaining])
@@ -64,7 +65,7 @@ export function ResendVerification({
         case 'rate_limited':
           setStatus('')
           setAlert({
-            text: `Too many requests. Try again in ${formatRetryAfter(r.retryAfter)}.`,
+            text: 'Too many requests.',
           })
           setUntil(Date.now() + Math.max(1, r.retryAfter ?? 60) * 1000)
           break
