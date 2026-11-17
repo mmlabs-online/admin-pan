@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApiClient } from './client'
 import { ApiError } from './errors'
-import { forgotPassword, resetPassword, verifyEmail } from './public-auth'
+import { resetPassword, verifyEmail } from './public-auth'
 
 function setup(respond: () => Response) {
   const seen: Request[] = []
@@ -25,17 +25,6 @@ beforeEach(() => vi.stubEnv('VITE_APP_KEY', 'admin'))
 afterEach(() => vi.unstubAllEnvs())
 
 describe('public auth calls', () => {
-  it('forgot sends X-MM-App and body {email, turnstile_token}', async () => {
-    const { api, seen } = setup(() => new Response(null, { status: 202 }))
-    await forgotPassword(api, { email: 'a@b.com', turnstile_token: 'tt' })
-    expect(seen[0].url).toBe('https://api.test/api/v1/auth/password/forgot')
-    expect(seen[0].headers.get('x-mm-app')).toBe('admin')
-    expect(await seen[0].json()).toEqual({
-      email: 'a@b.com',
-      turnstile_token: 'tt',
-    })
-  })
-
   it('reset sends no X-MM-App or Authorization, and body {token, new_password}', async () => {
     const { api, seen } = setup(() => new Response(null, { status: 204 }))
     await resetPassword(api, { token: 't', new_password: 'pw' })
@@ -45,8 +34,8 @@ describe('public auth calls', () => {
   })
 
   it('never sets an origin header', async () => {
-    const { api, seen } = setup(() => new Response(null, { status: 202 }))
-    await forgotPassword(api, { email: 'a@b.com', turnstile_token: 'tt' })
+    const { api, seen } = setup(() => new Response(null, { status: 204 }))
+    await resetPassword(api, { token: 't', new_password: 'pw' })
     expect(seen[0].headers.has('origin')).toBe(false)
   })
 
@@ -56,9 +45,9 @@ describe('public auth calls', () => {
       resetPassword(a.api, { token: 't', new_password: 'pw' })
     ).rejects.toMatchObject({ status: 422, code: 'token_invalid' })
     const b = setup(() => err(429, 'rate_limited', { 'retry-after': '90' }))
-    const e = await forgotPassword(b.api, {
-      email: 'a@b.com',
-      turnstile_token: 'tt',
+    const e = await resetPassword(b.api, {
+      token: 't',
+      new_password: 'pw',
     }).catch((x) => x)
     expect(e).toBeInstanceOf(ApiError)
     expect(e).toMatchObject({ status: 429, retryAfter: 90 })

@@ -5,11 +5,7 @@ import { toast } from 'sonner'
 import { describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { createQueryClient } from '@/lib/query-client'
-import {
-  useForgotPasswordMutation,
-  useResetPasswordMutation,
-  useVerifyEmailMutation,
-} from './mutations'
+import { useResetPasswordMutation, useVerifyEmailMutation } from './mutations'
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
@@ -67,10 +63,9 @@ describe('auth mutations', () => {
     const done = (v: boolean) => (allErrored = v)
     function Both() {
       const r = useResetPasswordMutation(() => client)
-      const f = useForgotPasswordMutation(() => client)
       const v = useVerifyEmailMutation(() => client)
       useEffect(() => {
-        done(r.isError && f.isError && v.isError)
+        done(r.isError && v.isError)
       })
       const noop = { onError: () => {} }
       return (
@@ -79,13 +74,6 @@ describe('auth mutations', () => {
             onClick={() => r.mutate({ token: 't', new_password: 'p' }, noop)}
           >
             reset
-          </button>
-          <button
-            onClick={() =>
-              f.mutate({ email: 'a@b.com', turnstile_token: 't' }, noop)
-            }
-          >
-            forgot
           </button>
           <button onClick={() => v.mutate({ token: 't' }, noop)}>verify</button>
         </>
@@ -98,7 +86,6 @@ describe('auth mutations', () => {
       </QueryClientProvider>
     )
     await screen.getByRole('button', { name: 'reset' }).click()
-    await screen.getByRole('button', { name: 'forgot' }).click()
     await screen.getByRole('button', { name: 'verify' }).click()
     await vi.waitFor(() => expect(allErrored).toBe(true))
     expect(toast.error).not.toHaveBeenCalled()

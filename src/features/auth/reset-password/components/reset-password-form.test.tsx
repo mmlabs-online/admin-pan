@@ -80,7 +80,9 @@ describe('ResetPasswordForm', () => {
         .element(screen.getByRole('heading', { name: 'Invalid link' }))
         .toBeInTheDocument()
       await expect
-        .element(screen.getByRole('link', { name: 'Forgot password' }))
+        .element(
+          screen.getByRole('link', { name: 'How to reset your password' })
+        )
         .toHaveAttribute('href', '/forgot-password')
       expect(screen.getByLabelText('New password').elements()).toHaveLength(0)
       expect(fetchSpy).not.toHaveBeenCalled()
@@ -129,7 +131,7 @@ describe('ResetPasswordForm', () => {
     await expect.element(screen.getByLabelText('New password')).toBeVisible()
   })
 
-  it('token_invalid shows the expired-or-used panel with a link to /forgot-password', async () => {
+  it('token_invalid shows the expired-or-used panel with a link to the reset notice', async () => {
     respond = () => json(422, 'token_invalid')
     const screen = await mount()
     await submit(screen, 'abcdefgh1!')
@@ -137,7 +139,7 @@ describe('ResetPasswordForm', () => {
       .element(screen.getByText(/invalid, expired or already used/))
       .toBeInTheDocument()
     await expect
-      .element(screen.getByRole('link', { name: 'Request a new link' }))
+      .element(screen.getByRole('link', { name: 'How to reset your password' }))
       .toHaveAttribute('href', '/forgot-password')
   })
 
