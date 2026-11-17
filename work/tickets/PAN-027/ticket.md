@@ -7,7 +7,7 @@
 | Areas | api, ui, security |
 | Attempts | 1 |
 | Created | 2026-11-17 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/20 |
 
 ## Goal
 Let staff manage an app's deploy-time API credentials from the app detail: list them, issue a new one (secret shown once), and revoke one. Backed by org-admin-api USR-05a (ADR-0016).
