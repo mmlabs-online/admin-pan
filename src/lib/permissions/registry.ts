@@ -106,7 +106,11 @@ export const ACTIONS = {
     'admin:organizations:write',
     'DELETE /api/v1/organizations/{org_id}'
   ),
-  'apps.view': perm('admin:apps:read', 'GET /api/v1/apps/{key}'),
+  'apps.view': perm(
+    'admin:apps:read',
+    'GET /api/v1/apps/{key}',
+    'GET /api/v1/apps/{key}/permissions'
+  ),
   'apps.register': perm('admin:apps:write', 'POST /api/v1/apps'),
   'apps.update': perm('admin:apps:write', 'PATCH /api/v1/apps/{key}'),
   'apps.createPermission': perm(

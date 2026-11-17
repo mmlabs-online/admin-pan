@@ -1,4 +1,5 @@
-// In-memory store shared by the Apps and Roles screens (mock phase only).
+// In-memory store used by the Roles screen (mock phase only; the Apps screen
+// is on the real API).
 // Every action below maps to an org-admin-api USR-02 endpoint in a later
 // ticket; the API owns these rules, the store only mimics them for the mock.
 import { useSyncExternalStore } from 'react'
