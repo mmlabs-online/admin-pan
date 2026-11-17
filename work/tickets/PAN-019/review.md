@@ -84,3 +84,59 @@ None. No security-review.md or a11y-review.md was produced for this attempt.
   - Fix: clear only if the row and dialog are unchanged, or cancel the timer on open.
   - Regression test: close and immediately reopen. Then remove `waitForTimeout(600)` from `e2e/pages.e2e.ts` and de-flake `organizations-delete-dialog.test.tsx`.
 - Plan follow-ups stand: PAN-019b revoke; PAN-014b detail fields and audit link; lift the apps error helpers; spec §5.6 "(backlog)"; org Delete `text-red-500!` contrast. On org-admin-api: seed `admin:entitlements:*` into a staff role, ETag on PATCH.
+
+## Attempt 2 — 2026-11-17
+Verdict: PASS
+
+### Checks (run by reviewer)
+- pnpm typecheck: pass (exit 0)
+- pnpm lint: pass (`eslint .`, exit 0)
+- pnpm format:check: pass ("All matched files use Prettier code style!")
+- pnpm test (`PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium`, full): 89 files / 643 tests passed. This matches impl-log Attempt 2.
+- `pnpm test src/features/organizations` 7 runs in a row: all exit 0, 81/81 passed each time. The Attempt 1 flake (3 failures in 7 runs) is gone.
+- pnpm build: pass (`built in 1.32s`)
+- pnpm e2e: 26 passed, including `pages.e2e.ts:279` "organizations entitlements …" (7.7s) with the new focus assertions.
+
+### Acceptance criteria
+- [x] Entitlements per org listed and editable. The evidence from Attempt 1 still holds; this attempt did not change that code.
+- [x] Changes confirmed and audited by the API. The evidence from Attempt 1 still holds.
+- [x] States tested. The coverage from Attempt 1 is complete, and the tests are now stable:
+  - `entitlement-enabled-dialog.test.tsx:25` awaits `expect.element(sw).toBeVisible()` before `sw.element()` at :27.
+  - `:69` and `:104` add the same wait on `confirm` before `.element()`.
+  - `entitlement-form-dialog.test.tsx:183` adds it before `submit.element()`.
+  - The remaining raw `.element()` calls follow an awaited `expect.element` on the same locator or an ancestor: `organization-detail-sheet.test.tsx:32` and `organization-entitlements-tab.test.tsx:91,102,106`. The two calls in `organizations-action-dialog.test.tsx` predate this ticket.
+
+### Issues
+None. Attempt 1 Issue 1 (flaky tests) is fixed. Evidence: the waits above, plus 7/7 green runs of the organizations suite and a green full run.
+
+### Attempt 1 findings, re-checked
+- a11y 1, focus on limit-row removal: fixed in `entitlement-form-dialog.tsx:86-101`.
+  - `removeLimit` records the target index: the same index, else index − 1, else −1 for "Add limit".
+  - A `useEffect` keyed on `limits.fields` moves focus after the row unmounts. It uses `form.setFocus('limits.N.key')`, or `addLimitRef` at :342.
+  - Test `entitlement-form-dialog.test.tsx:243` covers "Add limit" focusing the new key input and all three removal cases. I traced the test's row indices by hand and they match the rule.
+- a11y 2, e2e focus assertions: added in `e2e/pages.e2e.ts:304,324,335,341,351`. They cover the Grant button after a grant, the switch after Cancel and after Disable, Edit after Escape, and "View Acme Corp" after the sheet closes.
+- Security 🟡, the cast: kept as the security review allowed. The minimum guard is now in place at `api/entitlements.test.ts:121-128`. It is an `expectTypeOf` check that `keyof EntitlementCreate` equals `'app_key' | 'plan' | 'limits' | 'enabled'`, and `tsc -b` enforces it.
+- Nit, the doc comment: reworded at `data/entitlement-errors.ts:80-81`.
+
+### Scope
+Attempt 2 changed `e2e/pages.e2e.ts`, `entitlement-form-dialog.tsx` and its test, `entitlement-enabled-dialog.test.tsx`, `api/entitlements.test.ts` and `data/entitlement-errors.ts`. All of these are in the plan's file list. The commit also changed workflow files (`backlog.md`, `ticket.md`, `impl-log.md`). There are no out-of-plan code changes. The apps origins focus fix was deliberately left out (R7).
+
+### Rules R1–R11
+No violations found. The attempt-2 changes are limited to tests, focus management and one comment. R10 is improved: WCAG 2.4.3 is now met on limit-row removal.
+
+### Security / a11y blockers
+None. Neither review reported a blocker in Attempt 1, and both 🟡 a11y items are now fixed.
+
+### Nits (do not block)
+- `entitlement-form-dialog.tsx:323`: the `mt-[1.625rem]` misalignment when row 1 shows a `FormMessage` is still there. This is a11y 💭 4.
+
+### Follow-ups (out of scope)
+- Unchanged from Attempt 1:
+  - the `closeWithRow` 500 ms race BUG, covering `organizations-dialogs.tsx`, `apps-dialogs.tsx` and `reports-dialogs.tsx`, plus removing the e2e `waitForTimeout(600)`;
+  - PAN-019b revoke;
+  - PAN-014b;
+  - lift the apps error helpers;
+  - the org Delete contrast fix;
+  - on org-admin-api: seed the `admin:entitlements:*` permissions and add ETag.
+- Apply the same remove-row focus fix to `apps/components/app-form-dialog.tsx` (origins), ideally through a shared dynamic-row focus helper.
+- Tooling: generate the types with `--default-non-nullable false`, then remove the request-body casts.
