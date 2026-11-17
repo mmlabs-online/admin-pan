@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { renderHook } from 'vitest-browser-react'
 import { ORGS, orgsPage } from '../components/test-data'
 import {
+  organizationQueryOptions,
   organizationsKeys,
   organizationsListQueryOptions,
   toOrganizationsListParams,
@@ -61,6 +62,15 @@ describe('organizations queries', () => {
     expect(seen[0].url).toBe(
       'https://api.test/api/v1/organizations?limit=10&offset=20'
     )
+  })
+
+  it('organizationQueryOptions sends GET /api/v1/organizations/{org_id} under organizationsKeys.detail(id)', async () => {
+    const { client, seen } = fakeApi(() => json(ORGS[0]))
+    const options = organizationQueryOptions(ID, client)
+    expect(options.queryKey).toEqual(['organizations', 'detail', ID])
+    expect(options.queryKey.slice(0, 1)).toEqual(organizationsKeys.all)
+    expect(await new QueryClient().fetchQuery(options)).toEqual(ORGS[0])
+    expect(seen[0].url).toBe(`https://api.test/api/v1/organizations/${ID}`)
   })
 
   it('surfaces a 403 ApiError', async () => {

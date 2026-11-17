@@ -8,6 +8,8 @@ export const ADMIN_PERMISSIONS = [
   'admin:apps:read',
   'admin:apps:write',
   'admin:audit:read',
+  'admin:entitlements:read',
+  'admin:entitlements:write',
   'admin:organizations:read',
   'admin:organizations:write',
   'admin:roles:assign',
@@ -94,6 +96,10 @@ const reportsPending: Requirement = {
 export const ACTIONS = {
   'users.view': perm('admin:users:read', 'GET /api/v1/users/{user_id}'),
   'users.setStatus': perm('admin:users:write', 'PATCH /api/v1/users/{user_id}'),
+  'organizations.view': perm(
+    'admin:organizations:read',
+    'GET /api/v1/organizations/{org_id}'
+  ),
   'organizations.create': perm(
     'admin:organizations:write',
     'POST /api/v1/organizations'
@@ -151,6 +157,18 @@ export const ACTIONS = {
   'roles.revoke': perm(
     'admin:roles:assign',
     'DELETE /api/v1/users/{user_id}/role-assignments/{assignment_id}'
+  ),
+  'entitlements.view': perm(
+    'admin:entitlements:read',
+    'GET /api/v1/organizations/{org_id}/entitlements'
+  ),
+  'entitlements.grant': perm(
+    'admin:entitlements:write',
+    'POST /api/v1/organizations/{org_id}/entitlements'
+  ),
+  'entitlements.update': perm(
+    'admin:entitlements:write',
+    'PATCH /api/v1/organizations/{org_id}/entitlements/{entitlement_id}'
   ),
   'audit.view': perm('admin:audit:read', 'GET /api/v1/audit-logs'),
   'reports.create': reportsPending,

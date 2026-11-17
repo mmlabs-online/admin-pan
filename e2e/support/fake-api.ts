@@ -9,6 +9,7 @@ type UserRead = components['schemas']['UserRead']
 type OrganizationRead = components['schemas']['OrganizationRead']
 type AuditLogRead = components['schemas']['AuditLogRead']
 type AppRead = components['schemas']['AppRead']
+type EntitlementRead = components['schemas']['EntitlementRead']
 type PermissionRead = components['schemas']['PermissionRead']
 type AppCredentialRead = components['schemas']['AppCredentialRead']
 type MePermissions = components['schemas']['MePermissions']
@@ -308,6 +309,85 @@ export async function installFakeApi(context: BrowserContext) {
       creds[a.key].unshift(row)
       addRevokeRoute(a.key, row)
       return json(201, { ...row, credential: FAKE_CREDENTIAL })
+    }
+  }
+
+  // Per-install entitlements: grant adds a row, PATCH changes it. `active`
+  // is computed here because the fake stands in for the API (the UI never does).
+  const ents: Record<string, EntitlementRead[]> = {
+    [ORGS[0].id]: [],
+    [ORGS[1].id]: [
+      {
+        id: '88888881-8888-4888-8888-888888888888',
+        org_id: ORGS[1].id,
+        app_key: 'calechip',
+        plan: 'pro',
+        limits: { seats: 5 },
+        enabled: true,
+        active: false,
+        created_at: stamp,
+        updated_at: stamp,
+      },
+    ],
+    [ORGS[2].id]: [],
+  }
+  const addPatchRoute = (o: OrganizationRead, e: EntitlementRead) => {
+    routes[`PATCH /api/v1/organizations/${o.id}/entitlements/${e.id}`] = ({
+      body,
+    }) => {
+      const b = body as Partial<EntitlementRead>
+      if (b.plan != null) e.plan = b.plan
+      if (b.limits != null) e.limits = b.limits
+      if (b.enabled != null) e.enabled = b.enabled
+      e.active = e.enabled && o.status === 'active'
+      e.updated_at = '2026-01-16T10:00:00Z'
+      return json(200, e)
+    }
+  }
+  for (const o of ORGS) {
+    routes[`GET /api/v1/organizations/${o.id}`] = () => json(200, o)
+    routes[`GET /api/v1/organizations/${o.id}/entitlements`] = ({ query }) =>
+      json(200, page(ents[o.id], query))
+    for (const e of ents[o.id]) addPatchRoute(o, e)
+    routes[`POST /api/v1/organizations/${o.id}/entitlements`] = ({ body }) => {
+      const b = body as { app_key: string; plan: string; enabled?: boolean }
+      const target = APPS.find((a) => a.key === b.app_key)
+      const reason = (r: string) =>
+        json(409, {
+          error: {
+            code: 'conflict',
+            message: 'conflict',
+            details: [{ field: 'app_key', reason: r }],
+          },
+        })
+      if (!target)
+        return json(404, {
+          error: {
+            code: 'not_found',
+            message: 'not_found',
+            details: [{ field: 'app_key', reason: 'unknown_app' }],
+          },
+        })
+      if (target.key === 'admin') return reason('admin_app')
+      if (target.status === 'disabled') return reason('app_disabled')
+      if (target.org_mode !== 'required') return reason('org_mode_none')
+      if (ents[o.id].some((e) => e.app_key === b.app_key))
+        return reason('entitlement_exists')
+      const enabled = b.enabled ?? true
+      const row: EntitlementRead = {
+        id: '88888882-8888-4888-8888-888888888888',
+        org_id: o.id,
+        app_key: b.app_key,
+        plan: b.plan,
+        limits: (body as { limits?: Record<string, number> }).limits ?? {},
+        enabled,
+        active: enabled && o.status === 'active' && target.status === 'active',
+        created_at: stamp,
+        updated_at: stamp,
+      }
+      ents[o.id].push(row)
+      addPatchRoute(o, row)
+      return json(201, row)
     }
   }
 

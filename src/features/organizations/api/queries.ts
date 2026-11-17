@@ -23,6 +23,7 @@ export type OrganizationsListParams = { limit: number; offset: number }
 export const organizationsKeys = {
   all: ['organizations'] as const,
   lists: () => [...organizationsKeys.all, 'list'] as const,
+  detail: (id: string) => [...organizationsKeys.all, 'detail', id] as const,
   list: (p: OrganizationsListParams) =>
     [
       ...organizationsKeys.lists(),
@@ -56,6 +57,24 @@ export function organizationsListQueryOptions(
         })
       ),
     placeholderData: keepPreviousData,
+  })
+}
+
+/** GET /api/v1/organizations/{org_id} — admin:organizations:read. */
+export function organizationQueryOptions(
+  id: string,
+  api: ApiClient = getApi()
+) {
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps
+  return queryOptions({
+    queryKey: organizationsKeys.detail(id),
+    queryFn: async ({ signal }) =>
+      unwrap(
+        await api.GET('/api/v1/organizations/{org_id}', {
+          params: { path: { org_id: id } },
+          signal,
+        })
+      ),
   })
 }
 

@@ -1,10 +1,12 @@
+import { OrganizationDetailSheet } from './organization-detail-sheet'
 import { OrganizationsActionDialog } from './organizations-action-dialog'
 import { OrganizationsDeleteDialog } from './organizations-delete-dialog'
 import { useOrganizations } from './organizations-provider'
 import { OrganizationsStatusDialog } from './organizations-status-dialog'
 
 export function OrganizationsDialogs() {
-  const { open, setOpen, currentRow, setCurrentRow } = useOrganizations()
+  const { open, setOpen, currentRow, setCurrentRow, viewButtons } =
+    useOrganizations()
 
   const close = () => setOpen(null)
   const closeWithRow = () => {
@@ -39,6 +41,13 @@ export function OrganizationsDialogs() {
             open={open === 'delete'}
             onOpenChange={closeWithRow}
             currentRow={currentRow}
+          />
+          <OrganizationDetailSheet
+            key={`organization-view-${currentRow.id}`}
+            open={open === 'view'}
+            onOpenChange={closeWithRow}
+            currentRow={currentRow}
+            returnFocus={() => viewButtons.current.get(currentRow.id)?.focus()}
           />
         </>
       )}

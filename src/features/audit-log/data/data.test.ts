@@ -35,3 +35,32 @@ describe('app_credential audit entries', () => {
     })
   })
 })
+
+describe('entitlement audit entries', () => {
+  it('granted/updated/revoked have non-neutral tones and are in actionOptions; "Entitlement" is a target type; the search schema accepts them', () => {
+    const neutral = actionBadgeClass('unknown.action')
+    const values = actionOptions.map((o) => o.value)
+    for (const a of [
+      'entitlement.granted',
+      'entitlement.updated',
+      'entitlement.revoked',
+    ]) {
+      expect(actionBadgeClass(a)).not.toBe(neutral)
+      expect(values).toContain(a)
+    }
+    expect(targetLabels.entitlement).toBe('Entitlement')
+    expect(targetTypeOptions).toContainEqual({
+      label: 'Entitlement',
+      value: 'entitlement',
+    })
+    expect(
+      auditLogSearchSchema.parse({
+        action: 'entitlement.granted',
+        targetType: 'entitlement',
+      })
+    ).toMatchObject({
+      action: 'entitlement.granted',
+      targetType: 'entitlement',
+    })
+  })
+})
