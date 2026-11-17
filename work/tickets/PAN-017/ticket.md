@@ -7,7 +7,7 @@
 | Areas | api, ui, security |
 | Attempts | 1 |
 | Created | 2026-11-11 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/23 |
 
 ## Goal
 In user detail, list the user's device/account sessions and revoke one or all, with confirmation.
