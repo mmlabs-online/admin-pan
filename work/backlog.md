@@ -41,7 +41,7 @@ Phases: **1. UI with mock data** (PAN-001…008, done) → **2. Foundations** (P
 | PAN-024 | UI language | BACKLOG | P3 | ui | 0 | 2026-11-11 |
 | PAN-025 | Self-host the Inter and Manrope fonts | DONE | P2 | ui, security | 1 | 2026-11-16 |
 | PAN-026 | Upgrade dependencies with known security advisories | DONE | P1 | architecture, security | 1 | 2026-11-16 |
-| PAN-027 | App credentials (list, issue, revoke) | BACKLOG | P2 | api, ui, security | 0 | 2026-11-17 |
+| PAN-027 | App credentials (list, issue, revoke) | PLANNING | P2 | api, ui, security | 0 | 2026-11-17 |
 
 Order of work (dependencies): PAN-001 → PAN-002…008 → PAN-009 → PAN-010 → PAN-011 → PAN-013, PAN-014, PAN-015 → PAN-016 → PAN-012, PAN-019, PAN-022, PAN-023 → PAN-025 → PAN-026 → PAN-027 (after PAN-015) → PAN-017, PAN-018, PAN-020, PAN-021, PAN-024.
 Waiting on org-admin-api (state 2026-11-16, origin/main 0899731): PAN-010b ← new org-admin-api ticket allowing resend for `admin` (ADM-002d refuses it) · PAN-011 ← an endpoint returning the caller's effective admin permissions (no ticket yet) · PAN-018 ← USR-06 · PAN-019 ← ADM-006. Met: USR-08, ADM-002, ADM-002b, ADM-004, ADM-012.
