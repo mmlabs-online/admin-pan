@@ -301,6 +301,9 @@ test('organizations entitlements: sheet and tab pass axe; grant calechip to Acme
   await expectNoSeriousA11y(page, 'organizations-entitlement-grant')
   await grant.getByRole('button', { name: 'Grant', exact: true }).click()
   await expect(grant).toBeHidden()
+  await expect(
+    sheet.getByRole('button', { name: 'Grant product' })
+  ).toBeFocused()
   const post = `POST /api/v1/organizations/${acme}/entitlements`
   expect(api.count(post)).toBe(1)
   expect(api.calls.find((c) => `${c.method} ${c.path}` === post)?.body).toEqual(
@@ -318,17 +321,35 @@ test('organizations entitlements: sheet and tab pass axe; grant calechip to Acme
   await expectNoSeriousA11y(page, 'organizations-entitlement-disable')
   await confirm.getByRole('button', { name: 'Cancel' }).click()
   await expect(confirm).toBeHidden()
+  await expect(
+    sheet.getByRole('switch', { name: 'calechip enabled' })
+  ).toBeFocused()
   expect(patches()).toHaveLength(0)
+
+  await sheet.getByRole('button', { name: 'Edit calechip' }).click()
+  const edit = page.getByRole('dialog', { name: /^Edit calechip/ })
+  await expect(edit).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(edit).toBeHidden()
+  await expect(
+    sheet.getByRole('button', { name: 'Edit calechip' })
+  ).toBeFocused()
 
   await sheet.getByRole('switch', { name: 'calechip enabled' }).click()
   await confirm.getByRole('button', { name: 'Disable', exact: true }).click()
   await expect(confirm).toBeHidden()
+  await expect(
+    sheet.getByRole('switch', { name: 'calechip enabled' })
+  ).toBeFocused()
   expect(patches()).toHaveLength(1)
   expect(patches()[0].body).toEqual({ enabled: false })
   await expect(row).toContainText('Disabled')
 
   await page.keyboard.press('Escape')
   await expect(sheet).toBeHidden()
+  await expect(
+    page.getByRole('button', { name: 'View Acme Corp' })
+  ).toBeFocused()
   // closeWithRow clears the current row 500 ms after closing; opening another
   // row sooner would be unmounted by that timer (follow-up in impl-log).
   await page.waitForTimeout(600)

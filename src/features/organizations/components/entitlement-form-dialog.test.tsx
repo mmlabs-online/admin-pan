@@ -180,6 +180,7 @@ describe('EntitlementFormDialog: grant', () => {
     await userEvent.click(screen.getByRole('option', { name: /^Calechip/ }))
     await userEvent.fill(dialog.getByLabelText('Plan'), 'pro')
     const submit = dialog.getByRole('button', { name: 'Grant' })
+    await expect.element(submit).toBeVisible()
     // Two clicks in one task: no re-render in between.
     const button = submit.element() as HTMLElement
     button.click()
@@ -237,6 +238,37 @@ describe('EntitlementFormDialog: edit', () => {
     await userEvent.click(dialog.getByRole('button', { name: 'Save' }))
     await expect.element(dialog).not.toBeInTheDocument()
     expect(await writes(seen, 'PATCH')[2].json()).toEqual({ limits: {} })
+  })
+
+  it("limits focus: 'Add limit' focuses the new key input; removing a row focuses the same index, else the previous row, else 'Add limit'", async () => {
+    const { client } = fakeApi(orgsServer(() => json({})))
+    const screen = await renderOrgSheet(client)
+    const { dialog } = await openEdit(screen)
+    const remove = (n: number) =>
+      userEvent.click(
+        dialog.getByRole('button', { name: `Remove limit row ${n}` })
+      )
+    await userEvent.click(dialog.getByRole('button', { name: 'Add limit' }))
+    await expect
+      .element(dialog.getByLabelText('Limit name, row 2'))
+      .toHaveFocus()
+    await userEvent.click(dialog.getByRole('button', { name: 'Add limit' }))
+    await expect
+      .element(dialog.getByLabelText('Limit name, row 3'))
+      .toHaveFocus()
+    await userEvent.fill(dialog.getByLabelText('Limit name, row 3'), 'last')
+    await remove(1)
+    await expect
+      .element(dialog.getByLabelText('Limit name, row 1'))
+      .toHaveFocus()
+    await remove(2)
+    await expect
+      .element(dialog.getByLabelText('Limit name, row 1'))
+      .toHaveFocus()
+    await remove(1)
+    await expect
+      .element(dialog.getByRole('button', { name: 'Add limit' }))
+      .toHaveFocus()
   })
 
   it("duplicate limit key and a '1.5' value show linked field errors (aria-describedby) and send nothing; 'Add limit' disabled at 32 rows; 422 body.plan maps to the plan field; 404 → alert", async () => {

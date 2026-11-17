@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useFieldArray, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
@@ -83,6 +83,22 @@ export function EntitlementFormDialog(props: EntitlementFormDialogProps) {
     },
   })
   const limits = useFieldArray({ control: form.control, name: 'limits' })
+  // Where focus goes once a removed row has unmounted (WCAG 2.4.3): the key
+  // input now at the same index, else the previous row, else "Add limit".
+  const focusAfterRemove = useRef<number | null>(null)
+  const addLimitRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    const target = focusAfterRemove.current
+    if (target === null) return
+    focusAfterRemove.current = null
+    if (target < 0) addLimitRef.current?.focus()
+    else form.setFocus(`limits.${target}.key`)
+  }, [limits.fields, form])
+  const removeLimit = (index: number) => {
+    focusAfterRemove.current =
+      index < limits.fields.length - 1 ? index : index - 1
+    limits.remove(index)
+  }
 
   const apps = useQuery({
     ...appsListQueryOptions({ limit: ENTITLEMENTS_PAGE_SIZE, offset: 0 }, api),
@@ -306,7 +322,7 @@ export function EntitlementFormDialog(props: EntitlementFormDialogProps) {
                     size='icon'
                     className={index === 0 ? 'mt-[1.625rem]' : undefined}
                     aria-label={`Remove limit row ${index + 1}`}
-                    onClick={() => limits.remove(index)}
+                    onClick={() => removeLimit(index)}
                   >
                     <X className='size-4' aria-hidden='true' />
                   </Button>
@@ -323,6 +339,7 @@ export function EntitlementFormDialog(props: EntitlementFormDialogProps) {
               )}
               <div className='flex items-center gap-2'>
                 <Button
+                  ref={addLimitRef}
                   type='button'
                   variant='outline'
                   size='sm'

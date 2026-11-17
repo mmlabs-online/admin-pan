@@ -22,6 +22,7 @@ type Screen = Awaited<ReturnType<typeof renderOrgSheet>>
 async function openSwitch(screen: Screen, name: string) {
   await userEvent.click(screen.getByRole('tab', { name: 'Entitlements' }))
   const sw = screen.getByRole('switch', { name })
+  await expect.element(sw).toBeVisible()
   // The page behind the modal is aria-hidden, so keep the element itself.
   const el = sw.element() as HTMLElement
   await userEvent.click(sw)
@@ -65,6 +66,7 @@ describe('EntitlementEnabledDialog', () => {
     const screen = await renderOrgSheet(client)
     const { sw, el, dialog } = await openSwitch(screen, 'calechip enabled')
     const confirm = dialog.getByRole('button', { name: 'Disable' })
+    await expect.element(confirm).toBeVisible()
     // Two clicks in one task: no re-render in between.
     const button = confirm.element() as HTMLElement
     button.click()
@@ -99,6 +101,7 @@ describe('EntitlementEnabledDialog', () => {
       .element(dialog.getByText('Enable stoktok for Acme Corp?'))
       .toBeVisible()
     const confirm = dialog.getByRole('button', { name: 'Enable' })
+    await expect.element(confirm).toBeVisible()
     expect((confirm.element() as HTMLElement).className).not.toContain(
       'bg-destructive'
     )

@@ -77,8 +77,8 @@ const GRANT_409: Record<string, string> = {
 
 /**
  * Maps a failed grant or edit to field errors and an alert, by status, code
- * and `details[].reason` (ADR 0004). Server text is never shown for mapped
- * cases; the first matching rule wins.
+ * and `details[].reason` (ADR 0004). Mapped cases use our own copy; a 422 shows
+ * the (capped) validation message on its field. The first matching rule wins.
  */
 export function entitlementFormError(
   error: unknown,

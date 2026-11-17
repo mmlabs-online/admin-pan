@@ -1,7 +1,8 @@
 import { createElement, type ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { type components } from '@/api'
 import { apiError, fakeApi, json } from '@/test-utils/api'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vitest'
 import { renderHook } from 'vitest-browser-react'
 import { ENTITLEMENTS, ORGS, entitlementsPage } from '../components/test-data'
 import {
@@ -114,5 +115,15 @@ describe('useUpdateEntitlementMutation', () => {
     respond = () => apiError(404, 'not_found')
     await run()
     expect(invalidated[1]).toEqual(organizationsKeys.detail(ORG))
+  })
+})
+
+describe('EntitlementCreate', () => {
+  // useGrantEntitlementMutation casts a body without `enabled` to this type.
+  // A new required field would break this line (and so the build), not the cast.
+  it('has exactly the fields the grant body is built from', () => {
+    expectTypeOf<
+      keyof components['schemas']['EntitlementCreate']
+    >().toEqualTypeOf<'app_key' | 'plan' | 'limits' | 'enabled'>()
   })
 })

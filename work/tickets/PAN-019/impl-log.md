@@ -62,3 +62,26 @@ None. Deviations inside planned files:
 ### Scope self-check
 - Could the diff be smaller? No for production code; most volume is the regenerated snapshot and tests.
 - Diff size: tracked files +3863 / -826 (of which ~3300 / ~750 is `src/api/*`), plus 14 new files.
+
+## Attempt 2 (REWORK)
+
+Fixed only the Attempt 1 review, security and a11y findings.
+
+### Changes
+- Flaky tests (review Issue 1): `await expect.element(...).toBeVisible()` before every raw `.element()`: `openSwitch` (switch), both confirm buttons in `entitlement-enabled-dialog.test.tsx`, and the submit button in `entitlement-form-dialog.test.tsx` (pending test). The other listed calls (`organization-detail-sheet.test.tsx:32`, `organization-entitlements-tab.test.tsx:91,102,106`) already follow an awaited `expect.element` on the same locator or a child, so they are unchanged.
+- a11y 1: `entitlement-form-dialog.tsx` `removeLimit`: after removal, focus goes to the key input at the same index, else the previous row, else "Add limit" (ref + effect). New interaction test covers Add limit focusing the new key input, plus all three removal cases. Apps origins list untouched (follow-up).
+- a11y 2: `e2e/pages.e2e.ts` entitlements test asserts focus: Grant button after grant closes, switch after Cancel and after Disable, Edit button after Escape on the edit dialog, "View Acme Corp" after Escape on the sheet.
+- Security: kept the cast; `api/entitlements.test.ts` has a type-level test (`expectTypeOf`) that `keyof EntitlementCreate` is exactly `'app_key' | 'plan' | 'limits' | 'enabled'`.
+- Nit: reworded the `entitlementFormError` doc comment in `data/entitlement-errors.ts`.
+- Not changed (accepted): `closeWithRow` race, e2e `waitForTimeout(600)`.
+
+### Checks
+- `pnpm test src/features/organizations` x5 (`PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium`): run1 14 files/81 tests passed; run2 same; run3 same; run4 same; run5 same. No failures.
+- pnpm typecheck: pass. pnpm lint: pass. pnpm format:check: pass.
+- pnpm test (full): 89 files / 643 tests passed.
+- pnpm build: pass (built in 1.15s).
+- pnpm e2e: 26 passed (incl. the entitlements test with the new focus assertions).
+- Not committed (per instruction).
+
+### Follow-ups
+- Apply the same remove-row focus fix to `apps/components/app-form-dialog.tsx` origins list (PAN-015 a11y finding), ideally via a shared helper.
