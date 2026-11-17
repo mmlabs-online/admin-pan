@@ -22,3 +22,22 @@
 
 ### Follow-ups
 - Line 253 of the `@mmlabs/auth-client` README is stale since org-admin-api USR-12. Fix it in the library repo.
+
+## Attempt 2
+
+**Verdict: no 🔴 blockers and no 🟡 should-fix items.** Reviewed `git diff HEAD~1 -- src`: 3 files, +17/−4. This rework changes only accessibility and copy; nothing security-relevant changed.
+
+### Still holds
+- **Library only (R3):** `src/features/auth/gate/resend-verification.tsx` has no new HTTP calls or imports. Resend still goes through `@mmlabs/auth-client` `resendVerification(accountId)` only.
+- **No retries:**
+  - A 429 now shows only the static text `'Too many requests.'` (`resend-verification.tsx:68`). The single deadline is unchanged and nothing re-sends automatically.
+  - `setAlert(null)` (`:43`) only clears the alert. It does not send anything.
+- **No sensitive data (R5):** no new `console`, toast, URL or storage use. The only change to shown text is that the 429 message no longer includes the retry-after value.
+- **Layout change:** the controls moved out of `StatusPanel` into a plain `div` (`src/features/auth/gate/access-pages.tsx:110-139`). Each control's visibility condition is unchanged, there are no new XSS sinks, and content is still rendered as text (R6).
+- **Tests:** `access-pages.test.tsx:187-215` only adds checks on live-region nesting and on clearing the alert.
+
+### Note
+- 💭 `formatRetryAfter` is no longer used at `resend-verification.tsx:68`. If nothing else in the file uses it, the import is dead and lint will flag it (R8). Not a security issue.
+
+### Follow-ups
+- Same as attempt 1: line 253 of the `@mmlabs/auth-client` README is stale.
