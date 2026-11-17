@@ -27,7 +27,7 @@ Phases: **1. UI with mock data** (PAN-001…008, done) → **2. Foundations** (P
 | PAN-012c | Retire the forgot-password page on admin (ADM-002d) | BACKLOG | P2 | auth, ui, security | 0 | 2026-11-16 |
 | PAN-013 | Users screen on the real API | DONE | P1 | api, ui | 1 | 2026-11-16 |
 | PAN-014 | Organizations screen on the real API | BLOCKED | P1 | api, ui | 0 | 2026-11-16 |
-| PAN-015 | Apps, permissions, roles and assignments on the real API | BACKLOG | P1 | api, ui, auth | 0 | 2026-11-11 |
+| PAN-015 | Apps, permissions, roles and assignments on the real API | PLANNING | P1 | api, ui, auth | 0 | 2026-11-17 |
 | PAN-016 | Audit log on the real API | BACKLOG | P2 | api, ui | 0 | 2026-11-11 |
 | PAN-017 | User sessions: list and revoke | BACKLOG | P2 | api, ui, security | 0 | 2026-11-11 |
 | PAN-018 | Organization members and invitations | BACKLOG | P3 | api, ui | 0 | 2026-11-11 |
