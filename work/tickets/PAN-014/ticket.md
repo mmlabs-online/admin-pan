@@ -7,7 +7,7 @@
 | Areas | api, ui |
 | Attempts | 1 |
 | Created | 2026-11-11 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/18 |
 
 ## Goal
 Replace Organizations mock data with `/api/v1/organizations` CRUD; 409 on duplicate slug shown on the field.
