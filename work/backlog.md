@@ -23,7 +23,7 @@ Phases: **1. UI with mock data** (PAN-001…008, done) → **2. Foundations** (P
 | PAN-011 | Permission-aware UI and 403 handling | DONE | P1 | auth, ui, security | 1 | 2026-11-16 |
 | PAN-012 | Forgot password and reset password pages | DONE | P2 | auth, ui, security | 1 | 2026-11-15 |
 | PAN-012b | Verify-email page | DONE | P2 | auth, ui, security | 1 | 2026-11-15 |
-| PAN-010b | Resend verification email from the admin UI | REVIEW | P2 | auth, ui, security | 1 | 2026-11-17 |
+| PAN-010b | Resend verification email from the admin UI | DONE | P2 | auth, ui, security | 2 | 2026-11-17 |
 | PAN-012c | Retire the forgot-password page on admin (ADM-002d) | DONE | P2 | auth, ui, security | 1 | 2026-11-17 |
 | PAN-013 | Users screen on the real API | DONE | P1 | api, ui | 1 | 2026-11-16 |
 | PAN-014 | Organizations screen on the real API | BLOCKED | P1 | api, ui | 0 | 2026-11-16 |

@@ -56,3 +56,44 @@ Verdict: REWORK
 - mmlabs-auth: README line 253 ("admin cannot … resend-verification") is stale since org-admin-api USR-12.
 - mmlabs-auth: optionally signal when `retryAfter` was clamped to 900 s, so the countdown is no longer only a lower bound for the 5/day limit.
 - Stray file `src/features/auth/gate/__screenshots__/tmp.test.tsx/x-a-1.png`.
+
+## Attempt 2 — 2026-11-17
+Verdict: PASS
+
+### Checks (run by reviewer, HEAD 50623c6)
+- pnpm typecheck: clean (`tsc -b`, no errors)
+- pnpm lint: clean (`eslint .`, no errors)
+- pnpm format:check: "All matched files use Prettier code style!"
+- pnpm test (`PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium`): 65 files, 436 tests passed. Same as impl-log.
+- pnpm build: built OK
+- pnpm e2e (if planned): not planned
+
+### Attempt-1 issues
+- Issue 1 (🔴 nested live regions): fixed. In `src/features/auth/gate/access-pages.tsx:103-140`, `StatusPanel` now holds only the title and the explanatory paragraph. `ResendVerification`, the page alert, the continue button, `AccountList`, `UseAnotherAccount` and `SignOutButton` sit in a sibling `<div className='grid gap-2 text-sm'>`. `status-panel.tsx` is unchanged, as instructed. The ticking countdown `<p id='resend-wait'>`, the sr-only `p[role=status]` and both `role=alert` elements now have no live ancestor. Test: `resend › 429 shows the wait, aria-disables the button with a countdown, ignores clicks, then re-enables` asserts `parentElement.closest('[role="status"],[role="alert"],[aria-live]') === null` for all three elements (`access-pages.test.tsx:191-199`). It passes.
+- Issue 2 (🟡 stale rate-limit alert): fixed. `resend-verification.tsx:43` calls `setAlert(null)` in the `wasWaiting` branch. The same test asserts "Too many requests" is gone once the button re-enables (`access-pages.test.tsx:215`).
+- a11y-review 🟡 3 (alert and countdown disagree): also fixed. The alert is static, "Too many requests." (`resend-verification.tsx:67-69`), and the countdown carries the time. This changes the alert copy in plan l.108. The change is justified by a11y-review finding 3, which attempt-1 Issue 2 referenced, and it is logged in impl-log. Accepted.
+
+### Acceptance criteria
+- [x] AC1 resend through `@mmlabs/auth-client` only: unchanged since attempt 1. Evidence as in attempt 1, and the tests still pass.
+- [x] AC2 `sent`, neutral message: `resend › 202 announces the neutral sent message in the status region` passes.
+- [x] AC3a `already_verified` refreshes and continues: `resend › 409 email_already_verified refreshes the token and shows the app` passes.
+- [x] AC3b 429 clear message, button disabled with a countdown that ticks silently: the 429 test above passes. The countdown is no longer inside any live region, so it is not announced. Only the single "You can send the link again." status is announced, and no stale alert remains.
+- [x] AC4 tests cover each outcome: all planned wrapper, hook and gate tests exist and pass (436/436).
+
+### Issues
+None.
+
+### Rules R1–R11
+- R1: n/a. R2/R3: OK, no change since attempt 1. R4: OK, the API's 429 is mirrored and there is no local cooldown. R5/R6: OK, text only, no logging. R7: OK. The attempt-2 diff (`f921bc5..50623c6`) touches only `access-pages.tsx`, `access-pages.test.tsx`, `resend-verification.tsx` and `work/` files, all in the plan. R8: green. R9 (spirit): OK. R10: the attempt-1 violation is resolved. R11: n/a.
+
+### Security / a11y blockers
+- security-review.md: none (no security-relevant change in attempt 2).
+- a11y-review.md: findings 1 and 3 are fixed. Finding 2 is fixed for this page; the root cause in `StatusPanel` remains a follow-up.
+
+### Nits (do not block)
+- 💭 `access-pages.tsx:103-139`: `CardContent` now has two sibling grids with no gap between them. The paragraph and the resend button may sit tight together. Consider `className='grid gap-2'` on a wrapper, or `mt-2` on the controls div.
+- 💭 The attempt-1 nits still apply: `Loader2` without `aria-hidden` on the continue button (`access-pages.tsx:134`), the `useCountdown` mount-time `now`, the hard-coded `id='resend-wait'`, and `retryAfter: 0`. The last one is now only visible in the countdown.
+- 💭 `access-pages.test.tsx:138`: `statusText` could now use `getByRole('status')` scoped to the resend block, because only the panel wrapper and this region remain.
+
+### Follow-ups (out of scope)
+- Unchanged from attempt 1: remove `role='status'` from the `StatusPanel` wrapper (`status-panel.tsx:14`) for the other gate, verify-email and reset-password panels, then check with NVDA/VoiceOver. Also the mmlabs-auth README stale line, the mmlabs-auth `retryAfter` clamp signal, and the untracked stray screenshot `src/features/auth/gate/__screenshots__/tmp.test.tsx/x-a-1.png`.
