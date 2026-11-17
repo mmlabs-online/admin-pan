@@ -7,7 +7,7 @@
 | Areas | ui, a11y |
 | Attempts | 1 |
 | Created | 2026-11-11 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/17 |
 
 ## Goal
 Playwright e2e: sign in, open each main page, one safe action per page, axe accessibility check on each page.
