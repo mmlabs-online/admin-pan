@@ -7,7 +7,7 @@
 | Areas | auth, ui, security |
 | Attempts | 1 |
 | Created | 2026-11-16 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/14 |
 
 ## Goal
 Add a "Send the link again" action to the "Email not verified" page that PAN-010 builds. It calls the library's `resendVerification()` (cookie class) and handles `sent`, `already_verified`, 409 and 429.
