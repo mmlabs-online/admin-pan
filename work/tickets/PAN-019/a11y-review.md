@@ -28,3 +28,18 @@ WCAG 2.2 AA, R10. Read-only code review of `origin/main...HEAD`; axe/Playwright 
 - Fix findings 1-2 in this ticket (small; finding 1 repeats PAN-015); apply the same fix to the apps origins list.
 - Shared "dynamic row list" focus helper for apps origins and entitlement limits.
 - `closeWithRow` 500 ms race (e2e comment) is a real UX race for keyboard users; keep it listed.
+
+## Attempt 2
+
+Read-only code review of the attempt-2 commit; Playwright/axe/tests not run by the auditor.
+
+**No 🔴. No 🟡 on PAN-019 files. Findings 1 and 2 resolved.**
+
+- **Finding 1 (focus after removing a limit row, 2.4.3): resolved.** `entitlement-form-dialog.tsx`: `focusAfterRemove` ref + `useEffect` on `[limits.fields, form]` + `removeLimit` (remove button ~:325). After unmount it focuses the same-index key input, else the previous row, else "Add limit" (`addLimitRef`, ~:342); ref cleared after use, so appends do not move focus. New test ("limits focus: …") covers Add-limit focus and all three remove branches.
+- **Finding 2 (e2e focus assertions): resolved.** `e2e/pages.e2e.ts` asserts focus on "Grant product" after the grant dialog closes; on the `calechip enabled` switch after Cancel and after Disable; on "Edit calechip" after Escape on the edit dialog; on "View Acme Corp" after Escape on the sheet. 💭 No keyboard-only add/remove-limit e2e step; covered by the component test.
+- **Regressions:** none. The diff adds only the effect, two refs and the `removeLimit` wrapper; `form.setFocus` is the existing pattern; other changes do not touch markup.
+
+### Still open (not blocking)
+1. 🟡 Same focus drop on removing an origin row in `src/features/apps/components/app-form-dialog.tsx` (~:85, PAN-015 finding) — outside this diff (R7); follow-up, plus a shared "dynamic row list" focus helper.
+2. 💭 Attempt-1 items 4-6 unchanged (row-1 remove-button misalignment with a `FormMessage`, live regions mounting with text, bare `role=alert` on "Nothing to save."); fine for AA.
+3. 💭 `closeWithRow` 500 ms race; keep as follow-up.
