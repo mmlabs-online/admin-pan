@@ -7,7 +7,7 @@
 | Areas | api, ui |
 | Attempts | 0 |
 | Created | 2026-11-11 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/16 |
 
 ## Goal
 Replace audit mock data with `GET /api/v1/audit-logs` and its filters; links from users/orgs to their history.
