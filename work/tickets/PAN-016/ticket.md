@@ -27,6 +27,10 @@ PAN-008, PAN-011; org-admin-api ADM-004
 ## Notes / answers from owner
 - Follow-up from PAN-008: decide whether the API or the UI masks emails of unknown accounts; add target-id filter for links from users/orgs.
 
+## Owner answers (2026-11-17)
+- **CSV export:** remove it, and record a follow-up asking org-admin-api for a server-side export endpoint. Do not fake it with a current-page export (R1).
+- **Date filter:** use the browser's local time zone, and show the zone under the pickers. `from` is the start of the picked local day (inclusive). `to` is the start of the next local day after the picked day, so the whole picked day is included (the API's `to` is exclusive).
+
 ## Orchestrator notes (2026-11-17)
 - **Dependencies.** PAN-008 and PAN-011 (and PAN-011b) are DONE here. org-admin-api ADM-004 is DONE; its main is at 8a4efb2.
 - **API.** `GET /api/v1/audit-logs` is gated by `admin:audit:read` (`app/modules/audit/router.py`). Filters:
