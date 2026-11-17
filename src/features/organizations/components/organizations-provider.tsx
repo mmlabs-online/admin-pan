@@ -1,9 +1,9 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { getApi, type ApiClient } from '@/api'
 import useDialogState from '@/hooks/use-dialog-state'
 import { type Organization } from '../data/schema'
 
-type OrganizationsDialogType = 'create' | 'edit' | 'status' | 'delete'
+type OrganizationsDialogType = 'create' | 'edit' | 'status' | 'delete' | 'view'
 
 type OrganizationsContextType = {
   api: ApiClient
@@ -12,6 +12,8 @@ type OrganizationsContextType = {
   /** List-row snapshot: names the target; never the source of truth. */
   currentRow: Organization | null
   setCurrentRow: React.Dispatch<React.SetStateAction<Organization | null>>
+  /** Row View buttons by org id: the sheet returns focus to one (R10). */
+  viewButtons: React.RefObject<Map<string, HTMLButtonElement>>
 }
 
 const OrganizationsContext =
@@ -29,10 +31,18 @@ export function OrganizationsProvider({
 }: OrganizationsProviderProps) {
   const [open, setOpen] = useDialogState<OrganizationsDialogType>(null)
   const [currentRow, setCurrentRow] = useState<Organization | null>(null)
+  const viewButtons = useRef(new Map<string, HTMLButtonElement>())
 
   return (
     <OrganizationsContext
-      value={{ api: api ?? getApi(), open, setOpen, currentRow, setCurrentRow }}
+      value={{
+        api: api ?? getApi(),
+        open,
+        setOpen,
+        currentRow,
+        setCurrentRow,
+        viewButtons,
+      }}
     >
       {children}
     </OrganizationsContext>

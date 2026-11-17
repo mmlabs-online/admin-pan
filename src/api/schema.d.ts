@@ -93,6 +93,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/apps/{key}/join-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Join Requests */
+        get: operations["list_join_requests_api_v1_apps__key__join_requests_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/apps/{key}/join-requests/{request_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve Join Request
+         * @description Grants the app's current default role at app scope.
+         */
+        post: operations["approve_join_request_api_v1_apps__key__join_requests__request_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/apps/{key}/join-requests/{request_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject Join Request */
+        post: operations["reject_join_request_api_v1_apps__key__join_requests__request_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/apps/{key}/manifest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Push the app's permission manifest (app credential) */
+        put: operations["put_manifest_api_v1_apps__key__manifest_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/apps/{key}/permissions": {
         parameters: {
             query?: never;
@@ -235,7 +306,8 @@ export interface paths {
          * Join App
          * @description Cookie class (R3 class 2): `__Host-mm_device` + Origin + `X-MM-App`; `{key}` must be the
          *     calling app. "Continue as <account>" is the consent (D8). 200 for a new or an existing
-         *     membership (idempotent).
+         *     membership (idempotent); 202 `pending` + `request_id` on an `approval` app (idempotent);
+         *     403 `join_rejected` inside the cooldown after a rejection.
          */
         post: operations["join_app_api_v1_auth_apps__key__join_post"];
         delete?: never;
@@ -541,6 +613,42 @@ export interface paths {
         head?: never;
         /** Update Organization */
         patch: operations["update_organization_api_v1_organizations__org_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/entitlements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Entitlements */
+        get: operations["list_entitlements_api_v1_organizations__org_id__entitlements_get"];
+        put?: never;
+        /** Grant Entitlement */
+        post: operations["grant_entitlement_api_v1_organizations__org_id__entitlements_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/entitlements/{entitlement_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke Entitlement */
+        delete: operations["revoke_entitlement_api_v1_organizations__org_id__entitlements__entitlement_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Entitlement */
+        patch: operations["update_entitlement_api_v1_organizations__org_id__entitlements__entitlement_id__patch"];
         trace?: never;
     };
     "/api/v1/users": {
@@ -852,7 +960,7 @@ export interface components {
          * AuditAction
          * @enum {string}
          */
-        AuditAction: "organization.created" | "organization.updated" | "organization.deleted" | "organization.invitation_created" | "organization.invitation_accepted" | "organization.invitation_revoked" | "user.created" | "user.disabled" | "user.enabled" | "app.created" | "app.updated" | "app.deleted" | "app.registered" | "app.admin_origins_set" | "app.joined" | "app_credential.issued" | "app_credential.revoked" | "permission.created" | "permission.updated" | "permission.deleted" | "role.created" | "role.updated" | "role.deleted" | "role.permissions_replaced" | "role_assignment.granted" | "role_assignment.revoked" | "email_retention.purged" | "audit_log.purged" | "auth.login_succeeded" | "auth.login_failed" | "auth.logged_out" | "auth.logged_out_all" | "device_session.reuse_revoked" | "auth.password_reset_completed" | "auth.email_verified";
+        AuditAction: "organization.created" | "organization.updated" | "organization.deleted" | "organization.invitation_created" | "organization.invitation_accepted" | "organization.invitation_revoked" | "user.created" | "user.disabled" | "user.enabled" | "app.created" | "app.updated" | "app.deleted" | "app.registered" | "app.admin_origins_set" | "app.joined" | "app.join_requested" | "app.join_request_approved" | "app.join_request_rejected" | "app_credential.issued" | "app_credential.revoked" | "app.manifest_synced" | "entitlement.granted" | "entitlement.updated" | "entitlement.revoked" | "permission.created" | "permission.updated" | "permission.deleted" | "role.created" | "role.updated" | "role.deleted" | "role.permissions_replaced" | "role_assignment.granted" | "role_assignment.revoked" | "email_retention.purged" | "audit_log.purged" | "auth.login_succeeded" | "auth.login_failed" | "auth.logged_out" | "auth.logged_out_all" | "device_session.reuse_revoked" | "auth.password_reset_completed" | "auth.email_verified";
         /** AuditLogRead */
         AuditLogRead: {
             /** Action */
@@ -902,7 +1010,7 @@ export interface components {
          * AuditTarget
          * @enum {string}
          */
-        AuditTarget: "organization" | "user" | "app" | "permission" | "role" | "role_assignment" | "device_session" | "invitation" | "app_credential";
+        AuditTarget: "organization" | "user" | "app" | "permission" | "role" | "role_assignment" | "device_session" | "invitation" | "app_credential" | "join_request" | "entitlement";
         /**
          * AuthOrgCreate
          * @description End-user org creation (`POST /api/v1/auth/orgs`).
@@ -946,6 +1054,71 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** EntitlementCreate */
+        EntitlementCreate: {
+            /** App Key */
+            app_key: string;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /** Limits */
+            limits?: {
+                [key: string]: number;
+            };
+            /** Plan */
+            plan: string;
+        };
+        /** EntitlementRead */
+        EntitlementRead: {
+            /** Active */
+            active: boolean;
+            /** App Key */
+            app_key: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Limits */
+            limits: {
+                [key: string]: number;
+            };
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Plan */
+            plan: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * EntitlementUpdate
+         * @description An explicit `null` means no change; `limits` replaces the whole object.
+         */
+        EntitlementUpdate: {
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Limits */
+            limits?: {
+                [key: string]: number;
+            } | null;
+            /** Plan */
+            plan?: string | null;
         };
         /**
          * ErrorBody
@@ -1041,6 +1214,22 @@ export interface components {
             role: string;
         };
         /**
+         * JoinPendingResponse
+         * @description 202: the app needs a staff decision (`join_policy = approval`).
+         */
+        JoinPendingResponse: {
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "pending";
+        };
+        /**
          * JoinPolicy
          * @enum {string}
          */
@@ -1052,6 +1241,40 @@ export interface components {
              * Format: uuid
              */
             account_id: string;
+        };
+        /** JoinRequestRead */
+        JoinRequestRead: {
+            /** App Key */
+            app_key: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Decided At */
+            decided_at: string | null;
+            /** Decided By */
+            decided_by: string | null;
+            /** Display Name */
+            display_name: string | null;
+            /** Email */
+            email: string;
+            /** Email Verified */
+            email_verified: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Status */
+            status: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** User Status */
+            user_status: string;
         };
         /** JoinResponse */
         JoinResponse: {
@@ -1146,6 +1369,98 @@ export interface components {
             account_id?: string | null;
             /** All */
             all?: true | null;
+        };
+        /**
+         * ManifestMember
+         * @description Narrows `<app>:member` to these permissions (never widens past the eligible set).
+         */
+        ManifestMember: {
+            /** Permissions */
+            permissions: string[];
+        };
+        /** ManifestMemberResult */
+        ManifestMemberResult: {
+            /** Added */
+            added: string[];
+            /** Rebuilt */
+            rebuilt: boolean;
+            /** Removed */
+            removed: string[];
+            /** Role Key */
+            role_key: string;
+        };
+        /** ManifestNotDeclared */
+        ManifestNotDeclared: {
+            /** Held By Roles */
+            held_by_roles: string[];
+            /** Key */
+            key: string;
+        };
+        /**
+         * ManifestPermission
+         * @description One declared permission. `scope` is required on `org_mode = required` apps unless the
+         *     key is reserved (ADR-0015); an omitted `description` leaves the stored one.
+         */
+        ManifestPermission: {
+            /** Description */
+            description?: string | null;
+            /**
+             * Is Admin
+             * @default false
+             */
+            is_admin: boolean;
+            /** Key */
+            key: string;
+            scope?: components["schemas"]["PermissionScope"] | null;
+        };
+        /** ManifestPermissionsResult */
+        ManifestPermissionsResult: {
+            /** Added */
+            added: string[];
+            /** Description Updated */
+            description_updated: string[];
+            /** Not In Manifest */
+            not_in_manifest: components["schemas"]["ManifestNotDeclared"][];
+        };
+        /**
+         * ManifestPut
+         * @description The app's permission manifest (ADR-0001 §6, ADR-0016 §6).
+         */
+        ManifestPut: {
+            member?: components["schemas"]["ManifestMember"] | null;
+            /** Permissions */
+            permissions: components["schemas"]["ManifestPermission"][];
+            /** Roles */
+            roles?: components["schemas"]["ManifestRole"][];
+        };
+        /** ManifestResult */
+        ManifestResult: {
+            /** App */
+            app: string;
+            /** Changed */
+            changed: boolean;
+            member: components["schemas"]["ManifestMemberResult"];
+            permissions: components["schemas"]["ManifestPermissionsResult"];
+            roles: components["schemas"]["ManifestRolesResult"];
+        };
+        /**
+         * ManifestRole
+         * @description An extra role; additive (permissions are only ever added to an existing role).
+         */
+        ManifestRole: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Permissions */
+            permissions: string[];
+        };
+        /** ManifestRolesResult */
+        ManifestRolesResult: {
+            /** Added */
+            added: string[];
+            /** Updated */
+            updated: string[];
         };
         /**
          * MePermissions
@@ -1276,6 +1591,28 @@ export interface components {
         Page_AuditLogRead_: {
             /** Items */
             items: components["schemas"]["AuditLogRead"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[EntitlementRead] */
+        Page_EntitlementRead_: {
+            /** Items */
+            items: components["schemas"]["EntitlementRead"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[JoinRequestRead] */
+        Page_JoinRequestRead_: {
+            /** Items */
+            items: components["schemas"]["JoinRequestRead"][];
             /** Limit */
             limit: number;
             /** Offset */
@@ -2108,6 +2445,288 @@ export interface operations {
             };
         };
     };
+    list_join_requests_api_v1_apps__key__join_requests_get: {
+        parameters: {
+            query?: {
+                status?: "pending" | "approved" | "rejected";
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_JoinRequestRead_"];
+                };
+            };
+            /** @description Missing or invalid Bearer token */
+            401: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Missing permission */
+            403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    approve_join_request_api_v1_apps__key__join_requests__request_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JoinRequestRead"];
+                };
+            };
+            /** @description Missing or invalid Bearer token */
+            401: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Missing permission */
+            403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description not pending, app disabled, policy changed, user disabled/unverified or default role unusable (details[0].reason) */
+            409: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    reject_join_request_api_v1_apps__key__join_requests__request_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JoinRequestRead"];
+                };
+            };
+            /** @description Missing or invalid Bearer token */
+            401: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Missing permission */
+            403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description not pending (details[0].reason) */
+            409: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    put_manifest_api_v1_apps__key__manifest_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManifestPut"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManifestResult"];
+                };
+            };
+            /** @description Missing or invalid app credential */
+            401: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Credential of another app (app_credential_mismatch) or disabled app */
+            403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Flip, requires_staff or role not manifest-managed (details) */
+            409: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Invalid manifest (details[].reason) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Rate limited */
+            429: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     list_permissions_api_v1_apps__key__permissions_get: {
         parameters: {
             query?: {
@@ -2836,7 +3455,18 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["JoinResponse"];
+                    "application/json": components["schemas"]["JoinResponse"] | components["schemas"]["JoinPendingResponse"];
+                };
+            };
+            /** @description Waiting for a staff decision */
+            202: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JoinPendingResponse"];
                 };
             };
             /** @description Error envelope */
@@ -4001,6 +4631,257 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OrganizationRead"];
+                };
+            };
+            /** @description Missing or invalid Bearer token */
+            401: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Missing permission */
+            403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    list_entitlements_api_v1_organizations__org_id__entitlements_get: {
+        parameters: {
+            query?: {
+                active?: boolean | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_EntitlementRead_"];
+                };
+            };
+            /** @description Missing or invalid Bearer token */
+            401: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Missing permission */
+            403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    grant_entitlement_api_v1_organizations__org_id__entitlements_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntitlementCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitlementRead"];
+                };
+            };
+            /** @description Missing or invalid Bearer token */
+            401: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Missing permission */
+            403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description admin app, disabled app, org_mode none or duplicate (details[0].reason) */
+            409: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    revoke_entitlement_api_v1_organizations__org_id__entitlements__entitlement_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org_id: string;
+                entitlement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid Bearer token */
+            401: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Missing permission */
+            403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    update_entitlement_api_v1_organizations__org_id__entitlements__entitlement_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org_id: string;
+                entitlement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntitlementUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitlementRead"];
                 };
             };
             /** @description Missing or invalid Bearer token */

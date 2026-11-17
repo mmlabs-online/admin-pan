@@ -276,6 +276,92 @@ test('apps credentials: list, issue shows the value once (masked, Show), close; 
   ).toContainText('Revoked')
 })
 
+test('organizations entitlements: sheet and tab pass axe; grant calechip to Acme (one POST, exact body); disable confirm names Acme Corp and calechip, Cancel sends no PATCH, confirm sends one; suspended Globex shows Inactive', async ({
+  page,
+  api,
+  signIn,
+}) => {
+  const acme = '44444441-4444-4444-8444-444444444444'
+  await signIn('/organizations')
+  await expect(heading(page, 'Organizations')).toBeVisible()
+  await page.getByRole('button', { name: 'View Acme Corp' }).click()
+  const sheet = page.getByRole('dialog', { name: /Acme Corp/ })
+  await selectTab(page, 'Entitlements')
+  await expect(sheet.getByText('No products granted yet.')).toBeVisible()
+  await expectNoSeriousA11y(page, 'organizations-entitlements')
+
+  await sheet.getByRole('button', { name: 'Grant product' }).click()
+  const grant = page.getByRole('dialog', { name: 'Grant product' })
+  await grant.getByRole('combobox', { name: 'App' }).click()
+  await page.getByRole('option', { name: 'Calechip (calechip)' }).click()
+  await grant.getByLabel('Plan').fill('pro')
+  await grant.getByRole('button', { name: 'Add limit' }).click()
+  await grant.getByLabel('Limit name, row 1').fill('seats')
+  await grant.getByLabel('Value, row 1').fill('10')
+  await expectNoSeriousA11y(page, 'organizations-entitlement-grant')
+  await grant.getByRole('button', { name: 'Grant', exact: true }).click()
+  await expect(grant).toBeHidden()
+  await expect(
+    sheet.getByRole('button', { name: 'Grant product' })
+  ).toBeFocused()
+  const post = `POST /api/v1/organizations/${acme}/entitlements`
+  expect(api.count(post)).toBe(1)
+  expect(api.calls.find((c) => `${c.method} ${c.path}` === post)?.body).toEqual(
+    { app_key: 'calechip', plan: 'pro', limits: { seats: 10 } }
+  )
+  const row = sheet.getByRole('row', { name: /calechip/ })
+  await expect(row).toContainText('seats: 10')
+  await expect(row).toContainText('Active')
+
+  const patches = () => api.calls.filter((c) => c.method === 'PATCH')
+  await sheet.getByRole('switch', { name: 'calechip enabled' }).click()
+  const confirm = page.getByRole('alertdialog')
+  await expect(confirm).toContainText('Acme Corp')
+  await expect(confirm).toContainText('calechip')
+  await expectNoSeriousA11y(page, 'organizations-entitlement-disable')
+  await confirm.getByRole('button', { name: 'Cancel' }).click()
+  await expect(confirm).toBeHidden()
+  await expect(
+    sheet.getByRole('switch', { name: 'calechip enabled' })
+  ).toBeFocused()
+  expect(patches()).toHaveLength(0)
+
+  await sheet.getByRole('button', { name: 'Edit calechip' }).click()
+  const edit = page.getByRole('dialog', { name: /^Edit calechip/ })
+  await expect(edit).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(edit).toBeHidden()
+  await expect(
+    sheet.getByRole('button', { name: 'Edit calechip' })
+  ).toBeFocused()
+
+  await sheet.getByRole('switch', { name: 'calechip enabled' }).click()
+  await confirm.getByRole('button', { name: 'Disable', exact: true }).click()
+  await expect(confirm).toBeHidden()
+  await expect(
+    sheet.getByRole('switch', { name: 'calechip enabled' })
+  ).toBeFocused()
+  expect(patches()).toHaveLength(1)
+  expect(patches()[0].body).toEqual({ enabled: false })
+  await expect(row).toContainText('Disabled')
+
+  await page.keyboard.press('Escape')
+  await expect(sheet).toBeHidden()
+  await expect(
+    page.getByRole('button', { name: 'View Acme Corp' })
+  ).toBeFocused()
+  // closeWithRow clears the current row 500 ms after closing; opening another
+  // row sooner would be unmounted by that timer (follow-up in impl-log).
+  await page.waitForTimeout(600)
+  await page.getByRole('button', { name: 'View Globex' }).click()
+  const globex = page.getByRole('dialog', { name: /Globex/ })
+  await selectTab(page, 'Entitlements')
+  await expect(globex.getByRole('row', { name: /calechip/ })).toContainText(
+    'Inactive'
+  )
+  await expect(globex.getByText(/This organization is suspended/)).toBeVisible()
+})
+
 test('audit-log: detail sheet with raw JSON passes axe', async ({
   page,
   signIn,
