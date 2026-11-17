@@ -12,6 +12,7 @@ type AppRead = components['schemas']['AppRead']
 type EntitlementRead = components['schemas']['EntitlementRead']
 type PermissionRead = components['schemas']['PermissionRead']
 type AppCredentialRead = components['schemas']['AppCredentialRead']
+type JoinRequestRead = components['schemas']['JoinRequestRead']
 type MePermissions = components['schemas']['MePermissions']
 
 /** The fake API origin baked into the bundle by `.env.e2e`; never resolved. */
@@ -276,7 +277,61 @@ export async function installFakeApi(context: BrowserContext) {
       return null
     }
   }
+  // Per-install join requests: approve/reject set the status like the API.
+  const joinRequest = (u: UserRead, display_name: string | null) =>
+    ({
+      id: `9999999${u.id[7]}-9999-4999-8999-999999999999`,
+      app_key: 'stoktok',
+      user_id: u.id,
+      email: u.email,
+      display_name,
+      email_verified: true,
+      user_status: 'active',
+      status: 'pending',
+      created_at: stamp,
+      decided_at: null,
+      decided_by: null,
+    }) satisfies JoinRequestRead
+  const joins: Record<string, JoinRequestRead[]> = {
+    admin: [],
+    calechip: [],
+    stoktok: [
+      joinRequest(USERS[0], 'Ada Lovelace'),
+      joinRequest(USERS[1], null),
+    ],
+  }
+  const addDecisionRoutes = (appKey: string, r: JoinRequestRead) => {
+    for (const decision of ['approve', 'reject'] as const)
+      routes[`POST /api/v1/apps/${appKey}/join-requests/${r.id}/${decision}`] =
+        () => {
+          if (r.status !== 'pending')
+            return json(409, {
+              error: {
+                code: 'conflict',
+                message: 'conflict',
+                details: [{ field: 'request_id', reason: 'not_pending' }],
+              },
+            })
+          r.status = decision === 'approve' ? 'approved' : 'rejected'
+          r.decided_at = stamp
+          r.decided_by = SELF_USER_ID
+          return json(200, r)
+        }
+  }
   for (const a of APPS) {
+    routes[`GET /api/v1/apps/${a.key}/join-requests`] = ({ query }) =>
+      a.key === 'admin'
+        ? envelope(404, 'not_found')
+        : json(
+            200,
+            page(
+              joins[a.key].filter(
+                (r) => r.status === (query.get('status') ?? 'pending')
+              ),
+              query
+            )
+          )
+    for (const r of joins[a.key]) addDecisionRoutes(a.key, r)
     routes[`GET /api/v1/apps/${a.key}`] = () => json(200, a)
     routes[`GET /api/v1/apps/${a.key}/permissions`] = ({ query }) =>
       json(200, page(PERMISSIONS[a.key] ?? [], query))

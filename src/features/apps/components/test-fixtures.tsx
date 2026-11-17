@@ -5,6 +5,7 @@ import { type ApiClient } from '@/api'
 import { apiError, json, testQueryClient } from '@/test-utils/api'
 import { WithPermissions } from '@/test-utils/permissions'
 import { render } from 'vitest-browser-react'
+import { ADMIN_PERMISSIONS } from '@/lib/permissions/registry'
 import { type NavigateFn } from '@/hooks/use-table-url-state'
 import { RegisterAppButton } from '../index'
 import { AppsDialogs } from './apps-dialogs'
@@ -13,9 +14,11 @@ import { AppsTable } from './apps-table'
 import {
   APPS,
   CREDENTIALS,
+  JOIN_REQUESTS,
   PERMISSIONS,
   appsPage,
   credentialsPage,
+  joinRequestsPage,
   permissionsPage,
 } from './test-data'
 
@@ -41,6 +44,7 @@ export function renderApps(
   client: ApiClient,
   opts: {
     granted?: Parameters<typeof WithPermissions>[0]['granted']
+    userId?: string
     search?: Record<string, unknown>
     queryClient?: QueryClient
   } = {}
@@ -55,8 +59,13 @@ export function renderApps(
     </QueryClientProvider>
   )
   return render(
-    opts.granted ? (
-      <WithPermissions granted={opts.granted}>{tree}</WithPermissions>
+    opts.granted || opts.userId ? (
+      <WithPermissions
+        granted={opts.granted ?? ADMIN_PERMISSIONS}
+        userId={opts.userId}
+      >
+        {tree}
+      </WithPermissions>
     ) : (
       tree
     )
@@ -82,9 +91,19 @@ export function appsServer(
     if (req.method !== 'GET') return write(req)
     const p = path(req)
     if (p === '/api/v1/apps') return json(appsPage(apps()))
-    const m = /^\/api\/v1\/apps\/([^/]+)(\/permissions|\/credentials)?$/.exec(p)
+    const m =
+      /^\/api\/v1\/apps\/([^/]+)(\/permissions|\/credentials|\/join-requests)?$/.exec(
+        p
+      )
     const app = apps().find((a) => a.key === m?.[1])
     if (!m || !app) return apiError(404, 'not_found')
+    if (m[2] === '/join-requests') {
+      if (app.key === 'admin') return apiError(404, 'not_found')
+      const status = new URL(req.url).searchParams.get('status') ?? 'pending'
+      return json(
+        joinRequestsPage(JOIN_REQUESTS.filter((r) => r.status === status))
+      )
+    }
     if (m[2] === '/credentials')
       return json(credentialsPage(CREDENTIALS[app.key] ?? []))
     return m[2] ? json(permissionsPage(PERMISSIONS[app.key] ?? [])) : json(app)

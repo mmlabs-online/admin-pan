@@ -122,22 +122,42 @@ describe('AppDetailSheet', () => {
     expect(detailCalls(seen, 'stoktok')).toHaveLength(2)
   })
 
-  it('tabs are Overview, Permissions and Credentials (no Roles)', async () => {
+  it('tabs: stoktok has Overview, Permissions, Join requests, Credentials (no Roles); admin has no Join requests', async () => {
     const { client } = fakeApi(appsServer(() => json({})))
     const screen = await renderApps(client)
     const sheet = await view(screen, 'stoktok')
     await expect
       .element(sheet.getByRole('tab', { name: 'Overview' }))
       .toBeVisible()
-    expect(sheet.getByRole('tab').elements()).toHaveLength(3)
+    expect(sheet.getByRole('tab').elements()).toHaveLength(4)
+    for (const name of ['Permissions', 'Join requests', 'Credentials'])
+      await expect.element(sheet.getByRole('tab', { name })).toBeVisible()
     await expect
-      .element(sheet.getByRole('tab', { name: 'Permissions' }))
+      .element(sheet.getByRole('tab', { name: 'Roles' }))
+      .not.toBeInTheDocument()
+    await screen.unmount()
+
+    const other = await renderApps(client)
+    const admin = await view(other, 'admin')
+    await expect
+      .element(admin.getByRole('tab', { name: 'Credentials' }))
       .toBeVisible()
+    expect(admin.getByRole('tab').elements()).toHaveLength(3)
+    await expect
+      .element(admin.getByRole('tab', { name: 'Join requests' }))
+      .not.toBeInTheDocument()
+  })
+
+  it('no Join requests tab when admin:users:read is denied', async () => {
+    const { client } = fakeApi(appsServer(() => json({})))
+    const screen = await renderApps(client, { granted: ['admin:apps:read'] })
+    const sheet = await view(screen, 'stoktok')
     await expect
       .element(sheet.getByRole('tab', { name: 'Credentials' }))
       .toBeVisible()
+    expect(sheet.getByRole('tab').elements()).toHaveLength(3)
     await expect
-      .element(sheet.getByRole('tab', { name: 'Roles' }))
+      .element(sheet.getByRole('tab', { name: 'Join requests' }))
       .not.toBeInTheDocument()
   })
 })

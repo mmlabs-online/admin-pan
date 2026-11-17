@@ -276,6 +276,68 @@ test('apps credentials: list, issue shows the value once (masked, Show), close; 
   ).toContainText('Revoked')
 })
 
+test('apps join requests: stoktok tab lists pending, passes axe; reject confirm names requester and app, Cancel sends no POST and focus returns to Reject; approve sends one POST with no body, the row leaves the pending list, focus on the heading; Approved filter shows it; no email in any request URL', async ({
+  page,
+  api,
+  signIn,
+}) => {
+  await signIn('/apps')
+  await expect(heading(page, 'Apps')).toBeVisible()
+  await page.getByRole('button', { name: 'View stoktok' }).click()
+  const sheet = page.getByRole('dialog')
+  await selectTab(page, 'Join requests')
+  await expect(sheet.getByText('Ada Lovelace')).toBeVisible()
+  await expectNoSeriousA11y(page, 'apps-join-requests')
+
+  const reject = sheet.getByRole('button', { name: 'Reject Ada Lovelace' })
+  await reject.click()
+  const dialog = page.getByRole('alertdialog')
+  await expect(dialog).toContainText('Ada Lovelace')
+  await expect(dialog).toContainText('Stoktok')
+  await expectNoSeriousA11y(page, 'apps-join-request-reject')
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  await expect(dialog).toBeHidden()
+  await expect(reject).toBeFocused()
+  expect(
+    api.calls.filter(
+      (c) => c.method === 'POST' && c.path.includes('/join-requests/')
+    )
+  ).toHaveLength(0)
+
+  await sheet.getByRole('button', { name: 'Approve Ada Lovelace' }).click()
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: 'Approve', exact: true })
+    .click()
+  await expect(page.getByRole('alertdialog')).toBeHidden()
+  const posts = api.calls.filter(
+    (c) => c.method === 'POST' && c.path.includes('/join-requests/')
+  )
+  expect(posts).toHaveLength(1)
+  expect(posts[0].path).toMatch(
+    /^\/api\/v1\/apps\/stoktok\/join-requests\/[0-9a-f-]+\/approve$/
+  )
+  expect(posts[0].body).toBeUndefined()
+  await expect(
+    sheet.getByRole('heading', { name: 'Join requests' })
+  ).toBeFocused()
+  await expect(sheet.getByText('Ada Lovelace')).toBeHidden()
+  await expect(sheet.getByText('bob@people.e2e.test')).toBeVisible()
+
+  await sheet.getByRole('combobox', { name: 'Status' }).click()
+  await page.getByRole('option', { name: 'Approved' }).click()
+  await expect(sheet.getByText('Ada Lovelace')).toBeVisible()
+  await expect(sheet.getByText(/\(by you\)/)).toBeVisible()
+
+  expect(
+    api.calls.every(
+      (c) =>
+        !c.path.includes('@') &&
+        ![...c.query.values()].some((v) => v.includes('@'))
+    )
+  ).toBe(true)
+})
+
 test('organizations entitlements: sheet and tab pass axe; grant calechip to Acme (one POST, exact body); disable confirm names Acme Corp and calechip, Cancel sends no PATCH, confirm sends one; suspended Globex shows Inactive', async ({
   page,
   api,

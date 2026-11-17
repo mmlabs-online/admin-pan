@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ForbiddenPanel } from '@/components/forbidden-panel'
+import { Can } from '@/components/permissions/can'
 import { appQueryOptions } from '../api/queries'
 import { ADMIN_APP_KEY, type App } from '../data/app-schema'
 import {
@@ -22,6 +23,7 @@ import {
   orgModeLabels,
 } from '../data/data'
 import { AppCredentialsTab } from './app-credentials-tab'
+import { AppJoinRequestsTab } from './app-join-requests-tab'
 import { AppPermissionsTab } from './app-permissions-tab'
 import { AppStatusBadge } from './app-status-badge'
 import { useApps } from './apps-provider'
@@ -56,7 +58,7 @@ export function AppDetailSheet({
             {app.name} <span className='font-mono text-sm'>({app.key})</span>
           </SheetTitle>
           <SheetDescription>
-            App settings, permissions and credentials.
+            App settings, permissions, join requests and credentials.
           </SheetDescription>
         </SheetHeader>
         {view.status === 'forbidden' ? (
@@ -85,6 +87,11 @@ export function AppDetailSheet({
             <TabsList>
               <TabsTrigger value='overview'>Overview</TabsTrigger>
               <TabsTrigger value='permissions'>Permissions</TabsTrigger>
+              {app.key !== ADMIN_APP_KEY && (
+                <Can action='apps.viewJoinRequests'>
+                  <TabsTrigger value='join-requests'>Join requests</TabsTrigger>
+                </Can>
+              )}
               <TabsTrigger value='credentials'>Credentials</TabsTrigger>
             </TabsList>
             <div className='min-h-0 flex-1 overflow-y-auto'>
@@ -94,6 +101,13 @@ export function AppDetailSheet({
               <TabsContent value='permissions'>
                 <AppPermissionsTab app={app} />
               </TabsContent>
+              {app.key !== ADMIN_APP_KEY && (
+                <Can action='apps.viewJoinRequests'>
+                  <TabsContent value='join-requests'>
+                    <AppJoinRequestsTab app={app} />
+                  </TabsContent>
+                </Can>
+              )}
               <TabsContent value='credentials'>
                 <AppCredentialsTab app={app} />
               </TabsContent>
