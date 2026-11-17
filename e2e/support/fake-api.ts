@@ -2,6 +2,7 @@ import type { BrowserContext, Route } from '@playwright/test'
 import type { components } from '../../src/api/schema'
 
 type UserRead = components['schemas']['UserRead']
+type OrganizationRead = components['schemas']['OrganizationRead']
 type AuditLogRead = components['schemas']['AuditLogRead']
 type MePermissions = components['schemas']['MePermissions']
 
@@ -32,6 +33,28 @@ const USERS: UserRead[] = [
   user(1, 'ada@people.e2e.test', 'active'),
   user(2, 'bob@people.e2e.test', 'active'),
   user(3, 'cy@people.e2e.test', 'disabled'),
+]
+
+const org = (
+  n: number,
+  slug: string,
+  name: string,
+  status: OrganizationRead['status'],
+  description: string | null
+): OrganizationRead => ({
+  id: `4444444${n}-4444-4444-8444-444444444444`,
+  slug,
+  name,
+  description,
+  status,
+  created_by: null,
+  created_at: stamp,
+  updated_at: stamp,
+})
+const ORGS: OrganizationRead[] = [
+  org(1, 'acme', 'Acme Corp', 'active', 'Rockets and anvils'),
+  org(2, 'globex', 'Globex', 'suspended', null),
+  org(3, 'initech', 'Initech', 'active', 'TPS reports'),
 ]
 
 // A long unbroken value makes the detail tables and <pre> overflow like real data.
@@ -165,6 +188,7 @@ export async function installFakeApi(context: BrowserContext) {
         )
       )
     },
+    'GET /api/v1/organizations': ({ query }) => json(200, page(ORGS, query)),
     'GET /api/v1/audit-logs': ({ query }) => json(200, page(AUDIT_LOGS, query)),
   }
 

@@ -7,15 +7,12 @@ import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { OrganizationsDialogs } from './components/organizations-dialogs'
 import { OrganizationsPrimaryButtons } from './components/organizations-primary-buttons'
-import {
-  OrganizationsProvider,
-  useOrganizations,
-} from './components/organizations-provider'
+import { OrganizationsProvider } from './components/organizations-provider'
 import { OrganizationsTable } from './components/organizations-table'
 
 const route = getRouteApi('/_authenticated/organizations/')
 
-// Route permission: admin:orgs:read (planned name)
+// Route permission: admin:organizations:read
 export function Organizations() {
   return (
     <OrganizationsProvider>
@@ -47,12 +44,5 @@ export function Organizations() {
 function OrganizationsTableSection() {
   const search = route.useSearch()
   const navigate = route.useNavigate()
-  const { organizations } = useOrganizations()
-  return (
-    <OrganizationsTable
-      data={organizations}
-      search={search}
-      navigate={navigate}
-    />
-  )
+  return <OrganizationsTable search={search} navigate={navigate} />
 }

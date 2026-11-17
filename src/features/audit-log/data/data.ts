@@ -38,6 +38,8 @@ const actionTones: Record<AuditAction, Tone> = {
   'app.registered': 'success',
   'app.admin_origins_set': 'info',
   'app.joined': 'success',
+  'app_credential.issued': 'success',
+  'app_credential.revoked': 'warning',
   'permission.created': 'success',
   'permission.updated': 'info',
   'permission.deleted': 'danger',
@@ -84,6 +86,7 @@ export const targetLabels: Record<AuditTarget, string> = {
   role_assignment: 'Role assignment',
   device_session: 'Device session',
   invitation: 'Invitation',
+  app_credential: 'App credential',
 }
 
 export const actorKindLabels: Record<ActorKind, string> = {

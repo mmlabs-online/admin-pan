@@ -55,6 +55,7 @@ export function UsersStatusDialog({
       onOpenChange={handleOpenChange}
       handleConfirm={handleConfirm}
       isLoading={mutation.isPending}
+      pendingText={disabling ? 'Disabling…' : 'Enabling…'}
       destructive={disabling}
       title={disabling ? 'Disable user' : 'Enable user'}
       desc={
@@ -70,15 +71,15 @@ export function UsersStatusDialog({
         </p>
       }
       confirmText={disabling ? 'Disable' : 'Enable'}
-    >
-      {failure?.kind === 'forbidden' && (
-        <ForbiddenPanel variant='inline' copy={failure.copy} />
-      )}
-      {failure?.kind === 'message' && (
-        <p role='alert' className='text-sm text-destructive'>
-          {failure.text}
-        </p>
-      )}
-    </ConfirmDialog>
+      error={
+        failure?.kind === 'forbidden' ? (
+          <ForbiddenPanel variant='inline' copy={failure.copy} />
+        ) : failure?.kind === 'message' ? (
+          <p role='alert' className='text-sm text-destructive'>
+            {failure.text}
+          </p>
+        ) : undefined
+      }
+    />
   )
 }

@@ -136,6 +136,45 @@ test('users: server-side email filter, disable dialog cancels without PATCH', as
   expect(api.calls.filter((c) => c.method === 'PATCH')).toHaveLength(0)
 })
 
+test('organizations: list from the API; suspend and delete dialogs cancel without writes', async ({
+  page,
+  api,
+  signIn,
+}) => {
+  await signIn('/organizations')
+  await expect(heading(page, 'Organizations')).toBeVisible()
+  await expect(page.getByRole('row')).toHaveCount(4)
+
+  await page.getByRole('button', { name: 'Actions for Acme Corp' }).click()
+  await page.getByRole('menuitem', { name: 'Suspend' }).click()
+  const suspend = page.getByRole('alertdialog')
+  await expect(suspend).toContainText('acme')
+  await expectNoSeriousA11y(page, 'organizations-suspend-dialog')
+  await suspend.getByRole('button', { name: 'Cancel' }).click()
+  await expect(suspend).toBeHidden()
+
+  await page.getByRole('button', { name: 'Actions for Acme Corp' }).click()
+  await page.getByRole('menuitem', { name: 'Delete' }).click()
+  const del = page.getByRole('alertdialog')
+  const confirm = del.getByRole('button', { name: 'Delete' })
+  await expect(confirm).toBeDisabled()
+  await del.getByLabel('Type acme to confirm').fill('acm')
+  await expect(confirm).toBeDisabled()
+  await del.getByLabel('Type acme to confirm').fill('acme')
+  await expect(confirm).toBeEnabled()
+  await expectNoSeriousA11y(page, 'organizations-delete-dialog')
+  await del.getByRole('button', { name: 'Cancel' }).click()
+  await expect(del).toBeHidden()
+
+  expect(
+    api.calls.filter(
+      (c) =>
+        c.path.startsWith('/api/v1/organizations') &&
+        ['PATCH', 'POST', 'DELETE'].includes(c.method)
+    )
+  ).toHaveLength(0)
+})
+
 test('audit-log: detail sheet with raw JSON passes axe', async ({
   page,
   signIn,

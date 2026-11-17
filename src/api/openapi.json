@@ -103,6 +103,160 @@
         "title": "AppCreate",
         "type": "object"
       },
+      "AppCredentialIssued": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "app": {
+            "title": "App",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "credential": {
+            "title": "Credential",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "key_id": {
+            "title": "Key Id",
+            "type": "string"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          }
+        },
+        "required": [
+          "id",
+          "app",
+          "key_id",
+          "created_by",
+          "created_at",
+          "last_used_at",
+          "revoked_at",
+          "active",
+          "credential"
+        ],
+        "title": "AppCredentialIssued",
+        "type": "object"
+      },
+      "AppCredentialRead": {
+        "description": "Metadata only: never the secret, never the hash.",
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "app": {
+            "title": "App",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "key_id": {
+            "title": "Key Id",
+            "type": "string"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          }
+        },
+        "required": [
+          "id",
+          "app",
+          "key_id",
+          "created_by",
+          "created_at",
+          "last_used_at",
+          "revoked_at",
+          "active"
+        ],
+        "title": "AppCredentialRead",
+        "type": "object"
+      },
       "AppRead": {
         "properties": {
           "created_at": {
@@ -419,6 +573,8 @@
           "app.registered",
           "app.admin_origins_set",
           "app.joined",
+          "app_credential.issued",
+          "app_credential.revoked",
           "permission.created",
           "permission.updated",
           "permission.deleted",
@@ -617,7 +773,8 @@
           "role",
           "role_assignment",
           "device_session",
-          "invitation"
+          "invitation",
+          "app_credential"
         ],
         "title": "AuditTarget",
         "type": "string"
@@ -1326,6 +1483,37 @@
         "title": "OrganizationUpdate",
         "type": "object"
       },
+      "Page_AppCredentialRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AppCredentialRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[AppCredentialRead]",
+        "type": "object"
+      },
       "Page_AppRead_": {
         "properties": {
           "items": {
@@ -1545,7 +1733,7 @@
       },
       "PermissionCreate": {
         "additionalProperties": false,
-        "description": "`is_admin` absent or null: false, except `<app>:*` and admin-app permissions, which are\nalways stored `true`.",
+        "description": "`is_admin` absent or null: false, except `<app>:*` and admin-app permissions, which are\nalways stored `true`. `scope` absent or null: the reserved key decides, else `org` on\n`org_mode = required` apps and `app` otherwise (ADR-0015).",
         "properties": {
           "description": {
             "anyOf": [
@@ -1575,6 +1763,16 @@
             "pattern": "^[a-z][a-z0-9-]{1,31}:([a-z][a-z0-9-]{0,47}:[a-z][a-z0-9-]{0,47}|\\*)$",
             "title": "Key",
             "type": "string"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PermissionScope"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -1608,16 +1806,28 @@
           "key": {
             "title": "Key",
             "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/PermissionScope"
           }
         },
         "required": [
           "id",
           "key",
           "description",
-          "is_admin"
+          "is_admin",
+          "scope"
         ],
         "title": "PermissionRead",
         "type": "object"
+      },
+      "PermissionScope": {
+        "enum": [
+          "app",
+          "org"
+        ],
+        "title": "PermissionScope",
+        "type": "string"
       },
       "PermissionUpdate": {
         "additionalProperties": false,
@@ -1645,6 +1855,16 @@
               }
             ],
             "title": "Is Admin"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PermissionScope"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "title": "PermissionUpdate",
@@ -2710,6 +2930,361 @@
         "summary": "Update App",
         "tags": [
           "apps"
+        ],
+        "x-permission": "admin:apps:write"
+      }
+    },
+    "/api/v1/apps/{key}/credentials": {
+      "get": {
+        "operationId": "list_credentials_api_v1_apps__key__credentials_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_AppCredentialRead_"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List Credentials",
+        "tags": [
+          "app-credentials"
+        ],
+        "x-permission": "admin:apps:read"
+      },
+      "post": {
+        "operationId": "issue_credential_api_v1_apps__key__credentials_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppCredentialIssued"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "admin app, disabled app or credential limit (details[0].reason); also needs admin:*",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Issue Credential",
+        "tags": [
+          "app-credentials"
+        ],
+        "x-permission": "admin:apps:write"
+      }
+    },
+    "/api/v1/apps/{key}/credentials/{credential_id}": {
+      "delete": {
+        "operationId": "revoke_credential_api_v1_apps__key__credentials__credential_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "credential_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Credential Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Revoke Credential",
+        "tags": [
+          "app-credentials"
         ],
         "x-permission": "admin:apps:write"
       }

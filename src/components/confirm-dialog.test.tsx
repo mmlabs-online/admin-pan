@@ -65,12 +65,13 @@ describe('ConfirmDialog', () => {
     expect(handleConfirm).not.toHaveBeenCalled()
   })
 
-  it('when isLoading is true, disables cancel and confirm', async () => {
+  it('while isLoading, confirm and cancel are aria-disabled (not disabled), clicks do nothing, Escape does not close', async () => {
     const handleConfirm = vi.fn()
+    const onOpenChange = vi.fn()
     const { getByRole } = await render(
       <ConfirmDialog
         open
-        onOpenChange={vi.fn()}
+        onOpenChange={onOpenChange}
         title='Loading'
         desc='...'
         isLoading
@@ -78,10 +79,60 @@ describe('ConfirmDialog', () => {
       />
     )
 
-    await expect.element(getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    const cancel = getByRole('button', { name: 'Cancel' })
+    const confirm = getByRole('button', { name: 'Continue' })
+    await expect.element(cancel).toHaveAttribute('aria-disabled', 'true')
+    await expect.element(confirm).toHaveAttribute('aria-disabled', 'true')
+    await expect.element(cancel).not.toHaveAttribute('disabled')
+    await expect.element(confirm).not.toHaveAttribute('disabled')
+
+    // Playwright's click waits for "enabled", which aria-disabled fails.
+    ;(confirm.element() as HTMLElement).click()
+    ;(cancel.element() as HTMLElement).click()
+    await userEvent.keyboard('{Escape}')
+    expect(handleConfirm).not.toHaveBeenCalled()
+    expect(onOpenChange).not.toHaveBeenCalled()
+  })
+
+  it('isLoading shows pendingText and an sr-only status', async () => {
+    const { getByRole } = await render(
+      <ConfirmDialog
+        open
+        onOpenChange={vi.fn()}
+        title='Loading'
+        desc='...'
+        isLoading
+        pendingText='Deleting…'
+        confirmText='Delete'
+        handleConfirm={vi.fn()}
+      />
+    )
+
+    await expect
+      .element(getByRole('button', { name: 'Deleting…' }))
+      .toBeInTheDocument()
+    await expect.element(getByRole('status')).toHaveTextContent('Deleting…')
+  })
+
+  it('error is rendered and linked to the confirm button via aria-describedby', async () => {
+    const { getByRole } = await render(
+      <ConfirmDialog
+        open
+        onOpenChange={vi.fn()}
+        title='Failing'
+        desc='...'
+        error={<p role='alert'>It failed.</p>}
+        handleConfirm={vi.fn()}
+      />
+    )
+
+    const alert = getByRole('alert')
+    await expect.element(alert).toHaveTextContent('It failed.')
+    const id = alert.element().parentElement?.id
+    expect(id).toBeTruthy()
     await expect
       .element(getByRole('button', { name: 'Continue' }))
-      .toBeDisabled()
+      .toHaveAttribute('aria-describedby', id)
   })
 
   it('supports custom button texts', async () => {

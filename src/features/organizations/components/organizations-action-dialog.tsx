@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -21,7 +22,15 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { SlugConflictError } from '../data/errors'
+import { ForbiddenPanel } from '@/components/forbidden-panel'
+import {
+  useCreateOrganizationMutation,
+  useUpdateOrganizationMutation,
+} from '../api/queries'
+import {
+  organizationFormError,
+  type OrganizationFormError,
+} from '../data/errors'
 import {
   type Organization,
   type OrganizationForm,
@@ -35,15 +44,20 @@ type OrganizationsActionDialogProps = {
   onOpenChange: (open: boolean) => void
 }
 
-// Create: admin:orgs:write (planned name) — POST /api/v1/organizations
-// Edit:   admin:orgs:write (planned name) — PATCH /api/v1/organizations/{id}
+// Create: POST /api/v1/organizations; edit: PATCH /api/v1/organizations/{org_id}.
+// Both need admin:organizations:write. Never optimistic (R9).
 export function OrganizationsActionDialog({
   currentRow,
   open,
   onOpenChange,
 }: OrganizationsActionDialogProps) {
   const isEdit = !!currentRow
-  const { createOrganization, updateOrganization } = useOrganizations()
+  const { api } = useOrganizations()
+  const create = useCreateOrganizationMutation(api)
+  const update = useUpdateOrganizationMutation(api)
+  const mutation = isEdit ? update : create
+  const pending = mutation.isPending
+  const [alert, setAlert] = useState<OrganizationFormError['alert']>(null)
 
   const form = useForm<OrganizationForm>({
     resolver: zodResolver(organizationFormSchema),
@@ -54,32 +68,46 @@ export function OrganizationsActionDialog({
     },
   })
 
-  const onSubmit = (values: OrganizationForm) => {
+  const reset = () => {
+    form.reset()
+    create.reset()
+    update.reset()
+    setAlert(null)
+  }
+
+  const onSubmit = async (values: OrganizationForm) => {
+    if (pending) return
+    setAlert(null)
     const description = values.description === '' ? null : values.description
-    if (isEdit) {
-      updateOrganization(currentRow.id, { name: values.name, description })
-      toast.success(`Organization "${values.name}" updated.`)
-    } else {
-      try {
-        createOrganization({
+    try {
+      if (isEdit) {
+        await update.mutateAsync({
+          id: currentRow.id,
+          body: { name: values.name, description },
+        })
+      } else {
+        await create.mutateAsync({
           slug: values.slug,
           name: values.name,
           description,
         })
-      } catch (error) {
-        if (error instanceof SlugConflictError) {
-          form.setError(
-            'slug',
-            { message: error.message },
-            { shouldFocus: true }
-          )
-          return
-        }
-        throw error
       }
-      toast.success(`Organization "${values.name}" created.`)
+    } catch (error) {
+      const mapped = organizationFormError(error, isEdit ? 'edit' : 'create')
+      const [first, ...rest] = Object.entries(mapped.fields) as [
+        'slug' | 'name' | 'description',
+        string,
+      ][]
+      if (first)
+        form.setError(first[0], { message: first[1] }, { shouldFocus: true })
+      for (const [field, message] of rest) form.setError(field, { message })
+      setAlert(mapped.alert)
+      return
     }
-    form.reset()
+    toast.success(
+      `Organization "${values.name}" ${isEdit ? 'updated' : 'created'}.`
+    )
+    reset()
     onOpenChange(false)
   }
 
@@ -87,7 +115,8 @@ export function OrganizationsActionDialog({
     <Dialog
       open={open}
       onOpenChange={(state) => {
-        form.reset()
+        if (!state && pending) return
+        reset()
         onOpenChange(state)
       }}
     >
@@ -137,13 +166,14 @@ export function OrganizationsActionDialog({
                       placeholder='acme-inc'
                       autoComplete='off'
                       readOnly={isEdit}
+                      aria-readonly={isEdit || undefined}
                       {...field}
                     />
                   </FormControl>
                   <FormDescription>
                     {isEdit
                       ? 'The slug cannot be changed.'
-                      : 'Lowercase letters, digits and hyphens. Must be unique.'}
+                      : 'Lowercase letters, digits and hyphens; starts and ends with a letter or digit. Must be unique.'}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -164,9 +194,31 @@ export function OrganizationsActionDialog({
             />
           </form>
         </Form>
+        {alert?.kind === 'forbidden' && (
+          <ForbiddenPanel variant='inline' copy={alert.copy} />
+        )}
+        {alert?.kind === 'message' && (
+          <p role='alert' className='text-sm text-destructive'>
+            {alert.text}
+          </p>
+        )}
+        <p role='status' aria-live='polite' className='sr-only'>
+          {pending ? (isEdit ? 'Saving…' : 'Creating…') : ''}
+        </p>
         <DialogFooter>
-          <Button type='submit' form='organization-form'>
-            {isEdit ? 'Save changes' : 'Create organization'}
+          <Button
+            type='submit'
+            form='organization-form'
+            aria-disabled={pending || undefined}
+            className={pending ? 'opacity-50' : undefined}
+          >
+            {pending
+              ? isEdit
+                ? 'Saving…'
+                : 'Creating…'
+              : isEdit
+                ? 'Save changes'
+                : 'Create organization'}
           </Button>
         </DialogFooter>
       </DialogContent>

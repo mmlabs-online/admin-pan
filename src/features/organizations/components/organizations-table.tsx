@@ -1,19 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
-  type FilterFn,
-  type SortingState,
-  type VisibilityState,
   flexRender,
   getCoreRowModel,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { cn } from '@/lib/utils'
+import { queryView } from '@/lib/query-view'
 import { type NavigateFn, useTableUrlState } from '@/hooks/use-table-url-state'
+import { Button } from '@/components/ui/button'
 import {
   Table,
   TableBody,
@@ -22,112 +16,95 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { DataTablePagination, DataTableToolbar } from '@/components/data-table'
-import { organizationStatuses } from '../data/data'
-import { type Organization } from '../data/schema'
+import { DataTablePagination } from '@/components/data-table'
+import { ForbiddenPanel } from '@/components/forbidden-panel'
+import {
+  organizationsListQueryOptions,
+  toOrganizationsListParams,
+} from '../api/queries'
 import { organizationsColumns as columns } from './organizations-columns'
+import { useOrganizations } from './organizations-provider'
 
 type OrganizationsTableProps = {
-  data: Organization[]
   search: Record<string, unknown>
   navigate: NavigateFn
 }
 
-// Text search matches name or slug (case-insensitive).
-const nameOrSlugFilter: FilterFn<Organization> = (row, _columnId, value) => {
-  const query = String(value ?? '')
-    .trim()
-    .toLowerCase()
-  if (!query) return true
-  const { name, slug } = row.original
-  return (
-    name.toLowerCase().includes(query) || slug.toLowerCase().includes(query)
-  )
-}
-
+// Server-side paging only (ADR 0005): the list endpoint has no search, status
+// or sort parameters, so none are offered (R1).
 export function OrganizationsTable({
-  data,
   search,
   navigate,
 }: OrganizationsTableProps) {
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
-  const [sorting, setSorting] = useState<SortingState>([])
+  const { api } = useOrganizations()
+  const { pagination, onPaginationChange, ensurePageInRange } =
+    useTableUrlState({
+      search,
+      navigate,
+      pagination: { defaultPage: 1, defaultPageSize: 10 },
+      globalFilter: { enabled: false },
+    })
 
-  // Synced with URL search (keys mirror the organizations route search schema)
-  const {
-    globalFilter,
-    onGlobalFilterChange,
-    columnFilters,
-    onColumnFiltersChange,
-    pagination,
-    onPaginationChange,
-    ensurePageInRange,
-  } = useTableUrlState({
-    search,
-    navigate,
-    pagination: { defaultPage: 1, defaultPageSize: 10 },
-    globalFilter: { enabled: true, key: 'filter' },
-    columnFilters: [{ columnId: 'status', searchKey: 'status', type: 'array' }],
-  })
+  const q = useQuery(
+    organizationsListQueryOptions(
+      toOrganizationsListParams({ pagination }),
+      api
+    )
+  )
+  const view = queryView(q)
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
-    data,
+    data: q.data?.items ?? [],
     columns,
+    rowCount: q.data?.total ?? 0,
+    manualPagination: true,
+    manualFiltering: true,
+    enableSorting: false,
+    enableRowSelection: false,
+    state: { pagination },
     getRowId: (row) => row.id,
-    state: {
-      sorting,
-      pagination,
-      globalFilter,
-      columnFilters,
-      columnVisibility,
-    },
-    globalFilterFn: nameOrSlugFilter,
-    getColumnCanGlobalFilter: (column) => column.id === 'name',
     onPaginationChange,
-    onGlobalFilterChange,
-    onColumnFiltersChange,
-    onSortingChange: setSorting,
-    onColumnVisibilityChange: setColumnVisibility,
-    getPaginationRowModel: getPaginationRowModel(),
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFacetedRowModel: getFacetedRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
   })
 
+  const pageCount = table.getPageCount()
+  const settled = q.isSuccess && !q.isPlaceholderData
   useEffect(() => {
-    ensurePageInRange(table.getPageCount())
-  }, [table, ensurePageInRange])
+    if (settled) ensurePageInRange(pageCount)
+  }, [settled, pageCount, ensurePageInRange])
+
+  if (view.status === 'forbidden')
+    return (
+      <ForbiddenPanel
+        variant='page'
+        copy={view.copy}
+        onRetry={() => void q.refetch()}
+      />
+    )
+
+  const rows = table.getRowModel().rows
+  const status =
+    view.status === 'pending'
+      ? 'Loading organizations…'
+      : view.status === 'success'
+        ? rows.length
+          ? `${q.data?.total ?? 0} organizations, page ${pagination.pageIndex + 1} of ${Math.max(pageCount, 1)}`
+          : 'No organizations yet.'
+        : ''
 
   return (
     <div className='flex flex-1 flex-col gap-4'>
-      <DataTableToolbar
-        table={table}
-        searchPlaceholder='Filter by name or slug...'
-        filters={[
-          {
-            columnId: 'status',
-            title: 'Status',
-            options: organizationStatuses,
-          },
-        ]}
-      />
-      <div className='overflow-hidden rounded-md border'>
-        <Table aria-label='Organizations'>
+      <p role='status' aria-live='polite' className='sr-only'>
+        {status}
+      </p>
+      <div className='overflow-x-auto rounded-md border'>
+        <Table aria-label='Organizations' aria-busy={view.status === 'pending'}>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    colSpan={header.colSpan}
-                    className={cn(
-                      header.column.columnDef.meta?.className,
-                      header.column.columnDef.meta?.thClassName
-                    )}
-                  >
+                  <TableHead key={header.id} colSpan={header.colSpan}>
                     {header.isPlaceholder
                       ? null
                       : flexRender(
@@ -140,17 +117,24 @@ export function OrganizationsTable({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => (
+            {view.status === 'pending' ? (
+              <MessageRow span={columns.length}>
+                Loading organizations…
+              </MessageRow>
+            ) : view.status === 'error' ? (
+              <MessageRow span={columns.length}>
+                <div role='alert' className='space-y-2'>
+                  <p>Couldn&apos;t load organizations.</p>
+                  <Button size='sm' onClick={() => void q.refetch()}>
+                    Retry
+                  </Button>
+                </div>
+              </MessageRow>
+            ) : rows.length ? (
+              rows.map((row) => (
                 <TableRow key={row.id}>
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      className={cn(
-                        cell.column.columnDef.meta?.className,
-                        cell.column.columnDef.meta?.tdClassName
-                      )}
-                    >
+                    <TableCell key={cell.id}>
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
@@ -160,19 +144,30 @@ export function OrganizationsTable({
                 </TableRow>
               ))
             ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className='h-24 text-center'
-                >
-                  No organizations found.
-                </TableCell>
-              </TableRow>
+              <MessageRow span={columns.length}>
+                No organizations yet.
+              </MessageRow>
             )}
           </TableBody>
         </Table>
       </div>
       <DataTablePagination table={table} className='mt-auto' />
     </div>
+  )
+}
+
+function MessageRow({
+  span,
+  children,
+}: {
+  span: number
+  children: React.ReactNode
+}) {
+  return (
+    <TableRow>
+      <TableCell colSpan={span} className='h-24 text-center'>
+        {children}
+      </TableCell>
+    </TableRow>
   )
 }

@@ -6,8 +6,9 @@ import { OrganizationsStatusDialog } from './organizations-status-dialog'
 export function OrganizationsDialogs() {
   const { open, setOpen, currentRow, setCurrentRow } = useOrganizations()
 
-  const closeWithRow = (dialog: 'edit' | 'status' | 'delete') => () => {
-    setOpen(dialog)
+  const close = () => setOpen(null)
+  const closeWithRow = () => {
+    setOpen(null)
     setTimeout(() => setCurrentRow(null), 500)
   }
 
@@ -16,7 +17,7 @@ export function OrganizationsDialogs() {
       <OrganizationsActionDialog
         key='organization-create'
         open={open === 'create'}
-        onOpenChange={() => setOpen('create')}
+        onOpenChange={close}
       />
 
       {currentRow && (
@@ -24,19 +25,19 @@ export function OrganizationsDialogs() {
           <OrganizationsActionDialog
             key={`organization-edit-${currentRow.id}`}
             open={open === 'edit'}
-            onOpenChange={closeWithRow('edit')}
+            onOpenChange={closeWithRow}
             currentRow={currentRow}
           />
           <OrganizationsStatusDialog
             key={`organization-status-${currentRow.id}`}
             open={open === 'status'}
-            onOpenChange={closeWithRow('status')}
+            onOpenChange={closeWithRow}
             currentRow={currentRow}
           />
           <OrganizationsDeleteDialog
             key={`organization-delete-${currentRow.id}`}
             open={open === 'delete'}
-            onOpenChange={closeWithRow('delete')}
+            onOpenChange={closeWithRow}
             currentRow={currentRow}
           />
         </>

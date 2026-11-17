@@ -109,10 +109,10 @@ describe('UsersStatusDialog', () => {
 
     await expect
       .element(dialog.getByRole('button', { name: 'Cancel' }))
-      .toBeDisabled()
+      .toHaveAttribute('aria-disabled', 'true')
     await expect
-      .element(dialog.getByRole('button', { name: 'Disable' }))
-      .toBeDisabled()
+      .element(dialog.getByRole('button', { name: 'Disabling…' }))
+      .toHaveAttribute('aria-disabled', 'true')
     await userEvent.keyboard('{Escape}')
     await expect.element(dialog).toBeVisible()
     await expect
@@ -163,6 +163,18 @@ describe('UsersStatusDialog', () => {
     await expect
       .element(dialog.getByText('server text'))
       .not.toBeInTheDocument()
+  })
+
+  it('a failure is linked to the confirm button via aria-describedby', async () => {
+    const { client } = server(() => apiError(409, 'last_super_admin'))
+    const screen = await renderUsers(client)
+    const dialog = await openDialog(screen, 'alice@example.com', /Disable/)
+    await userEvent.click(dialog.getByRole('button', { name: 'Disable' }))
+    const alert = dialog.getByRole('alert')
+    await expect.element(alert).toBeVisible()
+    await expect
+      .element(dialog.getByRole('button', { name: 'Disable' }))
+      .toHaveAttribute('aria-describedby', alert.element().parentElement?.id)
   })
 
   it('403 admin_wildcard_required is shown inline', async () => {

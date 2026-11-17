@@ -1,22 +1,50 @@
-import { queryOptions, useQuery } from '@tanstack/react-query'
-import { getApi, unwrap, type ApiClient } from '@/api'
+import {
+  keepPreviousData,
+  queryOptions,
+  useMutation,
+  useQueryClient,
+} from '@tanstack/react-query'
+import {
+  getApi,
+  isApiError,
+  toPageParams,
+  unwrap,
+  type ApiClient,
+  type components,
+} from '@/api'
 
-type ListParams = { limit?: number; offset?: number }
+type OrganizationCreate = components['schemas']['OrganizationCreate']
+type OrganizationUpdate = components['schemas']['OrganizationUpdate']
+
+// `GET /api/v1/organizations` takes only limit/offset (order is fixed:
+// created_at DESC). Add status/q/sort here when the API ships them.
+export type OrganizationsListParams = { limit: number; offset: number }
 
 export const organizationsKeys = {
   all: ['organizations'] as const,
-  list: (params: ListParams) =>
-    [...organizationsKeys.all, 'list', params] as const,
+  lists: () => [...organizationsKeys.all, 'list'] as const,
+  list: (p: OrganizationsListParams) =>
+    [
+      ...organizationsKeys.lists(),
+      { limit: p.limit, offset: p.offset },
+    ] as const,
 }
 
-// Needs admin:organizations:read (R4). Mutations follow the same shape with
-// useMutation and, on success, queryClient.invalidateQueries({ queryKey:
-// organizationsKeys.all }); never optimistic (R9). See docs/adr/0001.
+/** Table state -> `GET /api/v1/organizations` params: paging only. */
+export function toOrganizationsListParams({
+  pagination,
+}: {
+  pagination: { pageIndex: number; pageSize: number }
+}): OrganizationsListParams {
+  return toPageParams(pagination)
+}
+
+// Needs admin:organizations:read (R4). The injected client is a dependency,
+// not cache data (tests only).
 export function organizationsListQueryOptions(
-  params: ListParams,
+  params: OrganizationsListParams,
   api: ApiClient = getApi()
 ) {
-  // The injected client is a dependency, not cache data (tests only).
   // eslint-disable-next-line @tanstack/query/exhaustive-deps
   return queryOptions({
     queryKey: organizationsKeys.list(params),
@@ -27,9 +55,65 @@ export function organizationsListQueryOptions(
           signal,
         })
       ),
+    placeholderData: keepPreviousData,
   })
 }
 
-export function useOrganizationsQuery(params: ListParams) {
-  return useQuery(organizationsListQueryOptions(params))
+/**
+ * Shared mutation options: never optimistic (R9); the dialogs show errors
+ * themselves. Refetch on success and when the state changed elsewhere.
+ */
+function useOrganizationMutationOptions() {
+  const queryClient = useQueryClient()
+  const refetch = () =>
+    queryClient.invalidateQueries({ queryKey: organizationsKeys.all })
+  return {
+    meta: { handlesOwnErrors: true },
+    onSuccess: refetch,
+    onError: (error: unknown) => {
+      if (isApiError(error, 404) || isApiError(error, 409)) void refetch()
+    },
+  }
+}
+
+/** POST /api/v1/organizations — admin:organizations:write. */
+export function useCreateOrganizationMutation(api: ApiClient = getApi()) {
+  return useMutation({
+    mutationFn: async (body: OrganizationCreate) =>
+      unwrap(await api.POST('/api/v1/organizations', { body })),
+    ...useOrganizationMutationOptions(),
+  })
+}
+
+/** PATCH /api/v1/organizations/{org_id} — admin:organizations:write. */
+export function useUpdateOrganizationMutation(api: ApiClient = getApi()) {
+  return useMutation({
+    mutationFn: async ({
+      id,
+      body,
+    }: {
+      id: string
+      body: OrganizationUpdate
+    }) =>
+      unwrap(
+        await api.PATCH('/api/v1/organizations/{org_id}', {
+          params: { path: { org_id: id } },
+          body,
+        })
+      ),
+    ...useOrganizationMutationOptions(),
+  })
+}
+
+/** DELETE /api/v1/organizations/{org_id} (204) — admin:organizations:write. */
+export function useDeleteOrganizationMutation(api: ApiClient = getApi()) {
+  return useMutation({
+    mutationFn: async ({ id }: { id: string }) =>
+      unwrap(
+        await api.DELETE('/api/v1/organizations/{org_id}', {
+          params: { path: { org_id: id } },
+        })
+      ),
+    ...useOrganizationMutationOptions(),
+  })
 }

@@ -1,6 +1,6 @@
 import { type Organization } from '../data/schema'
 
-export const MOCK_ORGS: Organization[] = [
+export const ORGS: Organization[] = [
   {
     id: '6f1c2c1e-7a4b-4a53-9f0e-1d2c3b4a5e60',
     slug: 'acme',
@@ -32,3 +32,11 @@ export const MOCK_ORGS: Organization[] = [
     updated_at: '2026-03-15T10:00:00.000Z',
   },
 ]
+
+/** A `Page<OrganizationRead>` body. */
+export const orgsPage = (
+  items: Organization[] = ORGS,
+  total = items.length,
+  limit = 10,
+  offset = 0
+) => ({ items, total, limit, offset })
