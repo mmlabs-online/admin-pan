@@ -24,10 +24,12 @@ Phases: **1. UI with mock data** (PAN-001…008, done) → **2. Foundations** (P
 | PAN-012 | Forgot password and reset password pages | DONE | P2 | auth, ui, security | 1 | 2026-11-15 |
 | PAN-012b | Verify-email page | DONE | P2 | auth, ui, security | 1 | 2026-11-15 |
 | PAN-010b | Resend verification email from the admin UI | BACKLOG | P2 | auth, ui, security | 0 | 2026-11-16 |
-| PAN-012c | Retire the forgot-password page on admin (ADM-002d) | BACKLOG | P2 | auth, ui, security | 0 | 2026-11-16 |
+| PAN-012c | Retire the forgot-password page on admin (ADM-002d) | DONE | P2 | auth, ui, security | 1 | 2026-11-17 |
 | PAN-013 | Users screen on the real API | DONE | P1 | api, ui | 1 | 2026-11-16 |
-| PAN-014 | Organizations screen on the real API | BACKLOG | P1 | api, ui | 0 | 2026-11-11 |
-| PAN-015 | Apps, permissions, roles and assignments on the real API | BACKLOG | P1 | api, ui, auth | 0 | 2026-11-11 |
+| PAN-014 | Organizations screen on the real API | BLOCKED | P1 | api, ui | 0 | 2026-11-16 |
+| PAN-015 | Apps registry and app permissions on the real API | BLOCKED | P1 | api, ui, auth | 0 | 2026-11-17 |
+| PAN-015b | Roles and role permissions on the real API | BACKLOG | P1 | api, ui, auth | 0 | 2026-11-17 |
+| PAN-015c | Role assignments (assign, revoke, holders of a role) on the real API | BACKLOG | P1 | api, ui, auth, security | 0 | 2026-11-17 |
 | PAN-016 | Audit log on the real API | BACKLOG | P2 | api, ui | 0 | 2026-11-11 |
 | PAN-017 | User sessions: list and revoke | BACKLOG | P2 | api, ui, security | 0 | 2026-11-11 |
 | PAN-018 | Organization members and invitations | BACKLOG | P3 | api, ui | 0 | 2026-11-11 |
@@ -43,4 +45,4 @@ Phases: **1. UI with mock data** (PAN-001…008, done) → **2. Foundations** (P
 Order of work (dependencies): PAN-001 → PAN-002…008 → PAN-009 → PAN-010 → PAN-011 → PAN-013, PAN-014, PAN-015 → PAN-016 → PAN-012, PAN-019, PAN-022, PAN-023 → PAN-025 → PAN-026 → PAN-017, PAN-018, PAN-020, PAN-021, PAN-024.
 Waiting on org-admin-api (state 2026-11-16, origin/main 0899731): PAN-010b ← new org-admin-api ticket allowing resend for `admin` (ADM-002d refuses it) · PAN-011 ← an endpoint returning the caller's effective admin permissions (no ticket yet) · PAN-018 ← USR-06 · PAN-019 ← ADM-006. Met: USR-08, ADM-002, ADM-002b, ADM-004, ADM-012.
 API gaps (no org-admin-api ticket yet): caller's admin permissions (PAN-011), resend for `admin` (PAN-010b), admin sessions list/revoke (PAN-017). Proposed on org-admin-api: dashboard stats ADM-015 (PAN-020), member_count ADM-016 (PAN-015), reports ADM-017 (PAN-021).
-Ready now (2026-11-16, PAN-011 merged): PAN-013, PAN-014, PAN-015 (P1, real API per screen), PAN-016, PAN-012c, PAN-023. Waiting: PAN-011b and PAN-010b (org-admin-api request sent by the owner).
+Ready now (2026-11-17): PAN-016, PAN-012c, PAN-023. PAN-014 and PAN-015 BLOCKED (owner: wait for org-admin-api list filters); PAN-015b/c wait on an admin role list and a role-holders endpoint (request in PAN-015/org-admin-api-request.md). PAN-011b (org-admin-api USR-11 done) and PAN-010b (USR-12 done) are unblocked as of 2026-11-16.

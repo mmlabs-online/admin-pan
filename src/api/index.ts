@@ -9,7 +9,7 @@ export { setUnauthorizedHandler } from './auth-hooks'
 export { authFailure, getAuthClient } from './auth-client'
 export type { Account, AuthFailure } from './auth-client'
 export { appKey } from './config'
-export { forgotPassword, resetPassword, verifyEmail } from './public-auth'
+export { resetPassword, verifyEmail } from './public-auth'
 export { createApiClient, unwrap, type ApiClient } from './client'
 export type { paths, components } from './schema'
 

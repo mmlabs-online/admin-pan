@@ -29,7 +29,7 @@ export function InvalidLink() {
     <StatusPanel title='Invalid link'>
       <p>This link is invalid. Request a new one.</p>
       <Link to='/forgot-password' className={linkClass}>
-        Forgot password
+        How to reset your password
       </Link>
     </StatusPanel>
   )
@@ -107,7 +107,7 @@ export function ResetPasswordForm({
       <StatusPanel title='Link expired'>
         <p>This link is invalid, expired or already used.</p>
         <Link to='/forgot-password' className={linkClass}>
-          Request a new link
+          How to reset your password
         </Link>
       </StatusPanel>
     )

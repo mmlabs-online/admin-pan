@@ -5,7 +5,7 @@ admin-pan is a static site served by nginx at **https://admin-portal.mmlabs.onli
 `macbook-runner`). How it runs is defined in `mmlabs-online/deployment` (`apps/admin-pan/`,
 `.github/workflows/deploy-admin-pan.yml`). Only the owner merges in either repository. The first
 release is public and holds the mock-data UI with mock sign-in (no Cloudflare Access); the
-forgot-password, reset-password and verify-email pages talk to the real API.
+the reset-password and verify-email pages talk to the real API; `/forgot-password` is a static notice.
 
 ## Flow
 
@@ -115,9 +115,8 @@ workflow in the deployment repo offers the command `set-admin-origins`.
      `- origin` line names an origin that must stay, re-run with both origins.
    - Check the line `+ origin https://admin-portal.mmlabs.online`.
 3. Run again with `dry_run` off. The API applies the change within 60 s.
-4. Check: open `https://admin-portal.mmlabs.online/forgot-password`, submit an address you own and
-   solve the widget. The email arrives and its link starts with
-   `https://admin-portal.mmlabs.online/reset-password#token=`.
+4. Check: sign in at `https://admin-portal.mmlabs.online/sign-in`; requests to `api.mmlabs.online`
+   show no CORS error in the browser console.
 
 Fallback on the Mac: the command in org-admin-api `docs/deploy.md`, "Set admin origins", with
 `--origin https://admin-portal.mmlabs.online`. Do not create DNS or a route for
@@ -130,7 +129,7 @@ Fallback on the Mac: the command in org-admin-api `docs/deploy.md`, "Set admin o
 - `curl -s -o /dev/null -w '%{http_code}' https://admin-portal.mmlabs.online/assets/nope.js`
   returns `404`.
 - In a browser: the sign-in page renders with its fonts and the console shows no CSP violations.
-  `/forgot-password` renders the Turnstile widget and submits.
+  `/forgot-password` shows the text notice (no form).
 - If Turnstile fails only because of the CSP, record a follow-up. Do not loosen the CSP by hand.
 
 ## Rollback / redeploy / break-glass
@@ -143,8 +142,8 @@ Fallback on the Mac: the command in org-admin-api `docs/deploy.md`, "Set admin o
 
 ## Troubleshooting
 
-- forgot-password 403 `origin_not_allowed`: the origin is not registered on app `admin`, or the 60 s
-  delay has not passed.
+- API requests fail with a CORS error or 403 `origin_not_allowed`: the origin is not registered on app
+  `admin`, or the 60 s delay has not passed.
 - `turnstile_failed`: the hostname is missing in the Turnstile widget or in
   `TURNSTILE_ALLOWED_HOSTNAMES`.
 - "Verification is not configured": the repository variable `VITE_TURNSTILE_SITE_KEY` was empty at

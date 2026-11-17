@@ -84,6 +84,9 @@ describe('VerifyEmail', () => {
         .element(screen.getByRole('heading', { name: 'Invalid link' }))
         .toBeInTheDocument()
       await expect
+        .element(screen.getByText(/request a new link from any mmlabs app/))
+        .toBeInTheDocument()
+      await expect
         .element(screen.getByRole('link', { name: 'Sign in' }))
         .toHaveAttribute('href', '/sign-in')
       expect(confirm(screen).elements()).toHaveLength(0)
@@ -174,7 +177,9 @@ describe('VerifyEmail', () => {
     const h = screen.getByRole('heading', { name: 'Link invalid or expired' })
     await expect.element(h).toHaveFocus()
     await expect
-      .element(screen.getByText(/Sign in to request a new one/))
+      .element(
+        screen.getByText(/request a new link from any mmlabs app you use/)
+      )
       .toBeInTheDocument()
     await expect
       .element(screen.getByRole('link', { name: 'Sign in' }))

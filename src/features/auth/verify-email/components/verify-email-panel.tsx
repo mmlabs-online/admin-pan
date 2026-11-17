@@ -20,7 +20,10 @@ const SignInLink = () => (
 export function InvalidVerifyLink() {
   return (
     <StatusPanel title='Invalid link'>
-      <p>This link is invalid. Sign in to request a new one.</p>
+      <p>
+        This link is invalid. If your email address is still not verified,
+        request a new link from any mmlabs app you use, then sign in.
+      </p>
       <SignInLink />
     </StatusPanel>
   )
@@ -83,8 +86,9 @@ export function VerifyEmailPanel({
     return (
       <StatusPanel title='Link invalid or expired'>
         <p>
-          This link is invalid, expired or already used. Sign in to request a
-          new one.
+          This link is invalid, expired or already used. If your email address
+          is still not verified, request a new link from any mmlabs app you use,
+          then sign in.
         </p>
         <SignInLink />
       </StatusPanel>
