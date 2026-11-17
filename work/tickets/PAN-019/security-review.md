@@ -21,3 +21,21 @@ Diff `origin/main...HEAD`. Checks not run (reviewer's R8).
 2. E2E fake API rejects unknown body keys on mutating routes.
 3. `closeWithRow` 500 ms timer race (`pages.e2e.ts:331-333` `waitForTimeout` workaround) — UX, already in impl-log.
 4. Revoke (`DELETE …/entitlements/{id}`) UI later needs an R9 confirmation and an `entitlements.revoke` registry entry.
+
+## Attempt 2
+
+Scope: attempt-2 delta in `dff434e`. Checks not run (reviewer's R8).
+
+**Verdict: no blockers. The attempt-1 🟡 is fixed; no new issues.**
+
+- 💭 **Cast 🟡 fixed** — `src/features/organizations/api/entitlements.test.ts:121-129` asserts `keyof EntitlementCreate` is exactly `'app_key' | 'plan' | 'limits' | 'enabled'`; `tsc -b` covers it (`tsconfig.app.json` includes `src`; `components` re-exported at `src/api/index.ts:18`), so a new field fails typecheck and build.
+- 💭 With `Omit<EntitlementCreate,'enabled'>` (`entitlements.ts:77`) the other fields stay compiler-checked; the cast at `:80` only skips `enabled` (required only because of its default, `schema.d.ts:1066`), explained at `:74-75`.
+- 💭 Reworded comment accurate — `entitlement-errors.ts:79-82` (422 field text and fallback both capped at 200 chars, `:51`, `:25`; rendered as text, R6 holds).
+- 💭 Limit-row focus change safe — `entitlement-form-dialog.tsx:86-101`, `:325`, `:342`: local numeric index, `form.setFocus` and a ref; no API data in selectors; request bodies unchanged.
+- 💭 Test/e2e changes test-only (`e2e/pages.e2e.ts:304-352`); `inFlight` tests intact; no fake-API, auth, config or dependency changes.
+
+### Follow-ups (carried)
+1. Types with `--default-non-nullable false`, then drop the cast and its guard test.
+2. E2E fake API rejects unknown body keys.
+3. `closeWithRow` 500 ms race.
+4. Revoke UI needs R9 confirmation and an `entitlements.revoke` registry entry.
