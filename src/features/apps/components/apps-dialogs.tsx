@@ -1,17 +1,43 @@
-import { useAccessData } from '../data/access-store'
+import { useEffect, useRef } from 'react'
 import { AppDetailSheet } from './app-detail-sheet'
 import { AppFormDialog } from './app-form-dialog'
 import { AppStatusDialog } from './app-status-dialog'
 import { useApps } from './apps-provider'
 
-export function AppsDialogs() {
-  const { open, setOpen, currentId, setCurrentId } = useApps()
-  const { apps } = useAccessData()
-  const currentRow = apps.find((a) => a.id === currentId)
+// Radix returns focus only to a `Trigger`, and the menu item or button that
+// opened these dialogs is not one (or has unmounted), so the browser would
+// leave focus on <body>. Put it back on the row's actions button, or on
+// Register app when there is no row (R10).
+function focusOpener(key?: string) {
+  const target =
+    (key &&
+      document.querySelector<HTMLElement>(
+        `[aria-label="Actions for ${key}"]`
+      )) ||
+    document.querySelector<HTMLElement>('[data-register-app]')
+  target?.focus()
+}
 
-  const close = (type: 'edit' | 'status' | 'view') => () => {
-    setOpen(type)
-    setTimeout(() => setCurrentId(null), 500)
+export function AppsDialogs() {
+  const { open, setOpen, currentRow, setCurrentRow } = useApps()
+
+  const close = () => setOpen(null)
+  const closeWithRow = () => {
+    setOpen(null)
+    setTimeout(() => setCurrentRow(null), 500)
+  }
+  // ConfirmDialog is an AlertDialog without a close-focus hook: focus the
+  // opener in an effect, once the dialog no longer traps focus.
+  const restoreFor = useRef<string | null>(null)
+  useEffect(() => {
+    if (open === null && restoreFor.current) {
+      focusOpener(restoreFor.current)
+      restoreFor.current = null
+    }
+  }, [open])
+  const closeStatus = () => {
+    restoreFor.current = currentRow?.key ?? null
+    closeWithRow()
   }
 
   return (
@@ -19,27 +45,29 @@ export function AppsDialogs() {
       <AppFormDialog
         key='app-create'
         open={open === 'create'}
-        onOpenChange={() => setOpen('create')}
+        onOpenChange={close}
+        returnFocus={() => focusOpener()}
       />
       {currentRow && (
         <>
           <AppFormDialog
-            key={`app-edit-${currentRow.id}`}
+            key={`app-edit-${currentRow.key}`}
             open={open === 'edit'}
-            onOpenChange={close('edit')}
+            onOpenChange={closeWithRow}
+            returnFocus={() => focusOpener(currentRow.key)}
             currentRow={currentRow}
           />
           <AppStatusDialog
-            key={`app-status-${currentRow.id}`}
+            key={`app-status-${currentRow.key}`}
             open={open === 'status'}
-            onOpenChange={close('status')}
+            onOpenChange={closeStatus}
             currentRow={currentRow}
           />
           <AppDetailSheet
-            key={`app-view-${currentRow.id}`}
+            key={`app-view-${currentRow.key}`}
             open={open === 'view'}
-            onOpenChange={close('view')}
-            app={currentRow}
+            onOpenChange={closeWithRow}
+            currentRow={currentRow}
           />
         </>
       )}

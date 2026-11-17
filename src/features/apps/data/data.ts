@@ -1,4 +1,9 @@
-import { type JoinPolicy, type OrgMode, type AppStatus } from './schema'
+import {
+  type AppStatus,
+  type JoinPolicy,
+  type OrgMode,
+  type PermissionScope,
+} from './app-schema'
 
 export const joinPolicyOptions: { label: string; value: JoinPolicy }[] = [
   { label: 'Open', value: 'open' },
@@ -30,14 +35,9 @@ export const orgModeLabels: Record<OrgMode, string> = {
 // Key segments of apps, roles and permissions: lowercase, digits, hyphens.
 export const KEY_SEGMENT_PATTERN = /^[a-z][a-z0-9-]*$/
 
-/** True when `value` is a bare https origin, e.g. `https://app.example.com`. */
-export function isHttpsOrigin(value: string): boolean {
-  try {
-    const url = new URL(value)
-    return url.protocol === 'https:' && url.origin === value
-  } catch {
-    return false
-  }
+export const permissionScopeLabels: Record<PermissionScope, string> = {
+  app: 'App',
+  org: 'Org',
 }
 
 export function formatDate(iso: string | null): string {
@@ -48,3 +48,8 @@ export function formatDate(iso: string | null): string {
     day: 'numeric',
   })
 }
+
+// Shown on the admin app's form, sheet, status and permission dialogs; the API
+// enforces all of it (D19, ADM-002b).
+export const ADMIN_APP_NOTE =
+  "Changes to the admin app need the admin:* permission. It must stay active, closed, with org mode None, at most 2 origins and no localhost. Removing this console's own origin locks everyone out of it."

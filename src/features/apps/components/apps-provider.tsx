@@ -1,24 +1,35 @@
 import React, { useState } from 'react'
+import { getApi, type ApiClient } from '@/api'
 import useDialogState from '@/hooks/use-dialog-state'
+import { type App } from '../data/app-schema'
 
 type AppsDialogType = 'create' | 'edit' | 'status' | 'view'
 
 type AppsContextType = {
+  api: ApiClient
   open: AppsDialogType | null
   setOpen: (str: AppsDialogType | null) => void
-  // Id rather than row: dialogs read the latest row from the store.
-  currentId: string | null
-  setCurrentId: React.Dispatch<React.SetStateAction<string | null>>
+  /** List-row snapshot: names the target; never the source of truth. */
+  currentRow: App | null
+  setCurrentRow: React.Dispatch<React.SetStateAction<App | null>>
 }
 
 const AppsContext = React.createContext<AppsContextType | null>(null)
 
-export function AppsProvider({ children }: { children: React.ReactNode }) {
+type AppsProviderProps = {
+  children: React.ReactNode
+  /** Injected in tests; production uses the shared client. */
+  api?: ApiClient
+}
+
+export function AppsProvider({ children, api }: AppsProviderProps) {
   const [open, setOpen] = useDialogState<AppsDialogType>(null)
-  const [currentId, setCurrentId] = useState<string | null>(null)
+  const [currentRow, setCurrentRow] = useState<App | null>(null)
 
   return (
-    <AppsContext value={{ open, setOpen, currentId, setCurrentId }}>
+    <AppsContext
+      value={{ api: api ?? getApi(), open, setOpen, currentRow, setCurrentRow }}
+    >
       {children}
     </AppsContext>
   )

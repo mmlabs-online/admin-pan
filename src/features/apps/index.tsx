@@ -47,7 +47,8 @@ export function AppsContent({ search, navigate }: AppsContentProps) {
         <div>
           <h2 className='text-2xl font-bold tracking-tight'>Apps</h2>
           <p className='text-muted-foreground'>
-            Registered apps, their join policy, origins and permissions.
+            Registered apps, their join policy, org mode, origins and
+            permissions.
           </p>
         </div>
         <RegisterAppButton />
@@ -58,17 +59,18 @@ export function AppsContent({ search, navigate }: AppsContentProps) {
   )
 }
 
-function RegisterAppButton() {
+export function RegisterAppButton() {
   const { setOpen } = useApps()
   return (
     <Can action='apps.register' disable>
       {({ disabled, describedBy }) => (
         <Button
+          data-register-app=''
           disabled={disabled}
           aria-describedby={describedBy}
           onClick={() => setOpen('create')}
         >
-          <Plus className='size-4' />
+          <Plus className='size-4' aria-hidden='true' />
           Register app
         </Button>
       )}

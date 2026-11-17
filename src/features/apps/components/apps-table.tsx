@@ -1,114 +1,162 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
-  type FilterFn,
-  type SortingState,
-  type VisibilityState,
+  flexRender,
   getCoreRowModel,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
+import { queryView } from '@/lib/query-view'
 import { type NavigateFn, useTableUrlState } from '@/hooks/use-table-url-state'
-import { DataTablePagination, DataTableToolbar } from '@/components/data-table'
-import { useAccessData } from '../data/access-store'
-import { joinPolicyOptions } from '../data/data'
-import { type AppRow, appsColumns as columns } from './apps-columns'
-import { DataTableView } from './data-table-view'
+import { Button } from '@/components/ui/button'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { DataTablePagination } from '@/components/data-table'
+import { ForbiddenPanel } from '@/components/forbidden-panel'
+import { appsListQueryOptions, toAppsListParams } from '../api/queries'
+import { appsColumns as columns } from './apps-columns'
+import { useApps } from './apps-provider'
 
 type AppsTableProps = {
   search: Record<string, unknown>
   navigate: NavigateFn
 }
 
-const keyOrNameFilter: FilterFn<AppRow> = (row, _columnId, value: string) => {
-  const needle = value.trim().toLowerCase()
-  if (!needle) return true
-  return (
-    row.original.key.toLowerCase().includes(needle) ||
-    row.original.name.toLowerCase().includes(needle)
-  )
-}
-
+// Server-side paging only (ADR 0005): the list endpoint has no search, status
+// or sort parameters, so none are offered (R1).
 export function AppsTable({ search, navigate }: AppsTableProps) {
-  const { apps, app_member_counts } = useAccessData()
-  const data = useMemo<AppRow[]>(
-    () =>
-      apps.map((app) => ({
-        ...app,
-        member_count: app_member_counts[app.id] ?? 0,
-      })),
-    [apps, app_member_counts]
+  const { api } = useApps()
+  const { pagination, onPaginationChange, ensurePageInRange } =
+    useTableUrlState({
+      search,
+      navigate,
+      pagination: { defaultPage: 1, defaultPageSize: 10 },
+      globalFilter: { enabled: false },
+    })
+
+  const q = useQuery(
+    appsListQueryOptions(toAppsListParams({ pagination }), api)
   )
-
-  const [sorting, setSorting] = useState<SortingState>([])
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
-
-  const {
-    globalFilter,
-    onGlobalFilterChange,
-    columnFilters,
-    onColumnFiltersChange,
-    pagination,
-    onPaginationChange,
-    ensurePageInRange,
-  } = useTableUrlState({
-    search,
-    navigate,
-    pagination: { defaultPage: 1, defaultPageSize: 10 },
-    globalFilter: { enabled: true, key: 'filter' },
-    columnFilters: [
-      { columnId: 'join_policy', searchKey: 'join_policy', type: 'array' },
-    ],
-  })
+  const view = queryView(q)
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
-    data,
+    data: q.data?.items ?? [],
     columns,
-    state: {
-      sorting,
-      pagination,
-      columnFilters,
-      columnVisibility,
-      globalFilter,
-    },
-    getRowId: (row) => row.id,
-    globalFilterFn: keyOrNameFilter,
-    onGlobalFilterChange,
+    rowCount: q.data?.total ?? 0,
+    manualPagination: true,
+    manualFiltering: true,
+    enableSorting: false,
+    enableRowSelection: false,
+    state: { pagination },
+    getRowId: (row) => row.key,
     onPaginationChange,
-    onColumnFiltersChange,
-    onSortingChange: setSorting,
-    onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getFacetedRowModel: getFacetedRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
   })
 
+  const pageCount = table.getPageCount()
+  const settled = q.isSuccess && !q.isPlaceholderData
   useEffect(() => {
-    ensurePageInRange(table.getPageCount())
-  }, [table, ensurePageInRange])
+    if (settled) ensurePageInRange(pageCount)
+  }, [settled, pageCount, ensurePageInRange])
+
+  if (view.status === 'forbidden')
+    return (
+      <ForbiddenPanel
+        variant='page'
+        copy={view.copy}
+        onRetry={() => void q.refetch()}
+      />
+    )
+
+  const rows = table.getRowModel().rows
+  const status =
+    view.status === 'pending'
+      ? 'Loading apps…'
+      : view.status === 'success'
+        ? rows.length
+          ? `${q.data?.total ?? 0} apps, page ${pagination.pageIndex + 1} of ${Math.max(pageCount, 1)}`
+          : 'No apps registered yet.'
+        : ''
 
   return (
     <div className='flex flex-1 flex-col gap-4'>
-      <DataTableToolbar
-        table={table}
-        searchPlaceholder='Search apps by key or name...'
-        filters={[
-          {
-            columnId: 'join_policy',
-            title: 'Join policy',
-            options: joinPolicyOptions,
-          },
-        ]}
-      />
-      <DataTableView table={table} emptyText='No apps found.' />
+      <p role='status' aria-live='polite' className='sr-only'>
+        {status}
+      </p>
+      <div className='overflow-x-auto rounded-md border'>
+        <Table aria-label='Apps' aria-busy={view.status === 'pending'}>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id} colSpan={header.colSpan}>
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {view.status === 'pending' ? (
+              <MessageRow span={columns.length}>Loading apps…</MessageRow>
+            ) : view.status === 'error' ? (
+              <MessageRow span={columns.length}>
+                <div role='alert' className='space-y-2'>
+                  <p>Couldn&apos;t load apps.</p>
+                  <Button size='sm' onClick={() => void q.refetch()}>
+                    Retry
+                  </Button>
+                </div>
+              </MessageRow>
+            ) : rows.length ? (
+              rows.map((row) => (
+                <TableRow key={row.id}>
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <MessageRow span={columns.length}>
+                No apps registered yet.
+              </MessageRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
       <DataTablePagination table={table} className='mt-auto' />
     </div>
+  )
+}
+
+function MessageRow({
+  span,
+  children,
+}: {
+  span: number
+  children: React.ReactNode
+}) {
+  return (
+    <TableRow>
+      <TableCell colSpan={span} className='h-24 text-center'>
+        {children}
+      </TableCell>
+    </TableRow>
   )
 }

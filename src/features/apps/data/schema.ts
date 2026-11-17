@@ -1,5 +1,8 @@
 import { z } from 'zod'
 
+// Mock-phase shapes for the Roles screen (`access-store`) until PAN-015b/c;
+// the Apps screen uses `app-schema.ts`.
+
 // Mirrors org-admin-api USR-02 tables (apps, permissions, roles,
 // role_permissions, role_assignments) — docs/identity-architecture.md.
 

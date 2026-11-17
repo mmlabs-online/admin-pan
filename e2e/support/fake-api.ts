@@ -4,6 +4,8 @@ import type { components } from '../../src/api/schema'
 type UserRead = components['schemas']['UserRead']
 type OrganizationRead = components['schemas']['OrganizationRead']
 type AuditLogRead = components['schemas']['AuditLogRead']
+type AppRead = components['schemas']['AppRead']
+type PermissionRead = components['schemas']['PermissionRead']
 type MePermissions = components['schemas']['MePermissions']
 
 /** The fake API origin baked into the bundle by `.env.e2e`; never resolved. */
@@ -56,6 +58,57 @@ const ORGS: OrganizationRead[] = [
   org(2, 'globex', 'Globex', 'suspended', null),
   org(3, 'initech', 'Initech', 'active', 'TPS reports'),
 ]
+
+const app = (
+  n: number,
+  key: string,
+  name: string,
+  over: Partial<AppRead>
+): AppRead => ({
+  id: `5555555${n}-5555-4555-8555-555555555555`,
+  key,
+  name,
+  status: 'active',
+  join_policy: 'approval',
+  org_mode: 'none',
+  origins: [],
+  default_role_id: null,
+  org_owner_role_id: null,
+  created_at: stamp,
+  updated_at: stamp,
+  ...over,
+})
+// Ordered by key, like the API.
+const APPS: AppRead[] = [
+  app(1, 'admin', 'Admin console', {
+    join_policy: 'closed',
+    origins: ['https://admin-portal.mmlabs.online'],
+  }),
+  app(2, 'calechip', 'Calechip', { join_policy: 'open', org_mode: 'required' }),
+  app(3, 'stoktok', 'Stoktok', {
+    origins: ['https://stoktok.mmlabs.online', 'http://localhost:5173'],
+  }),
+]
+const permission = (
+  n: number,
+  key: string,
+  over: Partial<PermissionRead> = {}
+): PermissionRead => ({
+  id: `6666666${n}-6666-4666-8666-666666666666`,
+  key,
+  description: null,
+  is_admin: false,
+  scope: 'app',
+  ...over,
+})
+const PERMISSIONS: Record<string, PermissionRead[]> = {
+  admin: [permission(1, 'admin:*', { is_admin: true })],
+  calechip: [],
+  stoktok: [
+    permission(2, 'stoktok:orders:read', { description: 'View orders' }),
+    permission(3, 'stoktok:orders:write', { is_admin: true }),
+  ],
+}
 
 // A long unbroken value makes the detail tables and <pre> overflow like real data.
 const LONG = 'x'.repeat(200)
@@ -190,6 +243,12 @@ export async function installFakeApi(context: BrowserContext) {
     },
     'GET /api/v1/organizations': ({ query }) => json(200, page(ORGS, query)),
     'GET /api/v1/audit-logs': ({ query }) => json(200, page(AUDIT_LOGS, query)),
+    'GET /api/v1/apps': ({ query }) => json(200, page(APPS, query)),
+  }
+  for (const a of APPS) {
+    routes[`GET /api/v1/apps/${a.key}`] = () => json(200, a)
+    routes[`GET /api/v1/apps/${a.key}/permissions`] = ({ query }) =>
+      json(200, page(PERMISSIONS[a.key] ?? [], query))
   }
 
   await context.route(`${API_ORIGIN}/**`, async (route: Route) => {

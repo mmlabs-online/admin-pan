@@ -2,12 +2,12 @@
 
 | Field | Value |
 |---|---|
-| State | BLOCKED |
+| State | DONE |
 | Priority | P1 |
 | Areas | api, ui, auth |
-| Attempts | 0 |
+| Attempts | 1 |
 | Created | 2026-11-11 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/19 |
 
 ## Goal
 Replace the Apps mock data with the USR-02 admin endpoints:

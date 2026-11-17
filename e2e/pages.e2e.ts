@@ -175,6 +175,41 @@ test('organizations: list from the API; suspend and delete dialogs cancel withou
   ).toHaveLength(0)
 })
 
+test('apps: list from the API; detail sheet and permissions pass axe; disable dialog cancels without writes', async ({
+  page,
+  api,
+  signIn,
+}) => {
+  await signIn('/apps')
+  await expect(heading(page, 'Apps')).toBeVisible()
+  await expect(page.getByRole('row')).toHaveCount(4)
+
+  await page.getByRole('button', { name: 'View stoktok' }).click()
+  const sheet = page.getByRole('dialog')
+  await expect(sheet).toBeVisible()
+  await selectTab(page, 'Permissions')
+  await expect(sheet.getByText('stoktok:orders:read')).toBeVisible()
+  await expectNoSeriousA11y(page, 'apps-sheet')
+  await page.keyboard.press('Escape')
+  await expect(sheet).toBeHidden()
+
+  await page.getByRole('button', { name: 'Actions for stoktok' }).click()
+  await page.getByRole('menuitem', { name: 'Disable' }).click()
+  const dialog = page.getByRole('alertdialog')
+  await expect(dialog).toContainText('stoktok')
+  await expectNoSeriousA11y(page, 'apps-disable-dialog')
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  await expect(dialog).toBeHidden()
+
+  expect(
+    api.calls.filter(
+      (c) =>
+        c.path.startsWith('/api/v1/apps') &&
+        ['POST', 'PATCH', 'DELETE'].includes(c.method)
+    )
+  ).toHaveLength(0)
+})
+
 test('audit-log: detail sheet with raw JSON passes axe', async ({
   page,
   signIn,

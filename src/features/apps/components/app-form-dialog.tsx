@@ -1,5 +1,4 @@
-import { useMemo } from 'react'
-import { z } from 'zod'
+import { useId, useRef, useState } from 'react'
 import { useFieldArray, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Plus, X } from 'lucide-react'
@@ -23,82 +22,50 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { ForbiddenPanel } from '@/components/forbidden-panel'
 import { SelectDropdown } from '@/components/select-dropdown'
-import { createApp, updateApp, useAccessData } from '../data/access-store'
+import { useCreateAppMutation, useUpdateAppMutation } from '../api/queries'
 import {
-  KEY_SEGMENT_PATTERN,
-  isHttpsOrigin,
-  joinPolicyOptions,
-  orgModeOptions,
-} from '../data/data'
-import { type App, joinPolicySchema, orgModeSchema } from '../data/schema'
-
-function buildAppFormSchema(takenKeys: string[]) {
-  return z
-    .object({
-      key: z
-        .string()
-        .trim()
-        .min(1, 'Key is required.')
-        .regex(
-          KEY_SEGMENT_PATTERN,
-          'Key must start with a lowercase letter and use only lowercase letters, digits and hyphens.'
-        )
-        .refine((key) => !takenKeys.includes(key), 'This key is already used.'),
-      name: z.string().trim().min(1, 'Name is required.'),
-      join_policy: joinPolicySchema,
-      org_mode: orgModeSchema,
-      origins: z.array(
-        z.object({
-          value: z
-            .string()
-            .trim()
-            .refine(
-              isHttpsOrigin,
-              'Enter an https:// origin without a path, e.g. https://app.mmlabs.online.'
-            ),
-        })
-      ),
-    })
-    .superRefine(({ origins }, ctx) => {
-      const seen = new Set<string>()
-      origins.forEach(({ value }, index) => {
-        const v = value.trim()
-        if (seen.has(v)) {
-          ctx.addIssue({
-            code: 'custom',
-            message: 'This origin is already listed.',
-            path: ['origins', index, 'value'],
-          })
-        }
-        seen.add(v)
-      })
-    })
-}
-
-type AppForm = z.infer<ReturnType<typeof buildAppFormSchema>>
+  ADMIN_APP_KEY,
+  type App,
+  type AppForm,
+  appFormSchema,
+} from '../data/app-schema'
+import { ADMIN_APP_NOTE, joinPolicyOptions, orgModeOptions } from '../data/data'
+import { appFormError, type AppAlert } from '../data/errors'
+import { useApps } from './apps-provider'
 
 type AppFormDialogProps = {
   currentRow?: App
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Radix returns focus only to a `Trigger`; the opener returns it by hand. */
+  returnFocus: () => void
 }
 
-// admin:apps:write (planned name)
+const sameOrigins = (a: string[], b: string[]) =>
+  a.length === b.length && a.every((v, i) => v === b[i])
+
+// Register: POST /api/v1/apps; edit: PATCH /api/v1/apps/{key} with the changed
+// fields only. Both need admin:apps:write (the API adds admin:* for the admin
+// app and decides). Never optimistic (R9).
 export function AppFormDialog({
   currentRow,
   open,
   onOpenChange,
+  returnFocus,
 }: AppFormDialogProps) {
   const isEdit = !!currentRow
-  const { apps } = useAccessData()
-  const schema = useMemo(
-    () => buildAppFormSchema(isEdit ? [] : apps.map((a) => a.key)),
-    [apps, isEdit]
-  )
+  const { api } = useApps()
+  const create = useCreateAppMutation(api)
+  const update = useUpdateAppMutation(api)
+  const pending = isEdit ? update.isPending : create.isPending
+  const inFlight = useRef(false)
+  const [alert, setAlert] = useState<AppAlert | null>(null)
+  const originsErrorId = useId()
 
   const form = useForm<AppForm>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(appFormSchema),
     defaultValues: currentRow
       ? {
           key: currentRow.key,
@@ -116,22 +83,80 @@ export function AppFormDialog({
         },
   })
   const origins = useFieldArray({ control: form.control, name: 'origins' })
+  const originsError =
+    form.formState.errors.origins?.message ??
+    form.formState.errors.origins?.root?.message
 
-  const onSubmit = (values: AppForm) => {
-    const input = {
-      name: values.name,
-      join_policy: values.join_policy,
-      org_mode: values.org_mode,
-      origins: values.origins.map((o) => o.value),
-    }
-    if (currentRow) {
-      updateApp(currentRow.id, input)
-      toast.success(`App ${currentRow.key} updated.`)
-    } else {
-      createApp({ ...input, key: values.key })
-      toast.success(`App ${values.key} registered.`)
-    }
+  const reset = () => {
     form.reset()
+    create.reset()
+    update.reset()
+    setAlert(null)
+  }
+
+  const onSubmit = async (values: AppForm) => {
+    if (inFlight.current) return
+    setAlert(null)
+    const originValues = values.origins.map((o) => o.value.trim())
+    const changed = currentRow && {
+      ...(values.name !== currentRow.name && { name: values.name }),
+      ...(values.join_policy !== currentRow.join_policy && {
+        join_policy: values.join_policy,
+      }),
+      ...(values.org_mode !== currentRow.org_mode && {
+        org_mode: values.org_mode,
+      }),
+      ...(!sameOrigins(originValues, currentRow.origins) && {
+        origins: originValues,
+      }),
+    }
+    // Nothing changed: no request (the admin app then needs no admin:*).
+    if (changed && Object.keys(changed).length === 0) {
+      reset()
+      onOpenChange(false)
+      return
+    }
+    inFlight.current = true
+    try {
+      if (currentRow && changed) {
+        await update.mutateAsync({ key: currentRow.key, body: changed })
+      } else {
+        await create.mutateAsync({
+          key: values.key,
+          name: values.name,
+          join_policy: values.join_policy,
+          org_mode: values.org_mode,
+          origins: originValues,
+        })
+      }
+    } catch (error) {
+      const mapped = appFormError(error, {
+        mode: isEdit ? 'edit' : 'create',
+        appKey: currentRow?.key,
+      })
+      const [first, ...rest] = Object.entries(mapped.fields)
+      if (first) {
+        form.setError(
+          first[0] as keyof AppForm,
+          { message: first[1] },
+          { shouldFocus: first[0] !== 'origins' }
+        )
+        if (first[0] === 'origins' && origins.fields.length)
+          form.setFocus('origins.0.value')
+      }
+      for (const [field, message] of rest)
+        form.setError(field as keyof AppForm, { message })
+      setAlert(mapped.alert)
+      return
+    } finally {
+      inFlight.current = false
+    }
+    toast.success(
+      isEdit
+        ? `App ${currentRow.key} updated.`
+        : `App ${values.key} registered.`
+    )
+    reset()
     onOpenChange(false)
   }
 
@@ -139,11 +164,18 @@ export function AppFormDialog({
     <Dialog
       open={open}
       onOpenChange={(state) => {
-        form.reset()
+        if (!state && pending) return
+        reset()
         onOpenChange(state)
       }}
     >
-      <DialogContent className='sm:max-w-lg'>
+      <DialogContent
+        className='sm:max-w-lg'
+        onCloseAutoFocus={(event) => {
+          event.preventDefault()
+          returnFocus()
+        }}
+      >
         <DialogHeader className='text-start'>
           <DialogTitle>
             {isEdit ? `Edit app ${currentRow.key}` : 'Register app'}
@@ -158,8 +190,9 @@ export function AppFormDialog({
           <Form {...form}>
             <form
               id='app-form'
-              onSubmit={form.handleSubmit(onSubmit)}
+              onSubmit={(e) => void form.handleSubmit(onSubmit)(e)}
               className='space-y-4'
+              noValidate
             >
               <FormField
                 control={form.control}
@@ -172,13 +205,15 @@ export function AppFormDialog({
                         placeholder='stoktok'
                         autoComplete='off'
                         className='font-mono'
-                        disabled={isEdit}
+                        readOnly={isEdit}
+                        aria-readonly={isEdit || undefined}
                         {...field}
                       />
                     </FormControl>
                     <FormDescription>
-                      Lowercase, used as the permission prefix and X-MM-App
-                      value.
+                      {isEdit
+                        ? 'The key cannot be changed.'
+                        : 'Lowercase; used as the permission prefix and the X-MM-App value. Cannot be changed later.'}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -232,15 +267,26 @@ export function AppFormDialog({
                         items={orgModeOptions}
                         className='w-full'
                       />
+                      {isEdit && (
+                        <FormDescription>
+                          Changing org mode does not reclassify existing
+                          permissions.
+                        </FormDescription>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
-              <fieldset className='space-y-2'>
+              <fieldset
+                className='space-y-2'
+                aria-describedby={originsError ? originsErrorId : undefined}
+              >
                 <legend className='text-sm font-medium'>Origins</legend>
                 <p className='text-sm text-muted-foreground'>
-                  Browser origins allowed to call the API for this app (CORS).
+                  Browser origins allowed to call the API for this app (CORS):
+                  https://mmlabs.online or its subdomains, or
+                  http(s)://localhost for development.
                 </p>
                 {origins.fields.length === 0 && (
                   <p className='text-sm text-muted-foreground italic'>
@@ -273,7 +319,7 @@ export function AppFormDialog({
                                 aria-label={`Remove origin ${index + 1}`}
                                 onClick={() => origins.remove(index)}
                               >
-                                <X className='size-4' />
+                                <X className='size-4' aria-hidden='true' />
                               </Button>
                             </div>
                             <FormMessage />
@@ -283,22 +329,56 @@ export function AppFormDialog({
                     </li>
                   ))}
                 </ul>
+                {originsError && (
+                  <p
+                    id={originsErrorId}
+                    role='alert'
+                    className='text-sm text-destructive'
+                  >
+                    {originsError}
+                  </p>
+                )}
                 <Button
                   type='button'
                   variant='outline'
                   size='sm'
-                  onClick={() => origins.append({ value: 'https://' })}
+                  onClick={() => origins.append({ value: '' })}
                 >
-                  <Plus className='size-4' />
+                  <Plus className='size-4' aria-hidden='true' />
                   Add origin
                 </Button>
               </fieldset>
             </form>
           </Form>
         </div>
+        {currentRow?.key === ADMIN_APP_KEY && (
+          <p className='text-sm text-muted-foreground'>{ADMIN_APP_NOTE}</p>
+        )}
+        {alert?.kind === 'forbidden' && (
+          <ForbiddenPanel variant='inline' copy={alert.copy} />
+        )}
+        {alert?.kind === 'message' && (
+          <p role='alert' className='text-sm text-destructive'>
+            {alert.text}
+          </p>
+        )}
+        <p role='status' aria-live='polite' className='sr-only'>
+          {pending ? (isEdit ? 'Saving…' : 'Registering…') : ''}
+        </p>
         <DialogFooter>
-          <Button type='submit' form='app-form'>
-            {isEdit ? 'Save changes' : 'Register app'}
+          <Button
+            type='submit'
+            form='app-form'
+            aria-disabled={pending || undefined}
+            className={pending ? 'opacity-50' : undefined}
+          >
+            {pending
+              ? isEdit
+                ? 'Saving…'
+                : 'Registering…'
+              : isEdit
+                ? 'Save changes'
+                : 'Register app'}
           </Button>
         </DialogFooter>
       </DialogContent>

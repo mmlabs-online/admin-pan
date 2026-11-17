@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import { type AppStatus } from '../data/app-schema'
 import { appStatusLabels } from '../data/data'
-import { type AppStatus } from '../data/schema'
 
 export function AppStatusBadge({ status }: { status: AppStatus }) {
   return (
