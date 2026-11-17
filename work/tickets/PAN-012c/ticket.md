@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| State | BACKLOG |
+| State | PLANNING |
 | Priority | P2 |
 | Areas | auth, ui, security |
 | Attempts | 0 |
@@ -27,3 +27,8 @@ PAN-010, which removes the sign-in form's "Forgot password?" link.
 
 ## Notes / answers from owner
 - 2026-11-16 (owner): handle this in a separate ticket after PAN-010. Use text only, with no link to a specific app.
+
+## Orchestrator notes (2026-11-17)
+- **Still refused.** Checked against org-admin-api origin/main b87f200: `POST /auth/password/forgot` with `X-MM-App: admin` is still refused with 403 `origin_not_allowed` (`app/modules/auth/deps.py` `get_mail_link_app_context`, used by signup and forgot). USR-12 re-allowed only verify-email resend for `admin`.
+- **PAN-012b copy.** The verify-email page says "Sign in to request a new one". Since USR-12, signing in and using "Send the link again" on the email-unverified gate page is real (PAN-010b adds that button). Decide the corrected copy with that in mind. It must not promise a resend button before PAN-010b lands.
+- **Dependency.** PAN-010 is DONE.
