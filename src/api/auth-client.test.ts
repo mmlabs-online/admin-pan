@@ -16,6 +16,7 @@ import {
   authFailure,
   authTimeoutFetch,
   createAdminAuthClient,
+  resendVerificationEmail,
 } from './auth-client'
 
 afterEach(() => vi.restoreAllMocks())
@@ -115,5 +116,95 @@ describe('authFailure', () => {
     [new TypeError('x'), { kind: 'unknown' }],
   ])('classifies %s', (error, expected) => {
     expect(authFailure(error)).toMatchObject(expected)
+  })
+})
+
+describe('resendVerificationEmail', () => {
+  const ACCOUNT = '11111111-1111-4111-8111-111111111111'
+  function setup(respond: () => Response | Promise<Response>) {
+    vi.stubEnv('VITE_API_BASE_URL', 'https://api.test')
+    vi.stubEnv('VITE_APP_KEY', 'admin')
+    const fetch = vi.fn(async (_input: unknown, _init?: RequestInit) =>
+      respond()
+    )
+    const client = createAdminAuthClient({
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      storage: null,
+      broadcast: false,
+    })
+    return { fetch, client }
+  }
+  const err = (status: number, code: string, headers = {}) =>
+    new Response(JSON.stringify({ error: { code, message: code } }), {
+      status,
+      headers: { 'content-type': 'application/json', ...headers },
+    })
+
+  it('sends POST /api/v1/auth/verify-email/resend {account_id} with credentials include and X-MM-App admin', async () => {
+    const { fetch, client } = setup(() => new Response(null, { status: 202 }))
+    await resendVerificationEmail(ACCOUNT, client)
+    const [url, init] = fetch.mock.calls[0]
+    expect(url).toBe('https://api.test/api/v1/auth/verify-email/resend')
+    expect(init?.method).toBe('POST')
+    expect(init?.credentials).toBe('include')
+    expect(JSON.parse(init?.body as string)).toEqual({ account_id: ACCOUNT })
+    expect(new Headers(init?.headers).get('x-mm-app')).toBe('admin')
+  })
+
+  it('maps 202 to sent', async () => {
+    const { client } = setup(() => new Response(null, { status: 202 }))
+    expect(await resendVerificationEmail(ACCOUNT, client)).toEqual({
+      kind: 'sent',
+    })
+  })
+
+  it('maps 409 email_already_verified to already_verified', async () => {
+    const { client } = setup(() => err(409, 'email_already_verified'))
+    expect(await resendVerificationEmail(ACCOUNT, client)).toEqual({
+      kind: 'already_verified',
+    })
+  })
+
+  it('maps 429 with Retry-After to rate_limited with retryAfter', async () => {
+    const { client } = setup(() =>
+      err(429, 'rate_limited', { 'retry-after': '30' })
+    )
+    expect(await resendVerificationEmail(ACCOUNT, client)).toEqual({
+      kind: 'rate_limited',
+      retryAfter: 30,
+    })
+  })
+
+  it('maps 403 origin_not_allowed to not_allowed with requestId', async () => {
+    const { client } = setup(() =>
+      err(403, 'origin_not_allowed', { 'x-request-id': 'req-1' })
+    )
+    expect(await resendVerificationEmail(ACCOUNT, client)).toEqual({
+      kind: 'not_allowed',
+      requestId: 'req-1',
+    })
+  })
+
+  it('maps 403 app_mismatch to config', async () => {
+    const { client } = setup(() => err(403, 'app_mismatch'))
+    expect(await resendVerificationEmail(ACCOUNT, client)).toMatchObject({
+      kind: 'config',
+    })
+  })
+
+  it('maps 401 session_invalid to session_invalid', async () => {
+    const { client } = setup(() => err(401, 'session_invalid'))
+    expect(await resendVerificationEmail(ACCOUNT, client)).toEqual({
+      kind: 'session_invalid',
+    })
+  })
+
+  it('maps a thrown fetch to network', async () => {
+    const { client } = setup(() => {
+      throw new TypeError('Failed to fetch')
+    })
+    expect(await resendVerificationEmail(ACCOUNT, client)).toEqual({
+      kind: 'network',
+    })
   })
 })

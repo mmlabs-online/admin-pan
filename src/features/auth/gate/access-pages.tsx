@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useAuth } from '@mmlabs/auth-client/react'
 import { Loader2 } from 'lucide-react'
 import { formatRetryAfter } from '@/lib/retry-after'
@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { AuthLayout } from '../auth-layout'
 import { StatusPanel } from '../components/status-panel'
 import { AccountList, SignOutButton, UseAnotherAccount } from './account-picker'
+import { ResendVerification } from './resend-verification'
 import type { AccessState } from './use-access-check'
 
 export function BootSpinner() {
@@ -68,15 +69,15 @@ export function EmailUnverifiedPage({
   onContinue: () => Promise<AccessState>
 }) {
   const { accountId, email } = useCurrentAccount()
-  const [pending, setPending] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const inFlight = useRef(false)
   const [alert, setAlert] = useState<string | null>(null)
 
-  async function onClick() {
-    if (pending) return
-    setPending(true)
+  async function runContinue() {
+    setBusy(true)
     setAlert(null)
     const result = await onContinue()
-    setPending(false)
+    setBusy(false)
     if (result.kind === 'email_unverified')
       setAlert('Your email address is still not verified.')
     else if (result.kind === 'rate_limited')
@@ -87,14 +88,36 @@ export function EmailUnverifiedPage({
       setAlert('Something went wrong. Please try again later.')
   }
 
+  async function onClick() {
+    if (inFlight.current || busy) return
+    inFlight.current = true
+    try {
+      await runContinue()
+    } finally {
+      inFlight.current = false
+    }
+  }
+
   return (
     <AccessLayout>
       <StatusPanel title='Verify your email address'>
         <p>
           {email} has not been verified yet. Open the verification email we sent
-          you and follow its link. If you need a new link, request it from any
-          mmlabs app you use. Then come back and continue.
+          you and follow its link, then come back and continue. If you
+          can&apos;t find the email or the link has expired, send the link
+          again.
         </p>
+      </StatusPanel>
+      {/* Outside StatusPanel (role=status): no live region nests another */}
+      <div className='grid gap-2 text-sm'>
+        {accountId && (
+          <ResendVerification
+            accountId={accountId}
+            busy={busy}
+            setBusy={setBusy}
+            onAlreadyVerified={runContinue}
+          />
+        )}
         {alert && (
           <p role='alert' className='text-sm text-destructive'>
             {alert}
@@ -104,16 +127,16 @@ export function EmailUnverifiedPage({
         <Button
           type='button'
           onClick={() => void onClick()}
-          aria-disabled={pending || undefined}
+          aria-disabled={busy || undefined}
           className='aria-disabled:cursor-not-allowed aria-disabled:opacity-50'
         >
           I&apos;ve verified, continue
-          {pending && <Loader2 className='animate-spin' />}
+          {busy && <Loader2 className='animate-spin' />}
         </Button>
         <AccountList exclude={accountId} />
         <UseAnotherAccount />
         <SignOutButton scope='account' />
-      </StatusPanel>
+      </div>
     </AccessLayout>
   )
 }

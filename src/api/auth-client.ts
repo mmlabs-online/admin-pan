@@ -99,3 +99,29 @@ export function authFailure(e: unknown): AuthFailure {
   }
   return { kind: 'unknown' }
 }
+
+export type ResendOutcome =
+  | { kind: 'sent' }
+  | { kind: 'already_verified' }
+  | { kind: 'not_allowed'; requestId?: string }
+  | AuthFailure
+
+/**
+ * Asks the API to send the verification email again (cookie class). The
+ * account is always the one the page shows. The library maps a 409
+ * `email_already_verified` to the return value 'already_verified'.
+ */
+export async function resendVerificationEmail(
+  accountId: string,
+  client: Pick<AuthClient, 'resendVerification'> = getAuthClient()
+): Promise<ResendOutcome> {
+  try {
+    return { kind: await client.resendVerification(accountId) }
+  } catch (e) {
+    // An unverified account without an admin role: the API checks the
+    // verified email before membership, so this is a normal case.
+    if (e instanceof ConfigurationError && e.code === 'origin_not_allowed')
+      return { kind: 'not_allowed', requestId: e.requestId }
+    return authFailure(e)
+  }
+}

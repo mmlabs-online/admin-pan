@@ -84,7 +84,7 @@ describe('VerifyEmail', () => {
         .element(screen.getByRole('heading', { name: 'Invalid link' }))
         .toBeInTheDocument()
       await expect
-        .element(screen.getByText(/request a new link from any mmlabs app/))
+        .element(screen.getByText(/sign in and choose .Send the link again./))
         .toBeInTheDocument()
       await expect
         .element(screen.getByRole('link', { name: 'Sign in' }))
@@ -177,9 +177,7 @@ describe('VerifyEmail', () => {
     const h = screen.getByRole('heading', { name: 'Link invalid or expired' })
     await expect.element(h).toHaveFocus()
     await expect
-      .element(
-        screen.getByText(/request a new link from any mmlabs app you use/)
-      )
+      .element(screen.getByText(/sign in and choose .Send the link again./))
       .toBeInTheDocument()
     await expect
       .element(screen.getByRole('link', { name: 'Sign in' }))

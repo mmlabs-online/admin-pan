@@ -21,8 +21,8 @@ export function InvalidVerifyLink() {
   return (
     <StatusPanel title='Invalid link'>
       <p>
-        This link is invalid. If your email address is still not verified,
-        request a new link from any mmlabs app you use, then sign in.
+        This link is invalid. If your email address is still not verified, sign
+        in and choose &quot;Send the link again&quot;.
       </p>
       <SignInLink />
     </StatusPanel>
@@ -86,9 +86,9 @@ export function VerifyEmailPanel({
     return (
       <StatusPanel title='Link invalid or expired'>
         <p>
-          This link is invalid, expired or already used. If your email address
-          is still not verified, request a new link from any mmlabs app you use,
-          then sign in.
+          This link is invalid, expired or already used. Only the newest link
+          works. If your email address is still not verified, sign in and choose
+          &quot;Send the link again&quot;.
         </p>
         <SignInLink />
       </StatusPanel>
