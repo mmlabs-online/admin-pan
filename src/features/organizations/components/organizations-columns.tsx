@@ -39,8 +39,6 @@ export const organizationsColumns: ColumnDef<Organization>[] = [
         </Badge>
       )
     },
-    filterFn: (row, id, value: string[]) => value.includes(row.getValue(id)),
-    enableSorting: false,
     enableHiding: false,
   },
   {
@@ -57,7 +55,6 @@ export const organizationsColumns: ColumnDef<Organization>[] = [
           <span className='sr-only'>No description</span>
         </span>
       ),
-    enableSorting: false,
   },
   {
     accessorKey: 'created_at',
@@ -69,8 +66,6 @@ export const organizationsColumns: ColumnDef<Organization>[] = [
         {format(new Date(row.original.created_at), 'MMM d, yyyy')}
       </time>
     ),
-    // ISO-8601 strings sort chronologically as text
-    sortingFn: 'text',
   },
   {
     id: 'actions',

@@ -26,6 +26,8 @@ export const auditActionSchema = z.enum([
   'app.registered',
   'app.admin_origins_set',
   'app.joined',
+  'app_credential.issued',
+  'app_credential.revoked',
   'permission.created',
   'permission.updated',
   'permission.deleted',
@@ -54,6 +56,7 @@ export const auditTargetSchema = z.enum([
   'role_assignment',
   'device_session',
   'invitation',
+  'app_credential',
 ])
 export const actorKindSchema = z.enum(['user', 'system', 'anonymous'])
 export const auditOutcomeSchema = z.enum(['success', 'failure', 'denied'])

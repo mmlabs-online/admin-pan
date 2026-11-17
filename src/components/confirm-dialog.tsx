@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import { cn } from '@/lib/utils'
 import {
   AlertDialog,
@@ -20,6 +21,10 @@ type ConfirmDialogProps = {
   confirmText?: React.ReactNode
   destructive?: boolean
   isLoading?: boolean
+  /** Confirm label and sr-only status while `isLoading`. */
+  pendingText?: React.ReactNode
+  /** Failure markup shown after `children`; linked to the confirm button. */
+  error?: React.ReactNode
   className?: string
   children?: React.ReactNode
 } & (
@@ -37,13 +42,24 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
     cancelBtnText,
     destructive,
     isLoading,
+    pendingText,
+    error,
     disabled = false,
     form,
     handleConfirm,
+    onOpenChange,
     ...actions
   } = props
+  const errorId = useId()
   return (
-    <AlertDialog {...actions}>
+    <AlertDialog
+      {...actions}
+      onOpenChange={(next) => {
+        // Escape while pending must not close the dialog.
+        if (!next && isLoading) return
+        onOpenChange(next)
+      }}
+    >
       <AlertDialogContent className={cn(className && className)}>
         <AlertDialogHeader className='text-start'>
           <AlertDialogTitle>{title}</AlertDialogTitle>
@@ -52,18 +68,39 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
           </AlertDialogDescription>
         </AlertDialogHeader>
         {children}
+        {error && <div id={errorId}>{error}</div>}
+        <p role='status' aria-live='polite' className='sr-only'>
+          {isLoading ? (pendingText ?? 'Please wait…') : ''}
+        </p>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading}>
+          <AlertDialogCancel
+            aria-disabled={isLoading || undefined}
+            className={cn(isLoading && 'opacity-50')}
+            onClick={(e) => {
+              if (isLoading) e.preventDefault()
+            }}
+          >
             {cancelBtnText ?? 'Cancel'}
           </AlertDialogCancel>
           <Button
             type={form ? 'submit' : 'button'}
             form={form}
-            onClick={handleConfirm}
+            onClick={(e) => {
+              if (isLoading) {
+                e.preventDefault()
+                return
+              }
+              handleConfirm?.()
+            }}
             variant={destructive ? 'destructive' : 'default'}
-            disabled={disabled || isLoading}
+            disabled={disabled}
+            aria-disabled={isLoading || undefined}
+            className={cn(isLoading && 'opacity-50')}
+            aria-describedby={error ? errorId : undefined}
           >
-            {confirmText ?? 'Continue'}
+            {isLoading
+              ? (pendingText ?? confirmText ?? 'Continue')
+              : (confirmText ?? 'Continue')}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

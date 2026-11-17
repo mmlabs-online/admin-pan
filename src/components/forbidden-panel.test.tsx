@@ -43,7 +43,9 @@ function setup(responses: (() => Response)[]) {
     },
   })
   function Probe() {
-    const q = useQuery(organizationsListQueryOptions({}, client))
+    const q = useQuery(
+      organizationsListQueryOptions({ limit: 10, offset: 0 }, client)
+    )
     const view = queryView(q)
     if (view.status === 'forbidden')
       return (

@@ -58,6 +58,41 @@ export interface paths {
         patch: operations["update_app_api_v1_apps__key__patch"];
         trace?: never;
     };
+    "/api/v1/apps/{key}/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Credentials */
+        get: operations["list_credentials_api_v1_apps__key__credentials_get"];
+        put?: never;
+        /** Issue Credential */
+        post: operations["issue_credential_api_v1_apps__key__credentials_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/apps/{key}/credentials/{credential_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke Credential */
+        delete: operations["revoke_credential_api_v1_apps__key__credentials__credential_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/apps/{key}/permissions": {
         parameters: {
             query?: never;
@@ -659,6 +694,61 @@ export interface components {
             /** Origins */
             origins?: string[];
         };
+        /** AppCredentialIssued */
+        AppCredentialIssued: {
+            /** Active */
+            active: boolean;
+            /** App */
+            app: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By */
+            created_by: string | null;
+            /** Credential */
+            credential: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Key Id */
+            key_id: string;
+            /** Last Used At */
+            last_used_at: string | null;
+            /** Revoked At */
+            revoked_at: string | null;
+        };
+        /**
+         * AppCredentialRead
+         * @description Metadata only: never the secret, never the hash.
+         */
+        AppCredentialRead: {
+            /** Active */
+            active: boolean;
+            /** App */
+            app: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By */
+            created_by: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Key Id */
+            key_id: string;
+            /** Last Used At */
+            last_used_at: string | null;
+            /** Revoked At */
+            revoked_at: string | null;
+        };
         /** AppRead */
         AppRead: {
             /**
@@ -762,7 +852,7 @@ export interface components {
          * AuditAction
          * @enum {string}
          */
-        AuditAction: "organization.created" | "organization.updated" | "organization.deleted" | "organization.invitation_created" | "organization.invitation_accepted" | "organization.invitation_revoked" | "user.created" | "user.disabled" | "user.enabled" | "app.created" | "app.updated" | "app.deleted" | "app.registered" | "app.admin_origins_set" | "app.joined" | "permission.created" | "permission.updated" | "permission.deleted" | "role.created" | "role.updated" | "role.deleted" | "role.permissions_replaced" | "role_assignment.granted" | "role_assignment.revoked" | "email_retention.purged" | "audit_log.purged" | "auth.login_succeeded" | "auth.login_failed" | "auth.logged_out" | "auth.logged_out_all" | "device_session.reuse_revoked" | "auth.password_reset_completed" | "auth.email_verified";
+        AuditAction: "organization.created" | "organization.updated" | "organization.deleted" | "organization.invitation_created" | "organization.invitation_accepted" | "organization.invitation_revoked" | "user.created" | "user.disabled" | "user.enabled" | "app.created" | "app.updated" | "app.deleted" | "app.registered" | "app.admin_origins_set" | "app.joined" | "app_credential.issued" | "app_credential.revoked" | "permission.created" | "permission.updated" | "permission.deleted" | "role.created" | "role.updated" | "role.deleted" | "role.permissions_replaced" | "role_assignment.granted" | "role_assignment.revoked" | "email_retention.purged" | "audit_log.purged" | "auth.login_succeeded" | "auth.login_failed" | "auth.logged_out" | "auth.logged_out_all" | "device_session.reuse_revoked" | "auth.password_reset_completed" | "auth.email_verified";
         /** AuditLogRead */
         AuditLogRead: {
             /** Action */
@@ -812,7 +902,7 @@ export interface components {
          * AuditTarget
          * @enum {string}
          */
-        AuditTarget: "organization" | "user" | "app" | "permission" | "role" | "role_assignment" | "device_session" | "invitation";
+        AuditTarget: "organization" | "user" | "app" | "permission" | "role" | "role_assignment" | "device_session" | "invitation" | "app_credential";
         /**
          * AuthOrgCreate
          * @description End-user org creation (`POST /api/v1/auth/orgs`).
@@ -1149,6 +1239,17 @@ export interface components {
             name?: string | null;
             status?: components["schemas"]["OrganizationStatus"] | null;
         };
+        /** Page[AppCredentialRead] */
+        Page_AppCredentialRead_: {
+            /** Items */
+            items: components["schemas"]["AppCredentialRead"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
         /** Page[AppRead] */
         Page_AppRead_: {
             /** Items */
@@ -1229,7 +1330,8 @@ export interface components {
         /**
          * PermissionCreate
          * @description `is_admin` absent or null: false, except `<app>:*` and admin-app permissions, which are
-         *     always stored `true`.
+         *     always stored `true`. `scope` absent or null: the reserved key decides, else `org` on
+         *     `org_mode = required` apps and `app` otherwise (ADR-0015).
          */
         PermissionCreate: {
             /** Description */
@@ -1238,6 +1340,7 @@ export interface components {
             is_admin?: boolean | null;
             /** Key */
             key: string;
+            scope?: components["schemas"]["PermissionScope"] | null;
         };
         /** PermissionRead */
         PermissionRead: {
@@ -1252,7 +1355,13 @@ export interface components {
             is_admin: boolean;
             /** Key */
             key: string;
+            scope: components["schemas"]["PermissionScope"];
         };
+        /**
+         * PermissionScope
+         * @enum {string}
+         */
+        PermissionScope: "app" | "org";
         /**
          * PermissionUpdate
          * @description Partial update; `key` is immutable. Explicit null is accepted only for `description`.
@@ -1262,6 +1371,7 @@ export interface components {
             description?: string | null;
             /** Is Admin */
             is_admin?: boolean | null;
+            scope?: components["schemas"]["PermissionScope"] | null;
         };
         /** ResendVerificationRequest */
         ResendVerificationRequest: {
@@ -1792,6 +1902,190 @@ export interface operations {
             };
             /** @description Admin app invariant or origin already taken */
             409: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    list_credentials_api_v1_apps__key__credentials_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_AppCredentialRead_"];
+                };
+            };
+            /** @description Missing or invalid Bearer token */
+            401: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Missing permission */
+            403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    issue_credential_api_v1_apps__key__credentials_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppCredentialIssued"];
+                };
+            };
+            /** @description Missing or invalid Bearer token */
+            401: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Missing permission */
+            403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description admin app, disabled app or credential limit (details[0].reason); also needs admin:* */
+            409: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    revoke_credential_api_v1_apps__key__credentials__credential_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+                credential_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid Bearer token */
+            401: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Missing permission */
+            403: {
                 headers: {
                     /** @description Server-generated request id (UUID4); quote it to support. */
                     "X-Request-ID"?: string;

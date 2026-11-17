@@ -2,12 +2,12 @@
 
 | Field | Value |
 |---|---|
-| State | BLOCKED |
+| State | DONE |
 | Priority | P1 |
 | Areas | api, ui |
-| Attempts | 0 |
+| Attempts | 1 |
 | Created | 2026-11-11 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/18 |
 
 ## Goal
 Replace Organizations mock data with `/api/v1/organizations` CRUD; 409 on duplicate slug shown on the field.
@@ -16,7 +16,7 @@ Replace Organizations mock data with `/api/v1/organizations` CRUD; 409 on duplic
 `docs/spec-v1.md` §5.3
 
 ## Depends on
-PAN-004, PAN-011; org-admin-api ADM-001 (USR-06 for created_by); **a new org-admin-api ticket for `status`, `q` (name/slug search) and `sort` on `GET /api/v1/organizations`** (owner, 2026-11-16; request in `org-admin-api-request.md`)
+PAN-004, PAN-011; org-admin-api ADM-001 (USR-06 for created_by); org-admin-api filters (`status`, `q`, `sort`) are a follow-up, not a blocker (owner, 2026-11-17)
 
 ## Acceptance criteria
 - [ ] Server-side pagination and filters (as the API supports)
@@ -37,6 +37,10 @@ PAN-004, PAN-011; org-admin-api ADM-001 (USR-06 for created_by); **a new org-adm
   - a pending label and an sr-only status;
   - the inline error linked through `aria-describedby`.
   This also updates the users status dialog (the PAN-013 a11y follow-up).
+
+## Owner answers (2026-11-17, unblock)
+- **Stop waiting for API filters.** Build the screen now on the API as it is (org-admin-api main 33db316). Keep only the filters and sorting `GET /api/v1/organizations` actually supports; remove or hide the others, and keep the follow-up open against `org-admin-api-request.md` (`status`, `q`, `sort`). The other 2026-11-16 answers (typed-slug delete, shared ConfirmDialog a11y fix) still apply.
+- **Snapshot.** PAN-016 already regenerated the snapshot fully from 8a4efb2. Regenerate it again from the current org-admin-api main if needed (it adds the app credential paths from USR-05a); do not hand-patch.
 
 ## Orchestrator notes (2026-11-16)
 - **Dependencies** (checked against org-admin-api origin/main a417ddb): ADM-001 is DONE, and the organizations router already has list, get, create, patch and delete with `admin:organizations:read/write`. PAN-004 and PAN-011 are DONE.
