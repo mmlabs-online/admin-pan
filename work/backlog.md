@@ -37,7 +37,7 @@ Phases: **1. UI with mock data** (PAN-001…008, done) → **2. Foundations** (P
 | PAN-020 | Dashboard stats on the real API | BACKLOG | P3 | api, ui | 0 | 2026-11-11 |
 | PAN-021 | Reports on the real API | BACKLOG | P3 | api, ui | 0 | 2026-11-11 |
 | PAN-022 | Release and deploy to admin-portal.mmlabs.online | DONE | P2 | architecture, security | 1 | 2026-11-16 |
-| PAN-023 | End-to-end smoke tests | BACKLOG | P2 | ui, a11y | 0 | 2026-11-11 |
+| PAN-023 | End-to-end smoke tests | PLANNING | P2 | ui, a11y | 0 | 2026-11-11 |
 | PAN-024 | UI language | BACKLOG | P3 | ui | 0 | 2026-11-11 |
 | PAN-025 | Self-host the Inter and Manrope fonts | DONE | P2 | ui, security | 1 | 2026-11-16 |
 | PAN-026 | Upgrade dependencies with known security advisories | DONE | P1 | architecture, security | 1 | 2026-11-16 |
