@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| State | IN_PROGRESS |
+| State | REVIEW |
 | Priority | P2 |
 | Areas | api, ui, security |
 | Attempts | 0 |

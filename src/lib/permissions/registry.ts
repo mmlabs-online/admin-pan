@@ -5,6 +5,7 @@ import { type paths } from '@/api'
 import { type FileRoutesById } from '@/routeTree.gen'
 
 export const ADMIN_PERMISSIONS = [
+  'admin:*',
   'admin:apps:read',
   'admin:apps:write',
   'admin:audit:read',
@@ -14,6 +15,7 @@ export const ADMIN_PERMISSIONS = [
   'admin:organizations:write',
   'admin:roles:assign',
   'admin:roles:manage',
+  'admin:stats:read',
   'admin:users:read',
   'admin:users:write',
 ] as const
@@ -96,6 +98,15 @@ const reportsPending: Requirement = {
 export const ACTIONS = {
   'users.view': perm('admin:users:read', 'GET /api/v1/users/{user_id}'),
   'users.setStatus': perm('admin:users:write', 'PATCH /api/v1/users/{user_id}'),
+  'users.viewSessions': perm('admin:*', 'GET /api/v1/users/{user_id}/sessions'),
+  'users.revokeSession': perm(
+    'admin:*',
+    'DELETE /api/v1/users/{user_id}/sessions/{session_id}'
+  ),
+  'users.revokeAllSessions': perm(
+    'admin:*',
+    'DELETE /api/v1/users/{user_id}/sessions'
+  ),
   'organizations.view': perm(
     'admin:organizations:read',
     'GET /api/v1/organizations/{org_id}'

@@ -32,6 +32,8 @@ const actionTones: Record<AuditAction, Tone> = {
   'user.created': 'success',
   'user.disabled': 'danger',
   'user.enabled': 'success',
+  'user.session_revoked': 'warning',
+  'user.sessions_revoked': 'warning',
   'app.created': 'success',
   'app.updated': 'info',
   'app.deleted': 'danger',

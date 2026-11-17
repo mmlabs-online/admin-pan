@@ -3,9 +3,13 @@ import { fakeApi, apiError, json } from '@/test-utils/api'
 import { describe, expect, it, vi } from 'vitest'
 import { renderHook } from 'vitest-browser-react'
 import {
+  SESSIONS_GC_TIME_MS,
   toUsersListParams,
   userQueryOptions,
   userRoleAssignmentsQueryOptions,
+  userSessionsQueryOptions,
+  useRevokeAllUserSessionsMutation,
+  useRevokeUserSessionMutation,
   usersKeys,
   useSetUserStatusMutation,
   usersListQueryOptions,
@@ -136,5 +140,101 @@ describe('useSetUserStatusMutation', () => {
     expect(seen[0].url).toBe(`https://api.test/api/v1/users/${ID}`)
     expect(await seen[0].json()).toEqual({ status: 'disabled' })
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['users'] })
+  })
+})
+
+const SID = '9f9f9f9f-9999-4999-8999-999999999999'
+
+function mutationHarness<T>(hook: () => T) {
+  const queryClient = new QueryClient()
+  const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+  return {
+    invalidate,
+    render: () =>
+      renderHook(hook, {
+        wrapper: ({ children }) => (
+          <QueryClientProvider client={queryClient}>
+            {children}
+          </QueryClientProvider>
+        ),
+      }),
+  }
+}
+
+describe('user sessions queries', () => {
+  it('usersKeys.sessions nests under detail(id) and holds only {limit, offset}', () => {
+    expect(usersKeys.sessions(ID, { limit: 20, offset: 40 })).toEqual([
+      'users',
+      'detail',
+      ID,
+      'sessions',
+      { limit: 20, offset: 40 },
+    ])
+    expect(usersKeys.sessionsAll(ID).slice(0, 3)).toEqual(usersKeys.detail(ID))
+  })
+
+  it('userSessionsQueryOptions sends GET /api/v1/users/{id}/sessions?limit=20&offset=0; gcTime ≤ 5000; placeholderData keepPreviousData', async () => {
+    const { client, seen } = fakeApi(() => json(page))
+    const options = userSessionsQueryOptions(
+      ID,
+      { limit: 20, offset: 0 },
+      client
+    )
+    await new QueryClient().fetchQuery(options)
+    expect(seen[0].method).toBe('GET')
+    expect(seen[0].url).toBe(
+      `https://api.test/api/v1/users/${ID}/sessions?limit=20&offset=0`
+    )
+    expect(options.gcTime).toBe(SESSIONS_GC_TIME_MS)
+    expect(options.gcTime).toBeLessThanOrEqual(5000)
+    expect(typeof options.placeholderData).toBe('function')
+  })
+})
+
+describe('session revoke mutations', () => {
+  it('revoke one sends DELETE …/sessions/{sid}, invalidates sessionsAll on success; on 404 invalidates detail(id); on 500 invalidates sessionsAll', async () => {
+    let res = () => new Response(null, { status: 204 })
+    const { client, seen } = fakeApi(() => res())
+    const h = mutationHarness(() => useRevokeUserSessionMutation(ID, client))
+    const { result } = await h.render()
+    await result.current.mutateAsync(SID)
+    expect(seen[0].method).toBe('DELETE')
+    expect(seen[0].url).toBe(
+      `https://api.test/api/v1/users/${ID}/sessions/${SID}`
+    )
+    expect(h.invalidate).toHaveBeenLastCalledWith({
+      queryKey: usersKeys.sessionsAll(ID),
+    })
+
+    res = () => apiError(404, 'not_found')
+    await expect(result.current.mutateAsync(SID)).rejects.toMatchObject({
+      status: 404,
+    })
+    expect(h.invalidate).toHaveBeenLastCalledWith({
+      queryKey: usersKeys.detail(ID),
+    })
+
+    res = () => apiError(500, 'internal_error')
+    await expect(result.current.mutateAsync(SID)).rejects.toMatchObject({
+      status: 500,
+    })
+    expect(h.invalidate).toHaveBeenLastCalledWith({
+      queryKey: usersKeys.sessionsAll(ID),
+    })
+  })
+
+  it('revoke all sends DELETE …/sessions with no body and invalidates sessionsAll', async () => {
+    const { client, seen } = fakeApi(() => new Response(null, { status: 204 }))
+    const h = mutationHarness(() =>
+      useRevokeAllUserSessionsMutation(ID, client)
+    )
+    const { result } = await h.render()
+    await result.current.mutateAsync()
+    expect(seen[0].method).toBe('DELETE')
+    expect(seen[0].url).toBe(`https://api.test/api/v1/users/${ID}/sessions`)
+    expect(await seen[0].text()).toBe('')
+    expect(h.invalidate).toHaveBeenCalledWith({
+      queryKey: usersKeys.sessionsAll(ID),
+    })
   })
 })

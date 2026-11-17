@@ -30,6 +30,9 @@ describe('forbidden copy', () => {
     expect(forbiddenCopy(err('self_status_change_forbidden')).title).toBe(
       "You can't change your own account status"
     )
+    expect(forbiddenCopy(err('self_session_change_forbidden')).title).toBe(
+      "You can't manage your own sessions"
+    )
     expect(forbiddenCopy(err('something_else')).description).toBe(
       'The server refused this request.'
     )
@@ -50,6 +53,7 @@ describe('forbidden copy', () => {
       'admin_wildcard_required',
       'self_assignment_forbidden',
       'self_status_change_forbidden',
+      'self_session_change_forbidden',
       'other',
     ])
       expect(JSON.stringify(forbiddenCopy(err(code)))).not.toContain(

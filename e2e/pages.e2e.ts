@@ -338,6 +338,77 @@ test('apps join requests: stoktok tab lists pending, passes axe; reject confirm 
   ).toBe(true)
 })
 
+test('users sessions: Sessions tab lists ada sessions and passes axe; revoke one: confirm names ada, Cancel sends no DELETE and focus returns to the row Revoke; Confirm sends one DELETE, the row leaves, focus on the heading; revoke all: Cancel returns focus to Revoke all, Confirm sends one DELETE and shows No active sessions; no IP or user agent in any request URL', async ({
+  page,
+  api,
+  signIn,
+}) => {
+  const deletes = () => api.calls.filter((c) => c.method === 'DELETE')
+  await signIn('/users')
+  await expect(heading(page, 'Users')).toBeVisible()
+  await page
+    .getByRole('button', { name: /Open actions for ada@people\.e2e\.test/ })
+    .click()
+  await page.getByRole('menuitem', { name: /View details/ }).click()
+  const sheet = page.getByRole('dialog')
+  await selectTab(page, 'Sessions')
+  const sessionsHeading = sheet.getByRole('heading', {
+    name: 'Active sessions',
+  })
+  await expect(sessionsHeading).toBeVisible()
+  await expect(sheet.getByRole('row')).toHaveCount(3)
+  await expectNoSeriousA11y(page, 'users-sessions')
+
+  const rowRevoke = sheet.getByRole('button', {
+    name: /^Revoke session created/,
+  })
+  // The sheet is aria-hidden while the dialog is open: grab the handle first.
+  const trigger = await rowRevoke.first().elementHandle()
+  await rowRevoke.first().click()
+  const dialog = page.getByRole('alertdialog')
+  await expect(dialog).toContainText('ada@people.e2e.test')
+  await expect(dialog).toContainText('up to 12 hours')
+  await expectNoSeriousA11y(page, 'users-session-revoke')
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  await expect(dialog).toBeHidden()
+  expect(deletes()).toHaveLength(0)
+  expect(
+    await page.evaluate((el) => document.activeElement === el, trigger)
+  ).toBe(true)
+
+  await rowRevoke.first().click()
+  await dialog.getByRole('button', { name: 'Revoke session' }).click()
+  await expect(dialog).toBeHidden()
+  expect(deletes()).toHaveLength(1)
+  expect(deletes()[0].path).toMatch(
+    /^\/api\/v1\/users\/[0-9a-f-]+\/sessions\/aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa$/
+  )
+  await expect(sheet.getByRole('row')).toHaveCount(2)
+  await expect(sessionsHeading).toBeFocused()
+
+  const revokeAll = sheet.getByRole('button', { name: 'Revoke all' })
+  await revokeAll.click()
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  await expect(dialog).toBeHidden()
+  await expect(revokeAll).toBeFocused()
+  expect(deletes()).toHaveLength(1)
+  await revokeAll.click()
+  await dialog.getByRole('button', { name: 'Revoke all sessions' }).click()
+  await expect(dialog).toBeHidden()
+  expect(deletes()).toHaveLength(2)
+  expect(deletes()[1].path).toMatch(/^\/api\/v1\/users\/[0-9a-f-]+\/sessions$/)
+  await expect(sheet.getByText('No active sessions.')).toBeVisible()
+  await expect(sessionsHeading).toBeFocused()
+
+  expect(
+    api.calls.every(
+      (c) =>
+        !`${c.path}?${c.query.toString()}`.includes('203.0.113.7') &&
+        !`${c.path}?${c.query.toString()}`.includes('Mozilla')
+    )
+  ).toBe(true)
+})
+
 test('organizations entitlements: sheet and tab pass axe; grant calechip to Acme (one POST, exact body); disable confirm names Acme Corp and calechip, Cancel sends no PATCH, confirm sends one; suspended Globex shows Inactive', async ({
   page,
   api,

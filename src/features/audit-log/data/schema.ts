@@ -20,6 +20,8 @@ export const auditActionSchema = z.enum([
   'user.created',
   'user.disabled',
   'user.enabled',
+  'user.session_revoked',
+  'user.sessions_revoked',
   'app.created',
   'app.updated',
   'app.deleted',

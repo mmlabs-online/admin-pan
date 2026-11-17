@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { isApiError } from '@/api'
 import { queryView } from '@/lib/query-view'
+import { useActionPermission } from '@/context/permission-provider'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -12,6 +14,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ForbiddenPanel } from '@/components/forbidden-panel'
 import { Can } from '@/components/permissions/can'
 import {
@@ -20,6 +23,7 @@ import {
 } from '../api/queries'
 import { formatDateTime, userLabel } from '../data/data'
 import { type User } from '../data/schema'
+import { UserSessionsTab } from './user-sessions-tab'
 import { UserStatusBadge } from './user-status-badge'
 import { useUsers } from './users-provider'
 
@@ -51,6 +55,10 @@ export function UsersDetailSheet({
   currentRow,
 }: UsersDetailSheetProps) {
   const { api } = useUsers()
+  const [tab, setTab] = useState('details')
+  // Reopening must not land on the sessions list (IP and user agent).
+  if (!open && tab !== 'details') setTab('details')
+  const showSessions = useActionPermission('users.viewSessions') !== 'denied'
   // The list row is only a placeholder; the fetched user is the truth.
   const q = useQuery({
     ...userQueryOptions(currentRow.id, api),
@@ -62,65 +70,89 @@ export function UsersDetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className='overflow-y-auto'>
+      <SheetContent className='w-full gap-0 sm:max-w-2xl'>
         <SheetHeader className='text-start'>
           <SheetTitle>{userLabel(user)}</SheetTitle>
           <SheetDescription>mmlabs account details</SheetDescription>
         </SheetHeader>
-        <div className='space-y-6 px-4 pb-4'>
-          {view.status === 'forbidden' ? (
-            <ForbiddenPanel variant='inline' copy={view.copy} />
-          ) : view.status === 'error' ? (
-            <div role='alert' className='space-y-2 text-sm'>
-              <p>
-                {isApiError(view.error, 404)
-                  ? 'This user no longer exists.'
-                  : "Couldn't load this user."}
-              </p>
-              {!isApiError(view.error, 404) && (
-                <Button size='sm' onClick={() => void q.refetch()}>
-                  Retry
-                </Button>
-              )}
-            </div>
-          ) : (
-            <UserFields user={user} />
-          )}
+        <Tabs
+          value={showSessions ? tab : 'details'}
+          onValueChange={setTab}
+          className='min-h-0 flex-1 px-4 pb-4'
+        >
+          <TabsList>
+            <TabsTrigger value='details'>Details</TabsTrigger>
+            {showSessions && (
+              <TabsTrigger value='sessions'>Sessions</TabsTrigger>
+            )}
+          </TabsList>
+          <div className='min-h-0 flex-1 overflow-y-auto'>
+            <TabsContent value='details'>
+              <div className='space-y-6 pt-2'>
+                {view.status === 'forbidden' ? (
+                  <ForbiddenPanel variant='inline' copy={view.copy} />
+                ) : view.status === 'error' ? (
+                  <div role='alert' className='space-y-2 text-sm'>
+                    <p>
+                      {isApiError(view.error, 404)
+                        ? 'This user no longer exists.'
+                        : "Couldn't load this user."}
+                    </p>
+                    {!isApiError(view.error, 404) && (
+                      <Button size='sm' onClick={() => void q.refetch()}>
+                        Retry
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <UserFields user={user} />
+                )}
 
-          <Separator />
+                <Separator />
 
-          <Can action='roles.viewAssignments'>
-            <RoleAssignments userId={currentRow.id} open={open} />
-          </Can>
+                <Can action='roles.viewAssignments'>
+                  <RoleAssignments userId={currentRow.id} open={open} />
+                </Can>
 
-          <Can action='audit.view'>
-            <section aria-labelledby='user-audit-heading' className='space-y-2'>
-              <h3 id='user-audit-heading' className='font-medium'>
-                Audit history
-              </h3>
-              <ul className='space-y-1 text-sm'>
-                <li>
-                  <Link
-                    to='/audit-log'
-                    search={{ targetType: 'user', target: currentRow.id }}
-                    className='underline underline-offset-4'
+                <Can action='audit.view'>
+                  <section
+                    aria-labelledby='user-audit-heading'
+                    className='space-y-2'
                   >
-                    Events about this user
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to='/audit-log'
-                    search={{ actor: currentRow.id }}
-                    className='underline underline-offset-4'
-                  >
-                    Actions by this user
-                  </Link>
-                </li>
-              </ul>
-            </section>
-          </Can>
-        </div>
+                    <h3 id='user-audit-heading' className='font-medium'>
+                      Audit history
+                    </h3>
+                    <ul className='space-y-1 text-sm'>
+                      <li>
+                        <Link
+                          to='/audit-log'
+                          search={{ targetType: 'user', target: currentRow.id }}
+                          className='underline underline-offset-4'
+                        >
+                          Events about this user
+                        </Link>
+                      </li>
+                      <li>
+                        <Link
+                          to='/audit-log'
+                          search={{ actor: currentRow.id }}
+                          className='underline underline-offset-4'
+                        >
+                          Actions by this user
+                        </Link>
+                      </li>
+                    </ul>
+                  </section>
+                </Can>
+              </div>
+            </TabsContent>
+            {showSessions && (
+              <TabsContent value='sessions'>
+                <UserSessionsTab user={user} />
+              </TabsContent>
+            )}
+          </div>
+        </Tabs>
       </SheetContent>
     </Sheet>
   )

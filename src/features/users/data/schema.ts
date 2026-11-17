@@ -5,6 +5,7 @@ import { type components } from '@/api'
 export type User = components['schemas']['UserRead']
 export type UserStatus = components['schemas']['UserStatus']
 export type RoleAssignment = components['schemas']['AssignmentRead']
+export type UserSession = components['schemas']['UserSessionRead']
 
 // Used only to validate the `status` URL search param.
 export const userStatusSchema = z.enum(['active', 'disabled'])

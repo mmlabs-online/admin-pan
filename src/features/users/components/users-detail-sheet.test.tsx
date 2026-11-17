@@ -11,7 +11,7 @@ import { apiError, fakeApi, json, testQueryClient } from '@/test-utils/api'
 import { WithPermissions } from '@/test-utils/permissions'
 import { describe, expect, it } from 'vitest'
 import { render } from 'vitest-browser-react'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { type RoleAssignment, type User } from '../data/schema'
 import { UsersDialogs } from './users-dialogs'
 import { UsersProvider } from './users-provider'
@@ -55,7 +55,8 @@ function setup(respond: Respond) {
 
 async function openDetails(
   client: ApiClient,
-  granted?: Parameters<typeof WithPermissions>[0]['granted']
+  granted?: Parameters<typeof WithPermissions>[0]['granted'],
+  userId?: string
 ) {
   // The sheet renders router <Link>s, so it needs a router around it.
   const Page = () => {
@@ -66,7 +67,9 @@ async function openDetails(
       </>
     )
     return granted ? (
-      <WithPermissions granted={granted}>{tree}</WithPermissions>
+      <WithPermissions granted={granted} userId={userId}>
+        {tree}
+      </WithPermissions>
     ) : (
       tree
     )
@@ -273,5 +276,100 @@ describe('UsersDetailSheet', () => {
     await expect
       .element(sheet.getByRole('heading', { name: 'Audit history' }))
       .not.toBeInTheDocument()
+  })
+
+  const sessionsCalls = (seen: Request[]) =>
+    seen.filter((r) => new URL(r.url).pathname.endsWith('/sessions'))
+
+  it('Details is the default tab; existing fields, roles and audit links are inside it', async () => {
+    const { client } = setup((path) =>
+      path === USER_PATH ? json(ALICE) : emptyPage()
+    )
+    const sheet = await openDetails(client)
+    await expect
+      .element(sheet.getByRole('tab', { name: 'Details' }))
+      .toHaveAttribute('aria-selected', 'true')
+    await expect.element(sheet.getByText(ALICE.id)).toBeVisible()
+    await expect.element(sheet.getByText('No role assignments.')).toBeVisible()
+    await expect
+      .element(sheet.getByRole('heading', { name: 'Audit history' }))
+      .toBeVisible()
+  })
+
+  it('Sessions tab hidden when users.viewSessions is denied (granted admin:users:read + admin:users:write)', async () => {
+    const { client } = setup((path) =>
+      path === USER_PATH ? json(ALICE) : emptyPage()
+    )
+    const sheet = await openDetails(client, [
+      'admin:users:read',
+      'admin:users:write',
+    ])
+    await expect
+      .element(sheet.getByRole('tab', { name: 'Details' }))
+      .toBeVisible()
+    await expect
+      .element(sheet.getByRole('tab', { name: 'Sessions' }))
+      .not.toBeInTheDocument()
+  })
+
+  it('Sessions tab shown with admin:*; no …/sessions request until it is selected', async () => {
+    const { client, seen } = setup((path) =>
+      path === USER_PATH
+        ? json(ALICE)
+        : path.endsWith('/sessions')
+          ? json({ items: [], total: 0, limit: 20, offset: 0 })
+          : emptyPage()
+    )
+    const sheet = await openDetails(client, ['admin:users:read', 'admin:*'])
+    await expect.element(sheet.getByText('No role assignments.')).toBeVisible()
+    expect(sessionsCalls(seen)).toHaveLength(0)
+    await userEvent.click(sheet.getByRole('tab', { name: 'Sessions' }))
+    await expect.element(sheet.getByText('No active sessions.')).toBeVisible()
+    expect(sessionsCalls(seen)).toHaveLength(1)
+    expect(new URL(sessionsCalls(seen)[0].url).search).toBe(
+      '?limit=20&offset=0'
+    )
+  })
+
+  it('self: Sessions tab shows the note and sends no …/sessions request', async () => {
+    const { client, seen } = setup((path) =>
+      path === USER_PATH ? json(ALICE) : emptyPage()
+    )
+    const sheet = await openDetails(
+      client,
+      ['admin:users:read', 'admin:*'],
+      ALICE.id.toUpperCase()
+    )
+    await userEvent.click(sheet.getByRole('tab', { name: 'Sessions' }))
+    await expect
+      .element(sheet.getByText(/You can't manage your own sessions here/))
+      .toBeVisible()
+    expect(sessionsCalls(seen)).toHaveLength(0)
+  })
+
+  it('closing the sheet resets the tab: reopen the same user -> Details selected, no new …/sessions request', async () => {
+    const { client, seen } = setup((path) =>
+      path === USER_PATH
+        ? json(ALICE)
+        : path.endsWith('/sessions')
+          ? json({ items: [], total: 0, limit: 20, offset: 0 })
+          : emptyPage()
+    )
+    const sheet = await openDetails(client, ['admin:users:read', 'admin:*'])
+    await userEvent.click(sheet.getByRole('tab', { name: 'Sessions' }))
+    await expect.element(sheet.getByText('No active sessions.')).toBeVisible()
+    await userEvent.keyboard('{Escape}')
+    await expect
+      .element(sheet.getByRole('tab', { name: 'Sessions' }))
+      .not.toBeInTheDocument()
+    await userEvent.click(
+      page.getByRole('button', { name: 'Open actions for alice@example.com' })
+    )
+    await userEvent.click(page.getByRole('menuitem', { name: /View details/ }))
+    const again = page.getByRole('dialog')
+    await expect
+      .element(again.getByRole('tab', { name: 'Details' }))
+      .toHaveAttribute('aria-selected', 'true')
+    expect(sessionsCalls(seen)).toHaveLength(1)
   })
 })

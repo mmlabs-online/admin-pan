@@ -36,6 +36,12 @@ describe('createPermissionRefresher', () => {
     expect(spy).not.toHaveBeenCalled()
   })
 
+  it('self_session_change_forbidden does not refresh permissions', () => {
+    const { spy, refresh } = setup()
+    refresh(err(403, 'self_session_change_forbidden'))
+    expect(spy).not.toHaveBeenCalled()
+  })
+
   it('an error from the me/permissions query itself does nothing', () => {
     const { spy, refresh } = setup()
     refresh(err(403, 'permission_denied'), ['me', 'permissions', 'acc'])
