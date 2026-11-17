@@ -58,3 +58,51 @@ None. No security-review.md or a11y-review.md was present at review time.
 ### Follow-ups (out of scope)
 - org-admin-api: the list's `count()` and page `select` are separate statements, so `total` and `items` can disagree under concurrent decisions. A consistent snapshot (one statement with a window count, or REPEATABLE READ) would remove the race. Also the follow-ups already in plan.md (`granted`/`role_key` on approve, a `decided_by` label, cooldown, pending count, reject reason).
 - admin-pan: PAN-020 regenerates the OpenAPI snapshot (ADM-015).
+
+## Attempt 2 — 2026-11-17
+Verdict: REWORK
+
+### Checks (run by reviewer)
+- pnpm typecheck: pass (exit 0)
+- pnpm lint: pass (exit 0)
+- pnpm format:check: "All matched files use Prettier code style!"
+- pnpm test (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium): 91 files, 680 tests passed (matches impl-log)
+- `pnpm test src/features/apps` x5: 12 files / 130 tests passed on all 5 runs. The `app-status-dialog.test.tsx` timeout reported in impl-log did not recur. Neither that test nor `app-status-dialog.tsx` is in `git diff origin/main...HEAD`, and PAN-027's review already marked it flaky. Judged unrelated to this diff.
+- pnpm build: built in 1.29s
+- pnpm e2e: 27 passed
+- Working tree clean.
+
+### Acceptance criteria
+- [ ] Join requests per app listed from the API, paginated, with the filters the API supports. Listing, filter, pager, a11y pager and announcement are covered (tab test :37, :135, :175, :269, :297; e2e pages.e2e.ts:279). FAILED: the clamp's step-back branch still has no test (Issue 1).
+- [x] Approve/reject with confirmation naming the requester; non-optimistic; refresh after success. Same evidence as attempt 1. The dialog now uses `requesterLabel` (app-join-request-decision-dialog.tsx:52-58), and the blank-name test is at tab test :246.
+- [x] API errors shown inline (403, 404, 409). Same as attempt 1. Unmapped statuses now get fixed copy (errors.ts:298-302; errors.test.ts:315-317).
+- [x] Loading, empty, error and 403 states. Tab test :53.
+
+### Previous blockers
+- Attempt-1 Issue 1 (render loop): FIXED. app-join-requests-tab.tsx:81-88 computes `target` and calls `setOffset` only when `target !== offset`. Tab test :225-244 ("empty page with total 21 at offset 20") gets `{items: [], total: 21}` at offset 20, shows "No pending join requests.", and makes no request beyond the second one (`n === 2`, stable after 300 ms). This is real coverage of the no-loop path.
+- Attempt-1 Issue 2(a) (real clamp test): NOT FIXED. See Issue 1.
+
+### Issues
+#### Issue 1 — 🔴 blocker — tests (clamp step-back branch still never runs)
+- **Where**: src/features/apps/components/app-join-requests-tab.test.tsx:196-223
+- **Expected** (plan Tests table, and attempt-1 fix instruction 2(a)): page 2 comes back **empty** from a refetch that the pager did not trigger, and the clamp at app-join-requests-tab.tsx:87 (`setOffset(target)` with `target !== offset`) moves the tab to offset 0. The offsets requested are `['0','20','20','0']`.
+- **Actual**: Only the test title changed ("an empty page 2 with total 20 makes the tab request offset 0"). The body is the same as attempt 1. With `total = 21`, offset 20 returns 3 rows (`offset >= total` is false), so page 2 is never empty. The test then sets `total = 20` and clicks **Previous** by hand (:217). Offset 0 comes from the button. The asserted offsets `['0','20','0']` show that no empty offset-20 response was ever fetched, so the `setOffset(target)` call at :87 never runs in any test. If you delete line 87, every test still passes. The impl-log line "empty page 2 with total 20 -> tab requests offset 0" is not true for this test.
+- **Fix instruction**: Rewrite this test as follows, without using the pager after Next. Create `const queryClient = testQueryClient()` and pass it with `renderApps(client, { queryClient })`. Click Next and wait for `Showing 21–21 of 21`. Set `total = 20`, so offset 20 now returns `[]`. Then call `await queryClient.invalidateQueries({ queryKey: appsKeys.joinRequestsAll('stoktok') })` (import `appsKeys` from `../api/queries`). Instead of invalidating, you can also approve the visible row through the dialog with POST → `json(row)`. Assert that `Ada Lovelace` is visible, that offsets are `['0','20','20','0']`, and that `getByText(/Showing 21–/)` is not in the document. Do not click Previous. Keep the no-loop test at :225 as it is.
+
+### Rules R1–R11
+No violations found. R5: `requesterLabel` (data.ts:51-55) is used only for DOM text, `title` and `aria-label`. R6: text nodes only. R7: all changed files are in the plan or are `work/` files. R9/R10: pager uses `aria-disabled` and ignores the click (app-join-requests-tab.tsx:288-311). The polite `sr-only` status (:160-164) stays mounted outside the swapped region.
+
+### Security / a11y findings (attempt 1, all 🟡) — status
+- Security 1 (blank `display_name`): fixed. data.ts:51-55, tab :99, :199-203, dialog :52. Tested at tab test :246.
+- Security 2 (server text in fallback): fixed. errors.ts:298-302. Tested at errors.test.ts:315.
+- a11y 1 (pager focus loss): fixed. Tested at tab test :269. Note from impl-log: the pager unmounts while the next page loads, so focus is still lost on page change. Recorded as a follow-up.
+- a11y 3 (filter change not announced): fixed. Tested at tab test :297.
+- a11y 2 (Radix focus race): conditional; e2e focus assertion still green, not changed. Accepted.
+
+### Nits (do not block)
+- errors.ts `firstReason` export and `colSpan={4}` from attempt 1 are still open. Both are optional.
+- The pager test clicks via `element().click()` because Playwright refuses aria-disabled targets. That is fine. A short comment would explain it.
+
+### Follow-ups (out of scope)
+- admin-pan: keep the previous page while the next one loads (`placeholderData: keepPreviousData`), so the pager does not unmount and focus survives page changes (impl-log observation).
+- Attempt 1 follow-ups still apply (org-admin-api count/page snapshot; PAN-020 OpenAPI regen).
