@@ -106,3 +106,47 @@ No violations found. R5: `requesterLabel` (data.ts:51-55) is used only for DOM t
 ### Follow-ups (out of scope)
 - admin-pan: keep the previous page while the next one loads (`placeholderData: keepPreviousData`), so the pager does not unmount and focus survives page changes (impl-log observation).
 - Attempt 1 follow-ups still apply (org-admin-api count/page snapshot; PAN-020 OpenAPI regen).
+
+## Attempt 3 — 2026-11-17
+Verdict: PASS
+
+### Checks (run by reviewer)
+- pnpm typecheck: pass (exit 0)
+- pnpm lint: pass (exit 0)
+- pnpm format:check: "All matched files use Prettier code style!"
+- pnpm test (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium, full): 91 files, 680 tests passed on the first run. This matches impl-log's final run.
+- `pnpm test src/features/apps` x3: 12 files / 130 tests passed on all 3 runs.
+- pnpm build: built in 1.43s
+- pnpm e2e: 27 passed
+- Working tree clean after all checks and after the mutation check.
+
+### Mutation check (run by reviewer)
+- I backed up app-join-requests-tab.tsx and replaced line 87 `if (target !== offset) setOffset(target)` with a comment. Then I ran `pnpm test src/features/apps/components/app-join-requests-tab.test.tsx`. Result: 1 failed | 13 passed. The failure was "page clamp: a refetch that returns an empty page 2 steps the tab back to offset 0": `AssertionError: expected [ '0', '20', '20' ] to deeply equal [ '0', '20', '20', '0' ]`.
+- I restored the file from the backup. `cmp` shows it is identical, and `git status` is clean, so there is no product-code change.
+
+### Acceptance criteria
+- [x] Join requests per app listed from the API, paginated, with the filters the API supports. Evidence from attempt 2 still applies (tab test listing, filter, pager, a11y pager and announcement; e2e pages.e2e.ts). The clamp step-back branch is now covered at app-join-requests-tab.test.tsx:197-230. The test clicks Next and waits for "Showing 21–21 of 21". It sets total=20 and calls `queryClient.invalidateQueries({ queryKey: appsKeys.joinRequestsAll('stoktok') })` without clicking Previous. It then asserts "Ada Lovelace" is visible, offsets are `['0','20','20','0']` (polled), and no "Showing 21–" text remains. The mutation check above confirms it exercises :87. The no-loop test (:232) is unchanged.
+- [x] Approve/reject with confirmation naming the requester; non-optimistic; refresh after success. Unchanged since attempt 2 (app-join-request-decision-dialog.tsx:52-58; blank-name test in tab test).
+- [x] API errors shown inline (403, 404, 409). Unchanged (errors.ts:298-302; errors.test.ts:315-317).
+- [x] Loading, empty, error and 403 states. Unchanged (tab test :54).
+
+### Previous blockers
+- Attempt-2 Issue 1 (clamp step-back test): FIXED. The test follows the fix instruction exactly, and the mutation check shows it fails without line 87.
+
+### Flaky tests reported in impl-log
+- organizations-status-dialog.test.tsx and app-form-dialog.test.tsx: neither file, nor the component under test, is in `git diff origin/main...HEAD`. Both share the apps `test-fixtures.tsx`, which this ticket changed. That change is additive only: a new `/join-requests` route branch and an optional `userId` that wraps in `WithPermissions` only when passed. Neither test uses either one. Both passed in all 4 of my runs (1 full + 3 apps runs for app-form-dialog). They fit the same dialog-timing flakiness PAN-027 recorded for app-status-dialog. Judged unrelated.
+
+### Rules R1–R11
+No violations found. Attempt 3 changes only a test file (src/features/apps/components/app-join-requests-tab.test.tsx) plus work/ files. R7 scope is respected.
+
+### Security / a11y blockers
+None. All attempt-1 🟡 findings were resolved or accepted in attempt 2. The pager focus loss on page change is still a follow-up.
+
+### Nits (do not block)
+- The `expect(sheet.getByText(/Showing 21–/).elements()).toHaveLength(0)` at the end of the clamp test runs synchronously after the poll. That is fine because the offset-0 response has already rendered "Ada Lovelace". `expect.element(...).not.toBeInTheDocument()` would read more idiomatically.
+- From attempt 2, still open: errors.ts `firstReason` export, `colSpan={4}`, and a comment on the `element().click()` pager workaround.
+
+### Follow-ups (out of scope)
+- admin-pan: `placeholderData: keepPreviousData` on the join-requests query, so the pager does not unmount and focus survives page changes.
+- Attempt 1 follow-ups still apply (org-admin-api count/page snapshot; PAN-020 OpenAPI regen).
+- admin-pan: look into the intermittent dialog test timeouts (app-status-dialog, app-form-dialog, organizations-status-dialog) in full browser-mode runs.
