@@ -122,16 +122,19 @@ describe('AppDetailSheet', () => {
     expect(detailCalls(seen, 'stoktok')).toHaveLength(2)
   })
 
-  it('tabs are Overview and Permissions only', async () => {
+  it('tabs are Overview, Permissions and Credentials (no Roles)', async () => {
     const { client } = fakeApi(appsServer(() => json({})))
     const screen = await renderApps(client)
     const sheet = await view(screen, 'stoktok')
     await expect
       .element(sheet.getByRole('tab', { name: 'Overview' }))
       .toBeVisible()
-    expect(sheet.getByRole('tab').elements()).toHaveLength(2)
+    expect(sheet.getByRole('tab').elements()).toHaveLength(3)
     await expect
       .element(sheet.getByRole('tab', { name: 'Permissions' }))
+      .toBeVisible()
+    await expect
+      .element(sheet.getByRole('tab', { name: 'Credentials' }))
       .toBeVisible()
     await expect
       .element(sheet.getByRole('tab', { name: 'Roles' }))

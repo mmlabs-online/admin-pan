@@ -2,15 +2,19 @@ import { createElement, type ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ApiError } from '@/api'
 import { apiError, fakeApi, json } from '@/test-utils/api'
+import { FAKE_CREDENTIAL } from '@/test-utils/fake-credential'
 import { describe, expect, it } from 'vitest'
 import { renderHook } from 'vitest-browser-react'
 import {
   APPS,
+  CREDENTIALS,
   PERMISSIONS,
   appsPage,
+  credentialsPage,
   permissionsPage,
 } from '../components/test-data'
 import {
+  appCredentialsQueryOptions,
   appPermissionsQueryOptions,
   appQueryOptions,
   appsKeys,
@@ -18,6 +22,8 @@ import {
   toAppsListParams,
   useCreateAppMutation,
   useCreatePermissionMutation,
+  useIssueCredentialMutation,
+  useRevokeCredentialMutation,
   useUpdateAppMutation,
   useUpdatePermissionMutation,
 } from './queries'
@@ -37,7 +43,7 @@ function setup(handler: (req: Request) => Response) {
   }) as typeof queryClient.invalidateQueries
   const wrapper = ({ children }: { children: ReactNode }) =>
     createElement(QueryClientProvider, { client: queryClient }, children)
-  return { client, seen, invalidated, wrapper }
+  return { client, seen, invalidated, wrapper, queryClient }
 }
 
 describe('apps queries', () => {
@@ -203,5 +209,109 @@ describe('apps queries', () => {
       body: { is_admin: true },
     })
     expect(invalidated).not.toContainEqual(['me', 'permissions'])
+  })
+
+  it('appsKeys.credentials(key,p) is under credentialsAll(key), which is under detail(key)', () => {
+    expect(appsKeys.credentialsAll('stoktok')).toEqual([
+      ...appsKeys.detail('stoktok'),
+      'credentials',
+    ])
+    expect(appsKeys.credentials('stoktok', { limit: 20, offset: 0 })).toEqual([
+      ...appsKeys.credentialsAll('stoktok'),
+      { limit: 20, offset: 0 },
+    ])
+  })
+
+  it('appCredentialsQueryOptions sends GET /apps/{key}/credentials?limit&offset and returns the page', async () => {
+    const { client, seen } = fakeApi(() =>
+      json(credentialsPage(CREDENTIALS.stoktok))
+    )
+    const page = await new QueryClient().fetchQuery(
+      appCredentialsQueryOptions('stoktok', { limit: 20, offset: 0 }, client)
+    )
+    expect(seen.map((r) => r.url)).toEqual([
+      'https://api.test/api/v1/apps/stoktok/credentials?limit=20&offset=0',
+    ])
+    expect(page.items).toHaveLength(2)
+  })
+
+  it('useIssueCredentialMutation: POST with no body; sink receives FAKE_CREDENTIAL; resolves with metadata without `credential`; mutation state has no FAKE_CREDENTIAL; invalidates credentialsAll(key) only', async () => {
+    const meta = CREDENTIALS.stoktok[0]
+    const { client, seen, invalidated, wrapper, queryClient } = setup(() =>
+      json({ ...meta, credential: FAKE_CREDENTIAL }, 201)
+    )
+    const issue = await renderHook(
+      () => useIssueCredentialMutation('stoktok', client),
+      { wrapper }
+    )
+    const sink: string[] = []
+    const result = await issue.result.current.mutateAsync((c) => sink.push(c))
+    expect(seen.map((r) => `${r.method} ${new URL(r.url).pathname}`)).toEqual([
+      'POST /api/v1/apps/stoktok/credentials',
+    ])
+    expect(await seen[0].text()).toBe('')
+    expect(sink).toEqual([FAKE_CREDENTIAL])
+    expect(result).toEqual(meta)
+    expect('credential' in result).toBe(false)
+    await expect
+      .poll(() => queryClient.getMutationCache().getAll().length)
+      .toBeLessThanOrEqual(1)
+    expect(
+      JSON.stringify(
+        queryClient
+          .getMutationCache()
+          .getAll()
+          .map((m) => m.state)
+      )
+    ).not.toContain(FAKE_CREDENTIAL)
+    expect(invalidated).toEqual([['apps', 'detail', 'stoktok', 'credentials']])
+  })
+
+  it('useIssueCredentialMutation: a 500 sends exactly one POST (retry:false) and invalidates credentialsAll(key); a 409 invalidates detail(key); a 201 without a string `credential` rejects with invalid_response and never calls the sink', async () => {
+    let respond: () => Response = () => apiError(500, 'internal_error')
+    const { client, seen, invalidated, wrapper } = setup(() => respond())
+    const issue = await renderHook(
+      () => useIssueCredentialMutation('stoktok', client),
+      { wrapper }
+    )
+    const sink: string[] = []
+    const run = () =>
+      issue.result.current
+        .mutateAsync((c) => sink.push(c))
+        .catch((e: unknown) => e)
+
+    await run()
+    expect(seen).toHaveLength(1)
+    expect(invalidated).toEqual([['apps', 'detail', 'stoktok', 'credentials']])
+
+    respond = () => apiError(409, 'conflict')
+    await run()
+    expect(invalidated[invalidated.length - 1]).toEqual([
+      'apps',
+      'detail',
+      'stoktok',
+    ])
+
+    respond = () => json({ ...CREDENTIALS.stoktok[0] }, 201)
+    expect(await run()).toMatchObject({ kind: 'invalid_response' })
+    expect(sink).toEqual([])
+  })
+
+  it('useRevokeCredentialMutation: DELETE …/credentials/{credential_id} (204) invalidates credentialsAll(key); 404 also invalidates', async () => {
+    let respond: () => Response = () => new Response(null, { status: 204 })
+    const { client, seen, invalidated, wrapper } = setup(() => respond())
+    const revoke = await renderHook(
+      () => useRevokeCredentialMutation('stoktok', client),
+      { wrapper }
+    )
+    const id = CREDENTIALS.stoktok[0].id
+    await revoke.result.current.mutateAsync(id)
+    expect(seen.map((r) => `${r.method} ${new URL(r.url).pathname}`)).toEqual([
+      `DELETE /api/v1/apps/stoktok/credentials/${id}`,
+    ])
+    expect(invalidated).toEqual([['apps', 'detail', 'stoktok', 'credentials']])
+    respond = () => apiError(404, 'not_found')
+    await revoke.result.current.mutateAsync(id).catch(() => {})
+    expect(invalidated).toHaveLength(2)
   })
 })

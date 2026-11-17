@@ -215,3 +215,51 @@ export function permissionAdminError(error: unknown): AppAlert {
     return message('This permission no longer exists.')
   return fallback(error)
 }
+
+/** The request may have reached the API: a create might have committed. */
+export function isUnknownOutcome(error: unknown): boolean {
+  if (!isApiError(error)) return false
+  return (
+    error.kind === 'network' ||
+    error.kind === 'timeout' ||
+    error.kind === 'aborted' ||
+    error.kind === 'invalid_response' ||
+    (error.kind === 'http' && error.status >= 500)
+  )
+}
+
+/** Maps a failed issue to what the dialog shows (ADR-0016 §5). */
+export function credentialIssueError(error: unknown): AppAlert {
+  if (isUnknownOutcome(error))
+    return message(
+      "We couldn't confirm whether the credential was created. Check the list and revoke any key ID you don't recognise."
+    )
+  if (isApiError(error, 409)) {
+    switch (firstReason(error)) {
+      case 'admin_app':
+        return message('The admin app has no credentials.')
+      case 'app_disabled':
+        return message(
+          'This app is disabled. Enable it before issuing a credential.'
+        )
+      case 'credential_limit':
+        return message(
+          'This app already has 2 active credentials. Revoke one, then issue a new one.'
+        )
+      default:
+        return message('The API refused to issue a credential for this app.')
+    }
+  }
+  return fallback(error)
+}
+
+/** Maps a failed revoke to what the confirm dialog shows. */
+export function credentialRevokeError(error: unknown): AppAlert {
+  if (isApiError(error, 404))
+    return message('This credential no longer exists.')
+  if (isUnknownOutcome(error))
+    return message(
+      "We couldn't confirm the revoke. Check the list; revoking again is safe."
+    )
+  return fallback(error)
+}

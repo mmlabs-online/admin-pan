@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest'
 import {
   appFormError,
   appStatusError,
+  credentialIssueError,
+  credentialRevokeError,
+  isUnknownOutcome,
   permissionAdminError,
   permissionFormError,
 } from './errors'
@@ -198,6 +201,82 @@ describe('permissionAdminError', () => {
     expect(permissionAdminError(err(404, 'not_found'))).toEqual({
       kind: 'message',
       text: 'This permission no longer exists.',
+    })
+  })
+})
+
+const apiErr = (kind: ApiError['kind'], status: number, code = 'x') =>
+  new ApiError({ kind, status, code, message: 'server text' })
+
+describe('isUnknownOutcome', () => {
+  it('true for kinds network, timeout, aborted, invalid_response and http >= 500; false for 4xx, auth, config', () => {
+    for (const kind of [
+      'network',
+      'timeout',
+      'aborted',
+      'invalid_response',
+    ] as const)
+      expect(isUnknownOutcome(apiErr(kind, 0))).toBe(true)
+    expect(isUnknownOutcome(apiErr('http', 500))).toBe(true)
+    expect(isUnknownOutcome(apiErr('http', 502))).toBe(true)
+    expect(isUnknownOutcome(apiErr('http', 409))).toBe(false)
+    expect(isUnknownOutcome(apiErr('http', 403))).toBe(false)
+    expect(isUnknownOutcome(apiErr('auth', 401))).toBe(false)
+    expect(isUnknownOutcome(apiErr('config', 0))).toBe(false)
+    expect(isUnknownOutcome(new Error('x'))).toBe(false)
+  })
+})
+
+describe('credentialIssueError', () => {
+  it('409 admin_app / app_disabled / credential_limit / other 409 / 404 / 403 -> forbidden / unknown outcome text / other -> fallback', () => {
+    const text = (e: unknown) => {
+      const a = credentialIssueError(e)
+      return a.kind === 'message' ? a.text : a.kind
+    }
+    expect(text(err(409, 'conflict', reason('admin_app')))).toBe(
+      'The admin app has no credentials.'
+    )
+    expect(text(err(409, 'conflict', reason('app_disabled')))).toContain(
+      'disabled'
+    )
+    expect(text(err(409, 'conflict', reason('credential_limit')))).toContain(
+      '2 active credentials'
+    )
+    expect(text(err(409, 'conflict'))).toContain('refused')
+    expect(text(err(404, 'not_found'))).toBe('This app no longer exists.')
+    expect(text(err(403, 'permission_denied'))).toBe('forbidden')
+    const wildcard = credentialIssueError(err(403, 'admin_wildcard_required'))
+    expect(wildcard).toMatchObject({
+      kind: 'forbidden',
+      copy: { title: 'Only super admins can do this' },
+    })
+    for (const e of [
+      apiErr('network', 0),
+      apiErr('timeout', 0),
+      apiErr('http', 502),
+      apiErr('invalid_response', 0),
+    ])
+      expect(text(e)).toContain("couldn't confirm whether")
+    expect(text(err(422, 'validation_error'))).toBe('server text')
+    expect(text(new Error('x'))).toBe('Something went wrong.')
+  })
+})
+
+describe('credentialRevokeError', () => {
+  it("404 -> 'This credential no longer exists.'; 403 -> forbidden; unknown outcome -> 'revoking again is safe'; other -> fallback", () => {
+    expect(credentialRevokeError(err(404, 'not_found'))).toEqual({
+      kind: 'message',
+      text: 'This credential no longer exists.',
+    })
+    expect(credentialRevokeError(err(403, 'permission_denied')).kind).toBe(
+      'forbidden'
+    )
+    expect(credentialRevokeError(apiErr('network', 0))).toMatchObject({
+      text: expect.stringContaining('revoking again is safe'),
+    })
+    expect(credentialRevokeError(err(422, 'validation_error'))).toEqual({
+      kind: 'message',
+      text: 'server text',
     })
   })
 })
