@@ -134,7 +134,12 @@ function ChangesView({ changes }: { changes: AuditLogEntry['changes'] }) {
       ) : (
         <>
           {diff.length > 0 && (
-            <div className='overflow-x-auto rounded-md border'>
+            <div
+              tabIndex={0}
+              role='region'
+              aria-label='Before and after'
+              className='overflow-x-auto rounded-md border focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none'
+            >
               <table className='w-full text-sm'>
                 <caption className='sr-only'>Before and after</caption>
                 <thead className='text-muted-foreground'>
@@ -165,7 +170,12 @@ function ChangesView({ changes }: { changes: AuditLogEntry['changes'] }) {
             </div>
           )}
           {values.length > 0 && (
-            <div className='overflow-x-auto rounded-md border'>
+            <div
+              tabIndex={0}
+              role='region'
+              aria-label='Recorded values'
+              className='overflow-x-auto rounded-md border focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none'
+            >
               <table className='w-full text-sm'>
                 <caption className='sr-only'>Recorded values</caption>
                 <thead className='text-muted-foreground'>
@@ -193,7 +203,12 @@ function ChangesView({ changes }: { changes: AuditLogEntry['changes'] }) {
           )}
           <details>
             <summary className='cursor-pointer text-sm'>Raw JSON</summary>
-            <pre className='mt-2 overflow-x-auto rounded-md border bg-muted/40 p-3 text-xs'>
+            <pre
+              tabIndex={0}
+              role='region'
+              aria-label='Raw JSON'
+              className='mt-2 overflow-x-auto rounded-md border bg-muted/40 p-3 text-xs focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none'
+            >
               {JSON.stringify(changes, null, 2)}
             </pre>
           </details>

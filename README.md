@@ -21,6 +21,10 @@ pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build
 `pnpm test` runs Vitest in browser mode; install the browser once with `pnpm test:browser:install`
 (or set `PLAYWRIGHT_CHROMIUM_PATH` to an existing Chromium).
 
+`pnpm e2e` runs the Playwright smoke tests (sign in, every main page, axe WCAG 2.2 AA check) against a production
+build with a fake API served by Playwright's network layer; no API is needed (ADR 0006). In a sandbox set
+`PLAYWRIGHT_CHROMIUM_PATH` as for `pnpm test`.
+
 Stack and rules: [`CLAUDE.md`](CLAUDE.md). Scope: [`docs/spec-v1.md`](docs/spec-v1.md). Release and deploy: [`docs/deploy.md`](docs/deploy.md).
 
 ## Local development with org-admin-api
