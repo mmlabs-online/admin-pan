@@ -37,3 +37,31 @@ A11y review of PAN-010b, attempt 1. Code review only: I did not run axe or a scr
 - Change the role on the `StatusPanel` wrapper.
 - Run axe through Playwright on the gate route (PAN-023).
 - After the `StatusPanel` fix, verify the announcements with NVDA or VoiceOver.
+
+## Attempt 2
+
+Code review only; I did not run axe or a screen reader. **No 🔴 and no 🟡 findings. All three 🟡 items from attempt 1 are resolved.**
+
+### Attempt-1 items
+1. **Stale alert** (3.3.1, 4.1.3): resolved. `resend-verification.tsx:43` calls `setAlert(null)` when the countdown ends, and the test at `access-pages.test.tsx:215` checks it.
+2. **Nested live regions** (4.1.3): resolved.
+   - `StatusPanel` now closes after the paragraph (`access-pages.tsx:110-112`), and the controls sit in a plain `div`.
+   - These elements are no longer inside any live region: the sr-only status (`resend-verification.tsx:110`), the rate-limit alert (`:114`) and the Continue alert (`access-pages.tsx:122`).
+   - A new test asserts this.
+3. **Alert and countdown disagreeing** (3.3.1): resolved. The alert text is now static ("Too many requests.", `:68`) and the ticking `#resend-wait` text (`:132`) carries the time.
+
+### Checks for new breakage
+- **Focus order:** unchanged. The DOM order is still panel text, then Resend, then Continue, then the account links and sign-out. The heading still takes focus inside `StatusPanel`.
+- **Announcements:** each happens once.
+  - The status text is always mounted and changes only for Sending, the result, and "You can send the link again."
+  - The alert is inserted once when rate-limited and removed when the countdown ends.
+  - `aria-disabled` keeps focus on the button, and `aria-describedby` points to the countdown while it runs.
+
+### 💭 Notes
+- `access-pages.tsx:134`: the Continue `Loader2` should get `aria-hidden` explicitly.
+- The pending state of Continue is not announced. This predates the change; follow-up.
+- Visual check: the controls now sit outside the card. Confirm the spacing and layout.
+
+### Follow-ups
+- Run axe through Playwright on the gate route (PAN-023).
+- Do a quick NVDA or VoiceOver pass on the resend flow.
