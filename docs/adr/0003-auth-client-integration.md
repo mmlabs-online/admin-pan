@@ -17,7 +17,7 @@ R3: sign-in, accounts, sessions and tokens go only through `@mmlabs/auth-client`
 - **Cache.** The query cache is cleared on every auth event (`clearOnAuthChange`), including events from other tabs, so one account never sees another's data.
 - **Final 401.** After the library's single retry, the API client's 401 sets a signal; the gate lists accounts again and forces a token refresh. A second signal within 60 s shows a "session not accepted" panel instead of looping.
 - **No mock sign-in** (owner, 2026-11-16). Signing in always needs a real or local org-admin-api; screen data stays mock until the per-screen tickets.
-- **ADM-002d consequences** (the API refuses resend-verification, forgot-password and sign-up for `admin`): no resend button (PAN-010b), no "Forgot password?" link (PAN-012c); the pages tell users to use "any mmlabs app you use", with no link to a specific app.
+- **ADM-002d consequences** (the API refuses forgot-password and sign-up for `admin`): no "Forgot password?" form (PAN-012c); those pages point to "any mmlabs app you use". Resend-verification was allowed for `admin` by org-admin-api USR-12: the gate's "Send the link again" button (PAN-010b) calls `resendVerification(accountId)` through `src/api/auth-client.ts`; the library maps 409 to `already_verified`; 403 `origin_not_allowed` (unverified non-staff account) shows neutral copy; the 429 countdown is a lower bound because the library clamps `retryAfter` to 900 s.
 - **Accepted:** an access token stays valid up to 15 minutes after logout or a role change (library README section 8).
 
 ## Alternatives

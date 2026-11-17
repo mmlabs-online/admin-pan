@@ -6,8 +6,12 @@ export { ApiError, isApiError } from './errors'
 export type { ValidationErrorDetail, UnprocessableDetail } from './errors'
 export { toPageParams, type Page } from './page'
 export { setUnauthorizedHandler } from './auth-hooks'
-export { authFailure, getAuthClient } from './auth-client'
-export type { Account, AuthFailure } from './auth-client'
+export {
+  authFailure,
+  getAuthClient,
+  resendVerificationEmail,
+} from './auth-client'
+export type { Account, AuthFailure, ResendOutcome } from './auth-client'
 export { appKey } from './config'
 export { resetPassword, verifyEmail } from './public-auth'
 export { createApiClient, unwrap, type ApiClient } from './client'
