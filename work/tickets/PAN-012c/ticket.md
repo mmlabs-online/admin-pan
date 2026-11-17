@@ -7,7 +7,7 @@
 | Areas | auth, ui, security |
 | Attempts | 0 |
 | Created | 2026-11-16 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/13 |
 
 ## Goal
 org-admin-api ADM-002d refuses `POST /auth/password/forgot` with `X-MM-App: admin` (403 `origin_not_allowed`), so the `/forgot-password` page shipped in PAN-012 always fails on the real API. Retire it, or replace it with a text notice, and fix the copy that points to it.
