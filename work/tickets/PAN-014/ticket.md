@@ -27,6 +27,8 @@ PAN-004, PAN-011; org-admin-api ADM-001 (USR-06 for created_by); **a new org-adm
 ## Notes / answers from owner
 - Follow-up from PAN-004: confirm slug/name length limits from the OpenAPI; consider typing the slug to confirm delete.
 
+- From PAN-016 (F3): add the org detail link to the filtered audit log (`?targetType=organization&target=<org id>`), gated by `audit.view`. A full "org history" also needs an API `org_id` filter (PAN-016 F2).
+
 ## Owner answers (2026-11-16)
 - **Filters.** Wait for the API to support filters. PAN-014 is BLOCKED until org-admin-api adds `status`, `q` (name/slug search) and `sort` to `GET /api/v1/organizations`. The request is in `org-admin-api-request.md` in this folder.
 - **Delete.** Require typing the slug to confirm. The dialog says the deletion is permanent.
