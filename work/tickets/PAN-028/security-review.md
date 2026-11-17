@@ -25,3 +25,21 @@ Checks not run (reviewer's R8). **Verdict: no 🔴 blockers.** Two 🟡, a few �
 ### Follow-ups (out of scope)
 - org-admin-api: decide whether self-approval should be blocked or flagged in the audit log.
 - admin-pan: add per-role member-list keys to the approve invalidation when the roles feature has them.
+
+## Attempt 2
+
+Delta reviewed: `git show HEAD` (1660451). Checks not run (reviewer's R8).
+
+**Verdict: no 🔴. Both attempt-1 🟡 fixed. No new risk.**
+
+1. **Empty `display_name` — fixed.** One helper `requesterLabel = r => r.display_name?.trim() || r.email` (`src/features/apps/data/data.ts:52-55`) used for the row button `aria-label` (`app-join-requests-tab.tsx:96`), the requester cell text and `title` (`:199-200`) and the dialog target (`app-join-request-decision-dialog.tsx:52-54`). Email sub-line and "name (email)" only when the trimmed name is non-empty (`:203`, dialog `:52`). No `display_name ??` left in `src/features/apps`. Regression test with a whitespace-only name checks email shown once and button "Approve blank@people.test".
+2. **Server text in unmapped decision errors — fixed.** `joinRequestDecisionError` (`errors.ts:285-302`) no longer calls `fallback()`: unknown outcome, 404, 409 (mapped reasons + fixed default) use fixed copy; 403 → `ForbiddenPanel`; anything else (422, 429, …) → "The API refused this decision. Refresh the list and try again." Docstring now true; 422 test asserts fixed copy (`errors.test.ts:315-317`).
+
+- **New sr-only status** (`app-join-requests-tab.tsx:160-164`): `${total} ${status} join request(s) found.` — API count and a fixed enum value only; no PII.
+- **Pager clamp** (`:81-88`): `target !== offset` guard stops the render loop/refetch storm; tested; offset stays a multiple of 20, limit 20.
+- **Pager `aria-disabled`** (`:288-311`): handlers re-check the condition; tested, buttons stay focusable.
+- No new network calls, logging, URL/query-key data, HTML sinks, dependencies or config.
+
+💭 Two polite live regions (new sr-only + "Showing x–y of z", `:284`) may double-announce (a11y's call). Attempt-1 💭 notes still open (Confirm enabled after unknown outcome — safe; no "your own request" hint).
+
+Follow-ups unchanged (org-admin-api self-approval policy; per-role member-list invalidation later).
