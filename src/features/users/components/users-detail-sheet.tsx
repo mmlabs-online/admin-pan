@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import { isApiError } from '@/api'
 import { queryView } from '@/lib/query-view'
 import { Badge } from '@/components/ui/badge'
@@ -90,6 +91,34 @@ export function UsersDetailSheet({
 
           <Can action='roles.viewAssignments'>
             <RoleAssignments userId={currentRow.id} open={open} />
+          </Can>
+
+          <Can action='audit.view'>
+            <section aria-labelledby='user-audit-heading' className='space-y-2'>
+              <h3 id='user-audit-heading' className='font-medium'>
+                Audit history
+              </h3>
+              <ul className='space-y-1 text-sm'>
+                <li>
+                  <Link
+                    to='/audit-log'
+                    search={{ targetType: 'user', target: currentRow.id }}
+                    className='underline underline-offset-4'
+                  >
+                    Events about this user
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to='/audit-log'
+                    search={{ actor: currentRow.id }}
+                    className='underline underline-offset-4'
+                  >
+                    Actions by this user
+                  </Link>
+                </li>
+              </ul>
+            </section>
           </Can>
         </div>
       </SheetContent>

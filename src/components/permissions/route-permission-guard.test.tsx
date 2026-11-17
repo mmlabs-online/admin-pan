@@ -59,7 +59,6 @@ describe('RoutePermissionGate', () => {
       '/_authenticated/settings/account',
       '/_authenticated/',
       '/_authenticated/reports/',
-      '/_authenticated/audit-log/',
     ]) {
       const screen = await render(
         <WithPermissions granted={[]}>{gate(id)}</WithPermissions>

@@ -1,32 +1,9 @@
-import { type AuditChanges, type AuditLogEntry } from '../data/schema'
-
-/** Masks the local part of an email: `alice@example.com` → `a***@example.com`. */
-export function maskEmail(email: string): string {
-  const at = email.lastIndexOf('@')
-  if (at <= 0) return '***'
-  return `${email[0]}***${email.slice(at)}`
-}
+import { format } from 'date-fns'
+import { type AuditLogEntry } from '../data/schema'
 
 /** First 8 characters of an id, for compact table cells. */
 export function shortId(id: string): string {
   return id.length > 8 ? id.slice(0, 8) : id
-}
-
-/** Display label for the actor; `null` email means system/anonymous. */
-export function actorLabel(
-  entry: Pick<AuditLogEntry, 'actor_email' | 'actor_user_id'>
-): string {
-  if (entry.actor_email) return entry.actor_email
-  return entry.actor_user_id ? entry.actor_user_id : 'System'
-}
-
-/** Case-insensitive actor match against email, user id and the "System" label. */
-export function matchesActor(entry: AuditLogEntry, query: string): boolean {
-  const q = query.trim().toLowerCase()
-  if (!q) return true
-  return [actorLabel(entry), entry.actor_user_id ?? ''].some((v) =>
-    v.toLowerCase().includes(q)
-  )
 }
 
 /** Parses `yyyy-MM-dd` as a local calendar date (no timezone shift). */
@@ -44,105 +21,100 @@ export function formatDay(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
-/** Keeps entries whose `occurred_at` falls within [from 00:00, to 23:59:59.999] local time. */
-export function filterByDateRange<T extends Pick<AuditLogEntry, 'occurred_at'>>(
-  entries: T[],
-  from?: string,
-  to?: string
-): T[] {
-  const fromDate = parseDay(from)
-  const toDate = parseDay(to)
-  if (!fromDate && !toDate) return entries
-  const start = fromDate?.getTime() ?? -Infinity
-  const end = toDate
-    ? new Date(
-        toDate.getFullYear(),
-        toDate.getMonth(),
-        toDate.getDate() + 1
-      ).getTime() - 1
-    : Infinity
-  return entries.filter((e) => {
-    const t = new Date(e.occurred_at).getTime()
-    return t >= start && t <= end
-  })
-}
-
-export type DiffLine = {
-  kind: 'added' | 'removed' | 'unchanged'
-  text: string
-}
-
-function stringify(value: unknown): string {
-  return JSON.stringify(value) ?? 'undefined'
+export function formatTimestamp(iso: string): string {
+  return format(new Date(iso), 'yyyy-MM-dd HH:mm:ss')
 }
 
 /**
- * Line diff of the top-level keys of `changes.before` / `changes.after`.
- * Values are rendered as compact JSON text (never HTML).
+ * Picked local days -> API `from` / `to`. `from` is the start of the first day
+ * (inclusive); `to` is the start of the day after the last day, because the
+ * API's `to` is exclusive. `Date` handles DST.
  */
-export function diffChanges(changes: AuditChanges | null): DiffLine[] {
-  if (!changes) return []
-  const before = changes.before ?? {}
-  const after = changes.after ?? {}
-  const keys = [...Object.keys(before)]
-  for (const key of Object.keys(after)) if (!(key in before)) keys.push(key)
-
-  const lines: DiffLine[] = []
-  for (const key of keys) {
-    const inBefore = key in before
-    const inAfter = key in after
-    const oldText = inBefore ? stringify(before[key]) : ''
-    const newText = inAfter ? stringify(after[key]) : ''
-    if (inBefore && inAfter && oldText === newText) {
-      lines.push({ kind: 'unchanged', text: `  ${key}: ${oldText}` })
-      continue
-    }
-    if (inBefore) lines.push({ kind: 'removed', text: `- ${key}: ${oldText}` })
-    if (inAfter) lines.push({ kind: 'added', text: `+ ${key}: ${newText}` })
+export function toAuditRange(
+  fromDay?: string,
+  toDay?: string
+): { from?: string; to?: string } {
+  const from = parseDay(fromDay)
+  const to = parseDay(toDay)
+  return {
+    ...(from ? { from: from.toISOString() } : {}),
+    ...(to
+      ? {
+          to: new Date(
+            to.getFullYear(),
+            to.getMonth(),
+            to.getDate() + 1
+          ).toISOString(),
+        }
+      : {}),
   }
-  return lines
 }
 
-/** Pretty JSON for a before/after block, or a placeholder when absent. */
-export function formatJson(value: unknown): string {
-  return value === undefined || value === null
-    ? '—'
-    : JSON.stringify(value, null, 2)
+/** True when both days are set and `from` is after `to`. */
+export function isRangeInverted(fromDay?: string, toDay?: string): boolean {
+  const from = parseDay(fromDay)
+  const to = parseDay(toDay)
+  return !!from && !!to && from.getTime() > to.getTime()
 }
 
-const csvColumns = [
-  'id',
-  'occurred_at',
-  'actor_user_id',
-  'actor_email',
-  'action',
-  'target_type',
-  'target_id',
-  'app_key',
-  'org_id',
-  'ip',
-  'user_agent',
-  'request_id',
-  'changes',
-] as const satisfies readonly (keyof AuditLogEntry)[]
-
-function csvCell(value: unknown): string {
-  let text =
-    value === null || value === undefined
-      ? ''
-      : typeof value === 'string'
-        ? value
-        : JSON.stringify(value)
-  // Neutralise spreadsheet formula injection.
-  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`
-  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+/** e.g. `Asia/Ho_Chi_Minh (UTC+07:00)`. */
+export function localZoneLabel(date: Date = new Date()): string {
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  const offset = -date.getTimezoneOffset()
+  const abs = Math.abs(offset)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const sign = offset < 0 ? '-' : '+'
+  return `${zone} (UTC${sign}${pad(Math.floor(abs / 60))}:${pad(abs % 60)})`
 }
 
-/** Serialises entries to RFC 4180 CSV (header row + one row per entry). */
-export function toCsv(entries: AuditLogEntry[]): string {
-  const rows = [csvColumns.join(',')]
-  for (const entry of entries) {
-    rows.push(csvColumns.map((col) => csvCell(entry[col])).join(','))
+/** Actor column text: user -> short id, system -> label, anonymous. */
+export function actorDisplay(
+  entry: Pick<AuditLogEntry, 'actor_kind' | 'actor_user_id' | 'actor_label'>
+): string {
+  switch (entry.actor_kind) {
+    case 'user':
+      return entry.actor_user_id ? shortId(entry.actor_user_id) : 'User'
+    case 'system':
+      return entry.actor_label ?? 'System'
+    case 'anonymous':
+      return 'Anonymous'
+    default:
+      return entry.actor_kind
   }
-  return rows.join('\r\n')
+}
+
+const MAX_VALUE_LENGTH = 500
+
+/** JSON text of a value, capped; React renders it as a text node (R6). */
+export function formatValue(value: unknown): string {
+  const text = JSON.stringify(value) ?? 'undefined'
+  return text.length > MAX_VALUE_LENGTH
+    ? `${text.slice(0, MAX_VALUE_LENGTH)}…`
+    : text
+}
+
+export type ChangeRows = {
+  /** Entries shaped exactly `{from, to}`. */
+  diff: { field: string; from: unknown; to: unknown }[]
+  /** Every other entry. */
+  values: { field: string; value: unknown }[]
+}
+
+function isFromTo(v: unknown): v is { from: unknown; to: unknown } {
+  if (typeof v !== 'object' || v === null || Array.isArray(v)) return false
+  const keys = Object.keys(v)
+  return keys.length === 2 && 'from' in v && 'to' in v
+}
+
+/** Splits the free-form `changes` map into before/after rows and plain values. */
+export function describeChanges(changes: unknown): ChangeRows {
+  const rows: ChangeRows = { diff: [], values: [] }
+  if (typeof changes !== 'object' || changes === null || Array.isArray(changes))
+    return rows
+  for (const [field, value] of Object.entries(changes)) {
+    if (isFromTo(value))
+      rows.diff.push({ field, from: value.from, to: value.to })
+    else rows.values.push({ field, value })
+  }
+  return rows
 }

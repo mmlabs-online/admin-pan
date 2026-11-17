@@ -1,116 +1,121 @@
 import { describe, expect, it } from 'vitest'
-import { type AuditLogEntry } from '../data/schema'
 import {
-  actorLabel,
-  diffChanges,
-  filterByDateRange,
-  formatDay,
-  maskEmail,
-  matchesActor,
-  parseDay,
-  toCsv,
+  actorDisplay,
+  describeChanges,
+  formatValue,
+  isRangeInverted,
+  localZoneLabel,
+  toAuditRange,
 } from './format'
 
-const entry: AuditLogEntry = {
-  id: 'e1',
-  occurred_at: '2026-11-10T10:00:00.000Z',
-  actor_user_id: 'u1',
-  actor_email: 'admin@example.com',
-  action: 'organization.update',
-  target_type: 'organization',
-  target_id: 'org-1',
-  app_key: null,
-  org_id: 'org-1',
-  changes: { before: { name: 'Old' }, after: { name: 'New' } },
-  ip: '10.0.0.1',
-  user_agent: 'Mozilla/5.0',
-  request_id: 'req_abc',
-}
-
-describe('maskEmail', () => {
-  it('keeps the first character and the domain', () => {
-    expect(maskEmail('alice@example.com')).toBe('a***@example.com')
+describe('toAuditRange', () => {
+  it('from = local midnight, to = next local midnight (exclusive)', () => {
+    expect(toAuditRange('2026-11-03', '2026-11-05')).toEqual({
+      from: new Date(2026, 10, 3).toISOString(),
+      to: new Date(2026, 10, 6).toISOString(),
+    })
   })
-  it('masks malformed input entirely', () => {
-    expect(maskEmail('nope')).toBe('***')
-    expect(maskEmail('@example.com')).toBe('***')
+  it('handles one-sided ranges and no range', () => {
+    expect(toAuditRange('2026-11-03')).toEqual({
+      from: new Date(2026, 10, 3).toISOString(),
+    })
+    expect(toAuditRange(undefined, '2026-11-03')).toEqual({
+      to: new Date(2026, 10, 4).toISOString(),
+    })
+    expect(toAuditRange()).toEqual({})
   })
-})
-
-describe('actorLabel / matchesActor', () => {
-  it('labels a null actor as System', () => {
-    const sys = { ...entry, actor_email: null, actor_user_id: null }
-    expect(actorLabel(sys)).toBe('System')
-    expect(matchesActor(sys, 'sys')).toBe(true)
+  it('from == to covers one whole local day', () => {
+    const { from, to } = toAuditRange('2026-11-03', '2026-11-03')
+    expect(new Date(to!).getTime()).toBeGreaterThan(new Date(from!).getTime())
+    expect(to).toBe(new Date(2026, 10, 4).toISOString())
   })
-  it('matches email case-insensitively and by user id', () => {
-    expect(matchesActor(entry, 'ADMIN@')).toBe(true)
-    expect(matchesActor(entry, 'u1')).toBe(true)
-    expect(matchesActor(entry, 'bob')).toBe(false)
-    expect(matchesActor(entry, '  ')).toBe(true)
-  })
-})
-
-describe('diffChanges', () => {
-  it('returns no lines when there are no changes', () => {
-    expect(diffChanges(null)).toEqual([])
-  })
-  it('marks changed, unchanged, added and removed keys', () => {
-    expect(
-      diffChanges({
-        before: { name: 'Old', slug: 'acme', plan: 'free' },
-        after: { name: 'New', slug: 'acme', tags: ['a'] },
-      })
-    ).toEqual([
-      { kind: 'removed', text: '- name: "Old"' },
-      { kind: 'added', text: '+ name: "New"' },
-      { kind: 'unchanged', text: '  slug: "acme"' },
-      { kind: 'removed', text: '- plan: "free"' },
-      { kind: 'added', text: '+ tags: ["a"]' },
-    ])
-  })
-  it('handles create-only and delete-only changes', () => {
-    expect(diffChanges({ after: { status: 'active' } })).toEqual([
-      { kind: 'added', text: '+ status: "active"' },
-    ])
-    expect(diffChanges({ before: { status: 'active' } })).toEqual([
-      { kind: 'removed', text: '- status: "active"' },
-    ])
-  })
-})
-
-describe('date range helpers', () => {
-  it('round-trips yyyy-MM-dd and rejects junk', () => {
-    expect(formatDay(parseDay('2026-03-05')!)).toBe('2026-03-05')
-    expect(parseDay('05/03/2026')).toBeUndefined()
-    expect(parseDay(undefined)).toBeUndefined()
-  })
-  it('filters inclusively by local calendar day', () => {
-    const at = (d: Date) => ({ occurred_at: d.toISOString() })
-    const rows = [
-      at(new Date(2026, 10, 1, 0, 0, 0)),
-      at(new Date(2026, 10, 5, 23, 59, 59)),
-      at(new Date(2026, 10, 6, 0, 0, 0)),
-    ]
-    expect(filterByDateRange(rows, '2026-11-01', '2026-11-05')).toEqual(
-      rows.slice(0, 2)
+  it('rolls over a year end', () => {
+    expect(toAuditRange(undefined, '2026-12-31').to).toBe(
+      new Date(2027, 0, 1).toISOString()
     )
-    expect(filterByDateRange(rows, '2026-11-06')).toEqual(rows.slice(2))
-    expect(filterByDateRange(rows)).toBe(rows)
   })
 })
 
-describe('toCsv', () => {
-  it('writes a header and escapes quotes, commas and JSON', () => {
-    const csv = toCsv([{ ...entry, user_agent: 'Agent, "quoted"' }])
-    const [header, row] = csv.split('\r\n')
-    expect(header.split(',')[0]).toBe('id')
-    expect(row).toContain('"Agent, ""quoted"""')
-    expect(row).toContain('"{""before"":{""name"":""Old""}')
-    expect(row).toContain(',,org-1,') // null app_key → empty cell
+describe('isRangeInverted', () => {
+  it('is true only when from > to', () => {
+    expect(isRangeInverted('2026-11-05', '2026-11-03')).toBe(true)
+    expect(isRangeInverted('2026-11-03', '2026-11-03')).toBe(false)
+    expect(isRangeInverted('2026-11-03', '2026-11-05')).toBe(false)
+    expect(isRangeInverted('2026-11-03', undefined)).toBe(false)
+    expect(isRangeInverted(undefined, undefined)).toBe(false)
   })
-  it('neutralises spreadsheet formulas', () => {
-    const csv = toCsv([{ ...entry, user_agent: '=HYPERLINK("x")' }])
-    expect(csv).toContain(`"'=HYPERLINK(""x"")"`)
+})
+
+describe('localZoneLabel', () => {
+  it('names the IANA zone and the UTC offset', () => {
+    const label = localZoneLabel()
+    expect(label).toContain(Intl.DateTimeFormat().resolvedOptions().timeZone)
+    expect(label).toMatch(/UTC[+-]\d{2}:\d{2}/)
+  })
+})
+
+describe('describeChanges', () => {
+  it('from/to rows, create (from null), delete (to null), flat map, reason map, null, non-object', () => {
+    expect(describeChanges({ name: { from: 'a', to: 'b' } })).toEqual({
+      diff: [{ field: 'name', from: 'a', to: 'b' }],
+      values: [],
+    })
+    expect(describeChanges({ name: { from: null, to: 'b' } }).diff).toEqual([
+      { field: 'name', from: null, to: 'b' },
+    ])
+    expect(describeChanges({ name: { from: 'a', to: null } }).diff).toEqual([
+      { field: 'name', from: 'a', to: null },
+    ])
+    expect(describeChanges({ count: 3, ok: true })).toEqual({
+      diff: [],
+      values: [
+        { field: 'count', value: 3 },
+        { field: 'ok', value: true },
+      ],
+    })
+    expect(describeChanges({ reason: 'bad_password' }).values).toEqual([
+      { field: 'reason', value: 'bad_password' },
+    ])
+    // not exactly {from, to}: stays a plain value
+    expect(describeChanges({ x: { from: 1, to: 2, extra: 3 } }).diff).toEqual(
+      []
+    )
+    // mixed
+    const mixed = describeChanges({ s: { from: 1, to: 2 }, n: 5 })
+    expect(mixed.diff).toHaveLength(1)
+    expect(mixed.values).toEqual([{ field: 'n', value: 5 }])
+    for (const v of [null, undefined, 'text', 7, ['a']]) {
+      expect(describeChanges(v)).toEqual({ diff: [], values: [] })
+    }
+  })
+})
+
+describe('formatValue', () => {
+  it('renders JSON text; null as null; long values are capped', () => {
+    expect(formatValue('a')).toBe('"a"')
+    expect(formatValue(null)).toBe('null')
+    expect(formatValue({ a: 1 })).toBe('{"a":1}')
+    const long = formatValue('x'.repeat(600))
+    expect(long.length).toBe(501)
+    expect(long.endsWith('…')).toBe(true)
+  })
+})
+
+describe('actorDisplay', () => {
+  const base = { actor_user_id: null, actor_label: null }
+  it('user → short id, system → label, anonymous → Anonymous, unknown kind → raw kind', () => {
+    expect(
+      actorDisplay({
+        actor_kind: 'user',
+        actor_user_id: '0b9c6a2e-3f5d-4c1a-9a7e-1d2f3a4b5c01',
+        actor_label: null,
+      })
+    ).toBe('0b9c6a2e')
+    expect(
+      actorDisplay({ ...base, actor_kind: 'system', actor_label: 'purge-job' })
+    ).toBe('purge-job')
+    expect(actorDisplay({ ...base, actor_kind: 'system' })).toBe('System')
+    expect(actorDisplay({ ...base, actor_kind: 'anonymous' })).toBe('Anonymous')
+    expect(actorDisplay({ ...base, actor_kind: 'robot' })).toBe('robot')
   })
 })

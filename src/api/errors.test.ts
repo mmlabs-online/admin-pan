@@ -5,13 +5,15 @@ import {
   RateLimitedError,
   SessionInvalidError,
 } from '@mmlabs/auth-client'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vitest'
 import {
   ApiError,
   errorFromFetchFailure,
   errorFromResponse,
   isApiError,
+  type ErrorEnvelopeWire,
 } from './errors'
+import { type components } from './schema'
 
 const envelope = (
   status: number,
@@ -206,5 +208,13 @@ describe('errorFromFetchFailure with library errors', () => {
       new SessionInvalidError('session_invalid', 401)
     )
     expect(e.message).toBe('Authentication required')
+  })
+})
+
+describe('error envelope type', () => {
+  it('the generated ErrorEnvelope is accepted by the runtime parser type', () => {
+    expectTypeOf<
+      components['schemas']['ErrorEnvelope']
+    >().toExtend<ErrorEnvelopeWire>()
   })
 })

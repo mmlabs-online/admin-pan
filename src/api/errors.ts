@@ -1,6 +1,5 @@
-// Hand-written: the envelope is not in org-admin-api OpenAPI (errors.py, R6);
-// see follow-up in work/tickets/PAN-009/plan.md. The single flagged exception
-// to R2's "never hand-written copies".
+// Runtime zod parse of the error envelope; its type is checked against the
+// generated `ErrorEnvelope` in errors.test.ts.
 import { z } from 'zod'
 import {
   AuthError,
@@ -64,6 +63,8 @@ const envelope = z.object({
     details: z.unknown(),
   }),
 })
+
+export type ErrorEnvelopeWire = z.infer<typeof envelope>
 
 function retryAfterOf(res: Response, details: unknown): number | undefined {
   const header = res.headers.get('retry-after')

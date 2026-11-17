@@ -1,57 +1,68 @@
 import { z } from 'zod'
+import { type components } from '@/api'
 
-// Mirrors the org-admin-api ADM-004 audit log entry (`GET /api/v1/audit-logs`).
-// Replace with the generated OpenAPI type once ADM-004 ships (R2).
+// Generated from org-admin-api OpenAPI (R2); never hand-copy these shapes.
+export type AuditLogEntry = components['schemas']['AuditLogRead']
+export type AuditAction = components['schemas']['AuditAction']
+export type AuditTarget = components['schemas']['AuditTarget']
+export type ActorKind = components['schemas']['ActorKind']
+export type AuditOutcome = components['schemas']['AuditOutcome']
 
-export const auditActions = [
-  'user.disable',
-  'user.enable',
-  'organization.create',
-  'organization.update',
-  'organization.delete',
-  'role.assign',
-  'role.revoke',
-  'app.update',
-  'app.join',
-  'auth.login.success',
-  'auth.login.failure',
-  'auth.logout',
-] as const
-export const auditActionSchema = z.enum(auditActions)
-export type AuditAction = z.infer<typeof auditActionSchema>
-
-export const auditTargetTypes = [
-  'user',
+// Used only to validate URL search params. The compile-time guards keep each
+// zod enum equal to the generated type.
+export const auditActionSchema = z.enum([
+  'organization.created',
+  'organization.updated',
+  'organization.deleted',
+  'organization.invitation_created',
+  'organization.invitation_accepted',
+  'organization.invitation_revoked',
+  'user.created',
+  'user.disabled',
+  'user.enabled',
+  'app.created',
+  'app.updated',
+  'app.deleted',
+  'app.registered',
+  'app.admin_origins_set',
+  'app.joined',
+  'permission.created',
+  'permission.updated',
+  'permission.deleted',
+  'role.created',
+  'role.updated',
+  'role.deleted',
+  'role.permissions_replaced',
+  'role_assignment.granted',
+  'role_assignment.revoked',
+  'email_retention.purged',
+  'audit_log.purged',
+  'auth.login_succeeded',
+  'auth.login_failed',
+  'auth.logged_out',
+  'auth.logged_out_all',
+  'device_session.reuse_revoked',
+  'auth.password_reset_completed',
+  'auth.email_verified',
+])
+export const auditTargetSchema = z.enum([
   'organization',
+  'user',
   'app',
+  'permission',
   'role',
-  'session',
-] as const
-export const auditTargetTypeSchema = z.enum(auditTargetTypes)
-export type AuditTargetType = z.infer<typeof auditTargetTypeSchema>
+  'role_assignment',
+  'device_session',
+  'invitation',
+])
+export const actorKindSchema = z.enum(['user', 'system', 'anonymous'])
+export const auditOutcomeSchema = z.enum(['success', 'failure', 'denied'])
 
-export const auditChangesSchema = z.object({
-  before: z.record(z.string(), z.unknown()).optional(),
-  after: z.record(z.string(), z.unknown()).optional(),
-})
-export type AuditChanges = z.infer<typeof auditChangesSchema>
-
-export const auditLogEntrySchema = z.object({
-  id: z.string(),
-  occurred_at: z.iso.datetime(),
-  /** null = anonymous or system actor */
-  actor_user_id: z.string().nullable(),
-  /** null = anonymous or system actor; masked for unknown-account login failures */
-  actor_email: z.string().nullable(),
-  action: auditActionSchema,
-  target_type: auditTargetTypeSchema,
-  target_id: z.string(),
-  app_key: z.string().nullable(),
-  org_id: z.string().nullable(),
-  changes: auditChangesSchema.nullable(),
-  ip: z.string(),
-  user_agent: z.string(),
-  request_id: z.string(),
-})
-export type AuditLogEntry = z.infer<typeof auditLogEntrySchema>
-export const auditLogListSchema = z.array(auditLogEntrySchema)
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never
+const _guards: [
+  Same<AuditAction, z.infer<typeof auditActionSchema>>,
+  Same<AuditTarget, z.infer<typeof auditTargetSchema>>,
+  Same<ActorKind, z.infer<typeof actorKindSchema>>,
+  Same<AuditOutcome, z.infer<typeof auditOutcomeSchema>>,
+] = [true, true, true, true]
+void _guards
