@@ -1,6 +1,11 @@
 import { z } from 'zod'
-import { auditAppKeys } from './data'
-import { auditActionSchema, auditTargetTypeSchema } from './schema'
+import { APP_KEY_PATTERN } from './data'
+import {
+  actorKindSchema,
+  auditActionSchema,
+  auditOutcomeSchema,
+  auditTargetSchema,
+} from './schema'
 
 const day = z
   .string()
@@ -8,14 +13,20 @@ const day = z
   .optional()
   .catch(undefined)
 
-/** URL search state for `/audit-log` (mirrors the ADM-004 list filters). */
+/**
+ * URL search state for `/audit-log` (the `GET /api/v1/audit-logs` filters). Only
+ * enums, an app key, uuids and days: no free text, no email (R5, ADR 0005).
+ */
 export const auditLogSearchSchema = z.object({
   page: z.number().optional().catch(1),
   pageSize: z.number().optional().catch(20),
-  actor: z.string().optional().catch(''),
-  action: z.array(auditActionSchema).optional().catch([]),
-  targetType: z.array(auditTargetTypeSchema).optional().catch([]),
-  app: z.array(z.enum(auditAppKeys)).optional().catch([]),
+  action: auditActionSchema.optional().catch(undefined),
+  targetType: auditTargetSchema.optional().catch(undefined),
+  actorKind: actorKindSchema.optional().catch(undefined),
+  outcome: auditOutcomeSchema.optional().catch(undefined),
+  app: z.string().regex(APP_KEY_PATTERN).optional().catch(undefined),
+  actor: z.guid().optional().catch(undefined),
+  target: z.guid().optional().catch(undefined),
   from: day,
   to: day,
 })

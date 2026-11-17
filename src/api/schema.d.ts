@@ -147,6 +147,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/audit-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Audit Logs */
+        get: operations["list_audit_logs_api_v1_audit_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/accounts": {
         parameters: {
             query?: never;
@@ -186,6 +203,28 @@ export interface paths {
          *     membership (idempotent).
          */
         post: operations["join_app_api_v1_auth_apps__key__join_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/invitations/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept Invitation
+         * @description Accepts with the one-time token from the mail link. The account must be verified and
+         *     signed in with the invited email address; a token that is unknown, used, expired or
+         *     revoked gets one 422 `token_invalid`.
+         */
+        post: operations["accept_invitation_api_v1_auth_invitations_accept_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -232,6 +271,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/orgs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Orgs
+         * @description Orgs where the account holds a role of the calling app (own data only).
+         */
+        get: operations["list_my_orgs_api_v1_auth_orgs_get"];
+        put?: never;
+        /**
+         * Create Org
+         * @description The caller needs the app-scope permission `<app>:org:create`; the creator gets the app's
+         *     org owner role in the new org.
+         */
+        post: operations["create_org_api_v1_auth_orgs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/orgs/{org_id}/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Invitation
+         * @description The caller needs `<app>:org:invite` in that org and may grant only a role of the app
+         *     that holds no `is_admin` permission and nothing beyond the caller's own org permissions.
+         *
+         *     The same 201 for every target email (no account oracle); the mail is queued after commit
+         *     and the link uses the validated `Origin`. The `admin` app is refused (403).
+         */
+        post: operations["create_invitation_api_v1_auth_orgs__org_id__invitations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/password/forgot": {
         parameters: {
             query?: never;
@@ -245,6 +333,7 @@ export interface paths {
          * Forgot Password
          * @description Public (R3 class 3: per-IP limit + Turnstile) + required app context (owner 2026-11-13):
          *     `X-MM-App` of an active app and an `Origin` registered for it (403 otherwise).
+         *     `X-MM-App: admin` gets the same 403 (ADM-002d).
          *
          *     Always 202 for any email (no enumeration); per-email limits are silent. The reset link
          *     uses the validated `Origin`; the email is queued after the commit.
@@ -290,7 +379,7 @@ export interface paths {
          * Signup
          * @description Public by design (R3 class 3): per-IP rate limit + Turnstile, plus the required app
          *     context: `X-MM-App` of an active app and an `Origin` registered for it (403 otherwise,
-         *     before any account is created).
+         *     before any account is created). `X-MM-App: admin` gets the same 403 (ADM-002d).
          *
          *     The verification link uses the validated `Origin`; the email is queued after the commit.
          */
@@ -354,8 +443,9 @@ export interface paths {
          * Resend Verification
          * @description Cookie class (R3 class 2): `__Host-mm_device` + Origin + `X-MM-App`.
          *
-         *     The route-level `AppContextDep` comes before `DeviceDep`, so a bad app context answers
-         *     403 before any device lookup or cookie rotation, even if `get_link_origin` changes.
+         *     The route-level `AppContextDep` comes before `DeviceDep`, so a bad app context
+         *     answers 403 before any device lookup or cookie rotation.
+         *     `X-MM-App: admin` is accepted for staff only (USR-12); others get 403.
          */
         post: operations["resend_verification_api_v1_auth_verify_email_resend_post"];
         delete?: never;
@@ -549,6 +639,11 @@ export interface components {
             email_verified: boolean;
         };
         /**
+         * ActorKind
+         * @enum {string}
+         */
+        ActorKind: "user" | "system" | "anonymous";
+        /**
          * AppCreate
          * @description New apps are `active`; their default role is the built `<key>:member` (no input for it).
          */
@@ -584,6 +679,8 @@ export interface components {
             /** Name */
             name: string;
             org_mode: components["schemas"]["OrgMode"];
+            /** Org Owner Role Id */
+            org_owner_role_id?: string | null;
             /** Origins */
             origins: string[];
             status: components["schemas"]["AppStatus"];
@@ -600,7 +697,7 @@ export interface components {
         AppStatus: "active" | "disabled";
         /**
          * AppUpdate
-         * @description Partial update; `key` is immutable. Explicit null is accepted only for `default_role_id`.
+         * @description Partial update; `key` is immutable. Null only for the role ids.
          */
         AppUpdate: {
             /** Default Role Id */
@@ -609,6 +706,8 @@ export interface components {
             /** Name */
             name?: string | null;
             org_mode?: components["schemas"]["OrgMode"] | null;
+            /** Org Owner Role Id */
+            org_owner_role_id?: string | null;
             /** Origins */
             origins?: string[] | null;
             status?: components["schemas"]["AppStatus"] | null;
@@ -659,6 +758,130 @@ export interface components {
             /** Role Key */
             role_key: string;
         };
+        /**
+         * AuditAction
+         * @enum {string}
+         */
+        AuditAction: "organization.created" | "organization.updated" | "organization.deleted" | "organization.invitation_created" | "organization.invitation_accepted" | "organization.invitation_revoked" | "user.created" | "user.disabled" | "user.enabled" | "app.created" | "app.updated" | "app.deleted" | "app.registered" | "app.admin_origins_set" | "app.joined" | "permission.created" | "permission.updated" | "permission.deleted" | "role.created" | "role.updated" | "role.deleted" | "role.permissions_replaced" | "role_assignment.granted" | "role_assignment.revoked" | "email_retention.purged" | "audit_log.purged" | "auth.login_succeeded" | "auth.login_failed" | "auth.logged_out" | "auth.logged_out_all" | "device_session.reuse_revoked" | "auth.password_reset_completed" | "auth.email_verified";
+        /** AuditLogRead */
+        AuditLogRead: {
+            /** Action */
+            action: string;
+            /** Actor Kind */
+            actor_kind: string;
+            /** Actor Label */
+            actor_label: string | null;
+            /** Actor User Id */
+            actor_user_id: string | null;
+            /** App Key */
+            app_key: string | null;
+            /** Changes */
+            changes: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Ip */
+            ip: string | null;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Org Id */
+            org_id: string | null;
+            outcome: components["schemas"]["AuditOutcome"];
+            /** Request Id */
+            request_id: string | null;
+            /** Target Id */
+            target_id: string | null;
+            /** Target Type */
+            target_type: string | null;
+            /** User Agent */
+            user_agent: string | null;
+        };
+        /**
+         * AuditOutcome
+         * @enum {string}
+         */
+        AuditOutcome: "success" | "failure" | "denied";
+        /**
+         * AuditTarget
+         * @enum {string}
+         */
+        AuditTarget: "organization" | "user" | "app" | "permission" | "role" | "role_assignment" | "device_session" | "invitation";
+        /**
+         * AuthOrgCreate
+         * @description End-user org creation (`POST /api/v1/auth/orgs`).
+         */
+        AuthOrgCreate: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /** Description */
+            description?: string | null;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+        };
+        /** AuthOrgRead */
+        AuthOrgRead: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Description */
+            description: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Roles */
+            roles: string[];
+            /** Slug */
+            slug: string;
+            status: components["schemas"]["OrganizationStatus"];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * ErrorBody
+         * @description The error object of every non-2xx JSON response.
+         */
+        ErrorBody: {
+            /**
+             * Code
+             * @description Machine-readable code, e.g. validation_error, unprocessable, not_found, conflict, unauthorized, permission_denied, rate_limited.
+             */
+            code: string;
+            /**
+             * Details
+             * @description Always present. A list for validation_error and unprocessable, an object for rate_limited and permission_denied, otherwise null.
+             */
+            details: unknown;
+            /** Message */
+            message: string;
+        };
+        /**
+         * ErrorEnvelope
+         * @description R6: `{"error": {"code", "message", "details"}}`.
+         */
+        ErrorEnvelope: {
+            error: components["schemas"]["ErrorBody"];
+        };
         /** ForgotPasswordRequest */
         ForgotPasswordRequest: {
             /**
@@ -669,10 +892,63 @@ export interface components {
             /** Turnstile Token */
             turnstile_token: string;
         };
-        /** HTTPValidationError */
-        HTTPValidationError: {
-            /** Detail */
-            detail?: components["schemas"]["ValidationError"][];
+        /** InvitationAccept */
+        InvitationAccept: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /** Token */
+            token: string;
+        };
+        /** InvitationAccepted */
+        InvitationAccepted: {
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Roles */
+            roles: string[];
+        };
+        /** InvitationCreate */
+        InvitationCreate: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** Role */
+            role: string;
+        };
+        /**
+         * InvitationCreated
+         * @description Identical whatever the target email is (no account/member oracle); never echoes it.
+         */
+        InvitationCreated: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Role */
+            role: string;
         };
         /**
          * JoinPolicy
@@ -804,6 +1080,21 @@ export interface components {
              */
             user_id: string;
         };
+        /** MyOrgRead */
+        MyOrgRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Roles */
+            roles: string[];
+            /** Slug */
+            slug: string;
+            status: components["schemas"]["OrganizationStatus"];
+        };
         /**
          * OrgMode
          * @enum {string}
@@ -825,6 +1116,8 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Created By */
+            created_by?: string | null;
             /** Description */
             description: string | null;
             /**
@@ -878,6 +1171,28 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** Page[AuditLogRead] */
+        Page_AuditLogRead_: {
+            /** Items */
+            items: components["schemas"]["AuditLogRead"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[MyOrgRead] */
+        Page_MyOrgRead_: {
+            /** Items */
+            items: components["schemas"]["MyOrgRead"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
         /** Page[OrganizationRead] */
         Page_OrganizationRead_: {
             /** Items */
@@ -913,7 +1228,8 @@ export interface components {
         };
         /**
          * PermissionCreate
-         * @description `is_admin` absent or null: false, except `<app>:*` which is always stored `true`.
+         * @description `is_admin` absent or null: false, except `<app>:*` and admin-app permissions, which are
+         *     always stored `true`.
          */
         PermissionCreate: {
             /** Description */
@@ -1129,19 +1445,6 @@ export interface components {
         UserStatusUpdate: {
             status: components["schemas"]["UserStatus"];
         };
-        /** ValidationError */
-        ValidationError: {
-            /** Context */
-            ctx?: Record<string, never>;
-            /** Input */
-            input?: unknown;
-            /** Location */
-            loc: (string | number)[];
-            /** Message */
-            msg: string;
-            /** Error Type */
-            type: string;
-        };
         /** VerifyEmailRequest */
         VerifyEmailRequest: {
             /** Token */
@@ -1168,6 +1471,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1178,6 +1483,8 @@ export interface operations {
             /** @description Not modified */
             304: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content?: never;
@@ -1185,9 +1492,13 @@ export interface operations {
             /** @description Rate limited */
             429: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
         };
     };
@@ -1206,6 +1517,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1215,24 +1528,34 @@ export interface operations {
             /** @description Missing or invalid Bearer token */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Missing permission */
             403: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -1253,6 +1576,8 @@ export interface operations {
             /** @description Successful Response */
             201: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1262,24 +1587,45 @@ export interface operations {
             /** @description Missing or invalid Bearer token */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Missing permission */
             403: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Key or origin already taken */
+            409: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -1298,6 +1644,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1307,24 +1655,34 @@ export interface operations {
             /** @description Missing or invalid Bearer token */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Missing permission */
             403: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -1343,6 +1701,8 @@ export interface operations {
             /** @description Successful Response */
             204: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content?: never;
@@ -1350,24 +1710,34 @@ export interface operations {
             /** @description Missing or invalid Bearer token */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Missing permission */
             403: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -1390,6 +1760,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1399,24 +1771,45 @@ export interface operations {
             /** @description Missing or invalid Bearer token */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Missing permission */
             403: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Admin app invariant or origin already taken */
+            409: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -1438,6 +1831,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1447,24 +1842,34 @@ export interface operations {
             /** @description Missing or invalid Bearer token */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Missing permission */
             403: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -1487,6 +1892,8 @@ export interface operations {
             /** @description Successful Response */
             201: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1496,24 +1903,34 @@ export interface operations {
             /** @description Missing or invalid Bearer token */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Missing permission */
             403: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -1533,6 +1950,8 @@ export interface operations {
             /** @description Successful Response */
             204: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content?: never;
@@ -1540,24 +1959,34 @@ export interface operations {
             /** @description Missing or invalid Bearer token */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Missing permission */
             403: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -1581,6 +2010,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1590,24 +2021,45 @@ export interface operations {
             /** @description Missing or invalid Bearer token */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Missing permission */
             403: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Held by the default role or by an assigned role */
+            409: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -1626,6 +2078,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1635,6 +2089,8 @@ export interface operations {
             /** @description Not modified */
             304: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content?: never;
@@ -1642,25 +2098,35 @@ export interface operations {
             /** @description Unknown, disabled or `admin` app */
             404: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Rate limited */
             429: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
         };
     };
@@ -1682,6 +2148,8 @@ export interface operations {
             /** @description Successful Response */
             201: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1691,24 +2159,34 @@ export interface operations {
             /** @description Missing or invalid Bearer token */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Missing permission */
             403: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -1728,6 +2206,8 @@ export interface operations {
             /** @description Successful Response */
             204: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content?: never;
@@ -1735,24 +2215,34 @@ export interface operations {
             /** @description Missing or invalid Bearer token */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Missing permission */
             403: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -1776,6 +2266,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1785,24 +2277,34 @@ export interface operations {
             /** @description Missing or invalid Bearer token */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Missing permission */
             403: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -1826,6 +2328,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1835,24 +2339,112 @@ export interface operations {
             /** @description Missing or invalid Bearer token */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Missing permission */
             403: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Default/super-admin role rule or role has assignments */
+            409: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    list_audit_logs_api_v1_audit_logs_get: {
+        parameters: {
+            query?: {
+                actor_user_id?: string | null;
+                actor_kind?: components["schemas"]["ActorKind"] | null;
+                action?: components["schemas"]["AuditAction"] | null;
+                target_type?: components["schemas"]["AuditTarget"] | null;
+                target_id?: string | null;
+                app_key?: string | null;
+                outcome?: components["schemas"]["AuditOutcome"] | null;
+                from?: string | null;
+                to?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_AuditLogRead_"];
+                };
+            };
+            /** @description Missing or invalid Bearer token */
+            401: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Missing permission */
+            403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -1862,7 +2454,6 @@ export interface operations {
             query?: never;
             header?: {
                 "X-MM-App"?: string | null;
-                origin?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -1872,6 +2463,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1881,32 +2474,46 @@ export interface operations {
             /** @description Error envelope */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Error envelope */
             403: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Error envelope */
             429: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
         };
     };
@@ -1915,7 +2522,6 @@ export interface operations {
             query?: never;
             header?: {
                 "X-MM-App"?: string | null;
-                origin?: string | null;
             };
             path: {
                 key: string;
@@ -1931,6 +2537,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1940,30 +2548,129 @@ export interface operations {
             /** @description Error envelope */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Error envelope */
             403: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
-            /** @description Error envelope */
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
             422: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Error envelope */
             429: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    accept_invitation_api_v1_auth_invitations_accept_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-MM-App"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvitationAccept"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationAccepted"];
+                };
+            };
+            /** @description Error envelope */
+            400: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Error envelope */
+            401: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Error envelope */
+            403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Error envelope */
+            429: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
         };
     };
@@ -1972,7 +2679,6 @@ export interface operations {
             query?: never;
             header?: {
                 "X-MM-App"?: string | null;
-                origin?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -1986,6 +2692,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1995,32 +2703,46 @@ export interface operations {
             /** @description Error envelope */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Error envelope */
             403: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Error envelope */
             429: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
         };
     };
@@ -2029,7 +2751,6 @@ export interface operations {
             query?: never;
             header?: {
                 "X-MM-App"?: string | null;
-                origin?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -2043,6 +2764,8 @@ export interface operations {
             /** @description Successful Response */
             204: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content?: never;
@@ -2050,24 +2773,274 @@ export interface operations {
             /** @description Error envelope */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Error envelope */
             403: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    list_my_orgs_api_v1_auth_orgs_get: {
+        parameters: {
+            query: {
+                account_id: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                "X-MM-App"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_MyOrgRead_"];
+                };
+            };
+            /** @description Error envelope */
+            401: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Error envelope */
+            403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Error envelope */
+            429: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    create_org_api_v1_auth_orgs_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-MM-App"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthOrgCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthOrgRead"];
+                };
+            };
+            /** @description Error envelope */
+            401: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Error envelope */
+            403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Error envelope */
+            409: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Error envelope */
+            429: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    create_invitation_api_v1_auth_orgs__org_id__invitations_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-MM-App"?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvitationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationCreated"];
+                };
+            };
+            /** @description Error envelope */
+            400: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Error envelope */
+            401: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Error envelope */
+            403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Error envelope */
+            429: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -2075,9 +3048,8 @@ export interface operations {
     forgot_password_api_v1_auth_password_forgot_post: {
         parameters: {
             query?: never;
-            header: {
+            header?: {
                 "X-MM-App"?: string | null;
-                origin: string;
             };
             path?: never;
             cookie?: never;
@@ -2091,6 +3063,8 @@ export interface operations {
             /** @description Successful Response */
             202: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content?: never;
@@ -2098,23 +3072,35 @@ export interface operations {
             /** @description Error envelope */
             403: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
-            /** @description Error envelope */
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
             422: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Error envelope */
             429: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
         };
     };
@@ -2134,32 +3120,41 @@ export interface operations {
             /** @description Successful Response */
             204: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Error envelope */
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
             422: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Error envelope */
             429: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
         };
     };
     signup_api_v1_auth_signup_post: {
         parameters: {
             query?: never;
-            header: {
+            header?: {
                 "X-MM-App"?: string | null;
-                origin: string;
             };
             path?: never;
             cookie?: never;
@@ -2173,6 +3168,8 @@ export interface operations {
             /** @description Successful Response */
             201: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2182,30 +3179,46 @@ export interface operations {
             /** @description Error envelope */
             403: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Error envelope */
             409: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
-            /** @description Error envelope */
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
             422: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Error envelope */
             429: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
         };
     };
@@ -2214,7 +3227,6 @@ export interface operations {
             query?: never;
             header?: {
                 "X-MM-App"?: string | null;
-                origin?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -2228,6 +3240,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2237,30 +3251,46 @@ export interface operations {
             /** @description Error envelope */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Error envelope */
             403: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
-            /** @description Error envelope */
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
             422: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Error envelope */
             429: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
         };
     };
@@ -2280,32 +3310,41 @@ export interface operations {
             /** @description Successful Response */
             204: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Error envelope */
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
             422: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Error envelope */
             429: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
         };
     };
     resend_verification_api_v1_auth_verify_email_resend_post: {
         parameters: {
             query?: never;
-            header: {
+            header?: {
                 "X-MM-App"?: string | null;
-                origin: string;
             };
             path?: never;
             cookie?: never;
@@ -2319,6 +3358,8 @@ export interface operations {
             /** @description Successful Response */
             202: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content?: never;
@@ -2326,37 +3367,57 @@ export interface operations {
             /** @description Error envelope */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Error envelope */
             403: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Error envelope */
             409: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
-            /** @description Error envelope */
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
             422: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Error envelope */
             429: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
         };
     };
@@ -2372,6 +3433,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2381,9 +3444,13 @@ export interface operations {
             /** @description Missing or invalid Bearer token */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
         };
     };
@@ -2402,6 +3469,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2411,24 +3480,34 @@ export interface operations {
             /** @description Missing or invalid Bearer token */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Missing permission */
             403: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -2449,6 +3528,8 @@ export interface operations {
             /** @description Successful Response */
             201: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2458,24 +3539,34 @@ export interface operations {
             /** @description Missing or invalid Bearer token */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Missing permission */
             403: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -2494,6 +3585,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2503,24 +3596,34 @@ export interface operations {
             /** @description Missing or invalid Bearer token */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Missing permission */
             403: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -2539,6 +3642,8 @@ export interface operations {
             /** @description Successful Response */
             204: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content?: never;
@@ -2546,24 +3651,34 @@ export interface operations {
             /** @description Missing or invalid Bearer token */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Missing permission */
             403: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -2586,6 +3701,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2595,24 +3712,34 @@ export interface operations {
             /** @description Missing or invalid Bearer token */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Missing permission */
             403: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -2634,6 +3761,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2643,24 +3772,34 @@ export interface operations {
             /** @description Missing or invalid Bearer token */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Missing permission */
             403: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -2679,6 +3818,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2688,24 +3829,34 @@ export interface operations {
             /** @description Missing or invalid Bearer token */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Missing permission */
             403: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -2728,6 +3879,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2737,31 +3890,45 @@ export interface operations {
             /** @description Missing or invalid Bearer token */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Missing permission */
             403: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Last active super-admin */
             409: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -2784,6 +3951,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2793,24 +3962,34 @@ export interface operations {
             /** @description Missing or invalid Bearer token */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Missing permission */
             403: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -2833,6 +4012,8 @@ export interface operations {
             /** @description Successful Response */
             201: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2842,24 +4023,34 @@ export interface operations {
             /** @description Missing or invalid Bearer token */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Missing permission */
             403: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -2879,6 +4070,8 @@ export interface operations {
             /** @description Successful Response */
             204: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content?: never;
@@ -2886,31 +4079,45 @@ export interface operations {
             /** @description Missing or invalid Bearer token */
             401: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Missing permission */
             403: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description Last active super-admin */
             409: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -2927,6 +4134,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2949,6 +4158,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
                     [name: string]: unknown;
                 };
                 content: {

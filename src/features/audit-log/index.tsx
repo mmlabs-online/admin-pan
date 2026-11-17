@@ -6,8 +6,8 @@ import { ProfileDropdown } from '@/components/profile-dropdown'
 import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { AuditLogTable } from './components/audit-log-table'
-import { auditLogs } from './data/audit-logs'
 
+// Route permission: admin:audit:read
 const route = getRouteApi('/_authenticated/audit-log/')
 
 export function AuditLog() {
@@ -27,10 +27,10 @@ export function AuditLog() {
         <div>
           <h2 className='text-2xl font-bold tracking-tight'>Audit log</h2>
           <p className='text-muted-foreground'>
-            Who did what, and when — read-only.
+            Who did what, and when — read-only. Newest first.
           </p>
         </div>
-        <AuditLogTable data={auditLogs} search={search} navigate={navigate} />
+        <AuditLogTable search={search} navigate={navigate} />
       </Main>
     </>
   )

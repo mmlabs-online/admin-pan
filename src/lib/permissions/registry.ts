@@ -7,6 +7,7 @@ import { type FileRoutesById } from '@/routeTree.gen'
 export const ADMIN_PERMISSIONS = [
   'admin:apps:read',
   'admin:apps:write',
+  'admin:audit:read',
   'admin:organizations:read',
   'admin:organizations:write',
   'admin:roles:assign',
@@ -66,11 +67,10 @@ export const ROUTE_PERMISSIONS = {
   '/_authenticated/apps/': perm('admin:apps:read', 'GET /api/v1/apps'),
   // The screen lists apps; the role catalog is public (D17).
   '/_authenticated/roles/': perm('admin:apps:read', 'GET /api/v1/apps'),
-  '/_authenticated/audit-log/': {
-    kind: 'pending',
-    ticket: 'PAN-016',
-    reason: 'Audit endpoint is not in the OpenAPI snapshot yet',
-  },
+  '/_authenticated/audit-log/': perm(
+    'admin:audit:read',
+    'GET /api/v1/audit-logs'
+  ),
   '/_authenticated/reports/': {
     kind: 'pending',
     ticket: 'PAN-021',
@@ -139,6 +139,7 @@ export const ACTIONS = {
     'admin:roles:assign',
     'DELETE /api/v1/users/{user_id}/role-assignments/{assignment_id}'
   ),
+  'audit.view': perm('admin:audit:read', 'GET /api/v1/audit-logs'),
   'reports.create': reportsPending,
   'reports.update': reportsPending,
   'reports.run': reportsPending,

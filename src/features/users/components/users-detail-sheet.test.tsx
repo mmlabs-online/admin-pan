@@ -1,6 +1,14 @@
 import { QueryClientProvider } from '@tanstack/react-query'
+import {
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from '@tanstack/react-router'
 import { type ApiClient } from '@/api'
 import { apiError, fakeApi, json, testQueryClient } from '@/test-utils/api'
+import { WithPermissions } from '@/test-utils/permissions'
 import { describe, expect, it } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { userEvent } from 'vitest/browser'
@@ -45,12 +53,40 @@ function setup(respond: Respond) {
   return api
 }
 
-async function openDetails(client: ApiClient) {
+async function openDetails(
+  client: ApiClient,
+  granted?: Parameters<typeof WithPermissions>[0]['granted']
+) {
+  // The sheet renders router <Link>s, so it needs a router around it.
+  const Page = () => {
+    const tree = (
+      <>
+        <UsersTable search={{}} navigate={() => {}} />
+        <UsersDialogs />
+      </>
+    )
+    return granted ? (
+      <WithPermissions granted={granted}>{tree}</WithPermissions>
+    ) : (
+      tree
+    )
+  }
+  const root = createRootRoute()
+  const router = createRouter({
+    routeTree: root.addChildren([
+      createRoute({ getParentRoute: () => root, path: '/', component: Page }),
+      createRoute({
+        getParentRoute: () => root,
+        path: '/audit-log',
+        component: () => null,
+      }),
+    ]),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
   const screen = await render(
     <QueryClientProvider client={testQueryClient()}>
       <UsersProvider api={client}>
-        <UsersTable search={{}} navigate={() => {}} />
-        <UsersDialogs />
+        <RouterProvider router={router} />
       </UsersProvider>
     </QueryClientProvider>
   )
@@ -196,5 +232,46 @@ describe('UsersDetailSheet', () => {
     await expect.element(sheet.getByText('No role assignments.')).toBeVisible()
     await expect.element(sheet.getByText('Preview')).not.toBeInTheDocument()
     await expect.element(sheet.getByText('Sample data')).not.toBeInTheDocument()
+  })
+
+  it('with admin:audit:read shows "Events about this user" and "Actions by this user" links', async () => {
+    const { client } = setup((path) =>
+      path === USER_PATH ? json(ALICE) : emptyPage()
+    )
+    const sheet = await openDetails(client, [
+      'admin:users:read',
+      'admin:audit:read',
+    ])
+    const about = sheet.getByRole('link', { name: 'Events about this user' })
+    await expect.element(about).toBeVisible()
+    const aboutHref = new URL(
+      (await about.element()).getAttribute('href')!,
+      'http://x'
+    )
+    expect(aboutHref.pathname).toBe('/audit-log')
+    expect(aboutHref.searchParams.get('targetType')).toBe('user')
+    expect(aboutHref.searchParams.get('target')).toBe(ALICE.id)
+    const by = await sheet
+      .getByRole('link', { name: 'Actions by this user' })
+      .element()
+    const byHref = new URL(by.getAttribute('href')!, 'http://x')
+    expect(byHref.searchParams.get('actor')).toBe(ALICE.id)
+    expect(byHref.searchParams.has('target')).toBe(false)
+  })
+
+  it('without admin:audit:read the links are hidden', async () => {
+    const { client } = setup((path) =>
+      path === USER_PATH ? json(ALICE) : emptyPage()
+    )
+    const sheet = await openDetails(client, ['admin:users:read'])
+    await expect
+      .element(sheet.getByRole('heading', { name: 'Alice Nguyen' }))
+      .toBeVisible()
+    await expect
+      .element(sheet.getByRole('link', { name: 'Events about this user' }))
+      .not.toBeInTheDocument()
+    await expect
+      .element(sheet.getByRole('heading', { name: 'Audit history' }))
+      .not.toBeInTheDocument()
   })
 })

@@ -1,23 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Cross2Icon } from '@radix-ui/react-icons'
+import { useQuery } from '@tanstack/react-query'
 import {
-  type SortingState,
-  type Table as TanstackTable,
   flexRender,
   getCoreRowModel,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { Download } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { getApi, isApiError, type ApiClient } from '@/api'
+import { queryView } from '@/lib/query-view'
 import { type NavigateFn, useTableUrlState } from '@/hooks/use-table-url-state'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Table,
   TableBody,
@@ -27,174 +18,132 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { DataTablePagination } from '@/components/data-table'
-import { DataTableFacetedFilter } from '@/components/data-table/faceted-filter'
-import { DatePicker } from '@/components/date-picker'
-import { actionOptions, appOptions, targetTypeOptions } from '../data/data'
+import { ForbiddenPanel } from '@/components/forbidden-panel'
+import { auditLogsQueryOptions, toAuditListParams } from '../api/queries'
 import { type AuditLogEntry } from '../data/schema'
-import { filterByDateRange, formatDay, parseDay, toCsv } from '../lib/format'
+import { auditLogSearchSchema } from '../data/search'
+import { isRangeInverted } from '../lib/format'
 import { getAuditLogColumns } from './audit-log-columns'
 import { AuditLogDetailSheet } from './audit-log-detail-sheet'
+import { AuditLogFilters } from './audit-log-filters'
 
 type AuditLogTableProps = {
-  data: AuditLogEntry[]
   search: Record<string, unknown>
   navigate: NavigateFn
+  /** Injected client (tests only). */
+  api?: ApiClient
 }
 
-const asDay = (value: unknown) =>
-  typeof value === 'string' && parseDay(value) ? value : undefined
+const RESET_KEYS = [
+  'action',
+  'targetType',
+  'actorKind',
+  'outcome',
+  'app',
+  'actor',
+  'target',
+  'from',
+  'to',
+] as const
 
-export function AuditLogTable({ data, search, navigate }: AuditLogTableProps) {
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: 'occurred_at', desc: true },
-  ])
+export function AuditLogTable({
+  search: rawSearch,
+  navigate,
+  api = getApi(),
+}: AuditLogTableProps) {
   const [selected, setSelected] = useState<AuditLogEntry | null>(null)
-
-  const from = asDay(search.from)
-  const to = asDay(search.to)
-  const rangedData = useMemo(
-    () => filterByDateRange(data, from, to),
-    [data, from, to]
-  )
   const columns = useMemo(() => getAuditLogColumns(setSelected), [])
+  const search = useMemo(
+    () => auditLogSearchSchema.parse(rawSearch),
+    [rawSearch]
+  )
 
-  // Keys/defaults mirror the audit-log route search schema.
-  const {
-    columnFilters,
-    onColumnFiltersChange,
-    pagination,
-    onPaginationChange,
-    ensurePageInRange,
-  } = useTableUrlState({
-    search,
-    navigate,
-    pagination: { defaultPage: 1, defaultPageSize: 20 },
-    globalFilter: { enabled: false },
-    columnFilters: [
-      { columnId: 'actor', searchKey: 'actor', type: 'string' },
-      { columnId: 'action', searchKey: 'action', type: 'array' },
-      { columnId: 'target_type', searchKey: 'targetType', type: 'array' },
-      { columnId: 'app_key', searchKey: 'app', type: 'array' },
-    ],
+  // Paging only; the filters are plain URL keys handled by AuditLogFilters.
+  const { pagination, onPaginationChange, ensurePageInRange } =
+    useTableUrlState({
+      search: rawSearch,
+      navigate,
+      pagination: { defaultPage: 1, defaultPageSize: 20 },
+      globalFilter: { enabled: false },
+    })
+
+  const inverted = isRangeInverted(search.from, search.to)
+  const params = toAuditListParams({
+    ...search,
+    page: pagination.pageIndex + 1,
+    pageSize: pagination.pageSize,
   })
+  const q = useQuery({
+    ...auditLogsQueryOptions(params, api),
+    enabled: !inverted,
+  })
+  const view = queryView(q)
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
-    data: rangedData,
+    data: q.data?.items ?? [],
     columns,
-    state: { sorting, pagination, columnFilters },
-    onPaginationChange,
-    onColumnFiltersChange,
-    onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getFacetedRowModel: getFacetedRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
+    rowCount: q.data?.total ?? 0,
+    manualPagination: true,
+    manualFiltering: true,
+    enableSorting: false,
+    state: { pagination },
     getRowId: (row) => row.id,
+    onPaginationChange,
+    getCoreRowModel: getCoreRowModel(),
   })
 
+  const pageCount = table.getPageCount()
+  const settled = q.isSuccess && !q.isPlaceholderData
   useEffect(() => {
-    ensurePageInRange(table.getPageCount())
-  }, [table, ensurePageInRange])
+    if (settled) ensurePageInRange(pageCount)
+  }, [settled, pageCount, ensurePageInRange])
 
-  const setDay = (key: 'from' | 'to', date: Date | undefined) =>
+  const resetFilters = () =>
     navigate({
       search: (prev) => ({
         ...prev,
         page: undefined,
-        [key]: date ? formatDay(date) : undefined,
+        ...Object.fromEntries(RESET_KEYS.map((k) => [k, undefined])),
       }),
     })
 
-  const isFiltered = columnFilters.length > 0 || !!from || !!to
-  const resetAll = () => {
-    table.resetColumnFilters()
-    navigate({
-      search: (prev) => ({
-        ...prev,
-        page: undefined,
-        from: undefined,
-        to: undefined,
-      }),
-    })
-  }
+  if (view.status === 'forbidden')
+    return (
+      <ForbiddenPanel
+        variant='page'
+        copy={view.copy}
+        onRetry={() => void q.refetch()}
+      />
+    )
 
-  const filteredCount = table.getFilteredRowModel().rows.length
+  const filtered = RESET_KEYS.some((k) => search[k] !== undefined)
+  const rows = table.getRowModel().rows
+  const emptyCopy = filtered
+    ? 'No audit entries match these filters.'
+    : 'No audit entries yet.'
+  const rejected = view.status === 'error' && isApiError(view.error, 422)
+  const status = inverted
+    ? ''
+    : view.status === 'pending'
+      ? 'Loading audit log…'
+      : view.status === 'success'
+        ? rows.length
+          ? `${q.data?.total ?? 0} entries, page ${pagination.pageIndex + 1} of ${Math.max(pageCount, 1)}`
+          : emptyCopy
+        : ''
 
   return (
     <div className='flex flex-1 flex-col gap-4'>
-      <div
-        role='search'
-        aria-label='Filter audit log'
-        className='flex flex-wrap items-end gap-2'
-      >
-        <div className='flex flex-col gap-1'>
-          <Label htmlFor='audit-actor-filter' className='text-xs'>
-            Actor
-          </Label>
-          <Input
-            id='audit-actor-filter'
-            placeholder='Email, user ID or "system"'
-            value={(table.getColumn('actor')?.getFilterValue() as string) ?? ''}
-            onChange={(event) =>
-              table.getColumn('actor')?.setFilterValue(event.target.value)
-            }
-            className='h-8 w-56'
-          />
-        </div>
-        <DateFilter
-          label='From'
-          value={from}
-          onChange={(d) => setDay('from', d)}
-        />
-        <DateFilter label='To' value={to} onChange={(d) => setDay('to', d)} />
-        <div className='flex flex-wrap gap-2'>
-          <DataTableFacetedFilter
-            column={table.getColumn('action')}
-            title='Action'
-            options={actionOptions}
-          />
-          <DataTableFacetedFilter
-            column={table.getColumn('target_type')}
-            title='Target type'
-            options={targetTypeOptions}
-          />
-          <DataTableFacetedFilter
-            column={table.getColumn('app_key')}
-            title='App'
-            options={appOptions}
-          />
-        </div>
-        {isFiltered && (
-          <Button
-            variant='ghost'
-            onClick={resetAll}
-            className='h-8 px-2 lg:px-3'
-          >
-            Reset
-            <Cross2Icon className='ms-2 h-4 w-4' aria-hidden='true' />
-          </Button>
-        )}
-        <Button
-          variant='outline'
-          size='sm'
-          className='ms-auto h-8'
-          disabled={filteredCount === 0}
-          onClick={() => downloadCsv(table)}
-        >
-          <Download aria-hidden='true' className='size-4' />
-          Export CSV
-        </Button>
-      </div>
-
-      <p role='status' className='sr-only'>
-        {filteredCount} matching entries
+      <AuditLogFilters search={search} navigate={navigate} />
+      <p role='status' aria-live='polite' className='sr-only'>
+        {status}
       </p>
-
       <div className='overflow-hidden rounded-md border'>
-        <Table aria-label='Audit log entries'>
+        <Table
+          aria-label='Audit log entries'
+          aria-busy={view.status === 'pending' && !inverted}
+        >
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
@@ -212,13 +161,35 @@ export function AuditLogTable({ data, search, navigate }: AuditLogTableProps) {
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className={cn('cursor-pointer')}
-                  onClick={() => setSelected(row.original)}
-                >
+            {inverted ? (
+              <MessageRow span={columns.length}>
+                Fix the date range to load entries.
+              </MessageRow>
+            ) : view.status === 'pending' ? (
+              <MessageRow span={columns.length}>Loading audit log…</MessageRow>
+            ) : view.status === 'error' ? (
+              <MessageRow span={columns.length}>
+                <div role='alert' className='space-y-2'>
+                  {rejected ? (
+                    <>
+                      <p>The API rejected these filters.</p>
+                      <Button size='sm' onClick={resetFilters}>
+                        Reset
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <p>Couldn&apos;t load the audit log.</p>
+                      <Button size='sm' onClick={() => void q.refetch()}>
+                        Retry
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </MessageRow>
+            ) : rows.length ? (
+              rows.map((row) => (
+                <TableRow key={row.id}>
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(
@@ -230,14 +201,7 @@ export function AuditLogTable({ data, search, navigate }: AuditLogTableProps) {
                 </TableRow>
               ))
             ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className='h-24 text-center'
-                >
-                  No audit entries match these filters.
-                </TableCell>
-              </TableRow>
+              <MessageRow span={columns.length}>{emptyCopy}</MessageRow>
             )}
           </TableBody>
         </Table>
@@ -254,50 +218,18 @@ export function AuditLogTable({ data, search, navigate }: AuditLogTableProps) {
   )
 }
 
-function DateFilter({
-  label,
-  value,
-  onChange,
+function MessageRow({
+  span,
+  children,
 }: {
-  label: string
-  value: string | undefined
-  onChange: (date: Date | undefined) => void
+  span: number
+  children: React.ReactNode
 }) {
-  const labelId = `audit-date-${label.toLowerCase()}`
   return (
-    <div role='group' aria-labelledby={labelId} className='flex flex-col gap-1'>
-      <span id={labelId} className='text-xs font-medium'>
-        {label} date
-      </span>
-      <div className='flex items-center gap-1 [&>button]:h-8 [&>button:first-child]:w-40'>
-        <DatePicker
-          selected={parseDay(value)}
-          onSelect={onChange}
-          placeholder={`${label} date`}
-        />
-        {value && (
-          <Button
-            variant='ghost'
-            size='icon'
-            className='size-8'
-            aria-label={`Clear ${label.toLowerCase()} date`}
-            onClick={() => onChange(undefined)}
-          >
-            <Cross2Icon aria-hidden='true' />
-          </Button>
-        )}
-      </div>
-    </div>
+    <TableRow>
+      <TableCell colSpan={span} className='h-24 text-center'>
+        {children}
+      </TableCell>
+    </TableRow>
   )
-}
-
-function downloadCsv(table: TanstackTable<AuditLogEntry>) {
-  const rows = table.getPrePaginationRowModel().rows.map((r) => r.original)
-  const blob = new Blob([toCsv(rows)], { type: 'text/csv;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `audit-log-${formatDay(new Date())}.csv`
-  a.click()
-  URL.revokeObjectURL(url)
 }

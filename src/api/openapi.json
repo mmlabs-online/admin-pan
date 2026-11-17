@@ -54,6 +54,15 @@
         "title": "AccountRead",
         "type": "object"
       },
+      "ActorKind": {
+        "enum": [
+          "user",
+          "system",
+          "anonymous"
+        ],
+        "title": "ActorKind",
+        "type": "string"
+      },
       "AppCreate": {
         "additionalProperties": false,
         "description": "New apps are `active`; their default role is the built `<key>:member` (no input for it).",
@@ -132,6 +141,18 @@
           "org_mode": {
             "$ref": "#/components/schemas/OrgMode"
           },
+          "org_owner_role_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Org Owner Role Id"
+          },
           "origins": {
             "items": {
               "type": "string"
@@ -173,7 +194,7 @@
       },
       "AppUpdate": {
         "additionalProperties": false,
-        "description": "Partial update; `key` is immutable. Explicit null is accepted only for `default_role_id`.",
+        "description": "Partial update; `key` is immutable. Null only for the role ids.",
         "properties": {
           "default_role_id": {
             "anyOf": [
@@ -219,6 +240,18 @@
                 "type": "null"
               }
             ]
+          },
+          "org_owner_role_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Org Owner Role Id"
           },
           "origins": {
             "anyOf": [
@@ -369,6 +402,366 @@
         "title": "AssignmentRead",
         "type": "object"
       },
+      "AuditAction": {
+        "enum": [
+          "organization.created",
+          "organization.updated",
+          "organization.deleted",
+          "organization.invitation_created",
+          "organization.invitation_accepted",
+          "organization.invitation_revoked",
+          "user.created",
+          "user.disabled",
+          "user.enabled",
+          "app.created",
+          "app.updated",
+          "app.deleted",
+          "app.registered",
+          "app.admin_origins_set",
+          "app.joined",
+          "permission.created",
+          "permission.updated",
+          "permission.deleted",
+          "role.created",
+          "role.updated",
+          "role.deleted",
+          "role.permissions_replaced",
+          "role_assignment.granted",
+          "role_assignment.revoked",
+          "email_retention.purged",
+          "audit_log.purged",
+          "auth.login_succeeded",
+          "auth.login_failed",
+          "auth.logged_out",
+          "auth.logged_out_all",
+          "device_session.reuse_revoked",
+          "auth.password_reset_completed",
+          "auth.email_verified"
+        ],
+        "title": "AuditAction",
+        "type": "string"
+      },
+      "AuditLogRead": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "actor_kind": {
+            "title": "Actor Kind",
+            "type": "string"
+          },
+          "actor_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Label"
+          },
+          "actor_user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor User Id"
+          },
+          "app_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Key"
+          },
+          "changes": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changes"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "org_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Org Id"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/AuditOutcome"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Id"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          },
+          "target_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Type"
+          },
+          "user_agent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Agent"
+          }
+        },
+        "required": [
+          "id",
+          "occurred_at",
+          "actor_kind",
+          "actor_user_id",
+          "actor_label",
+          "action",
+          "outcome",
+          "target_type",
+          "target_id",
+          "app_key",
+          "org_id",
+          "changes",
+          "ip",
+          "user_agent",
+          "request_id"
+        ],
+        "title": "AuditLogRead",
+        "type": "object"
+      },
+      "AuditOutcome": {
+        "enum": [
+          "success",
+          "failure",
+          "denied"
+        ],
+        "title": "AuditOutcome",
+        "type": "string"
+      },
+      "AuditTarget": {
+        "enum": [
+          "organization",
+          "user",
+          "app",
+          "permission",
+          "role",
+          "role_assignment",
+          "device_session",
+          "invitation"
+        ],
+        "title": "AuditTarget",
+        "type": "string"
+      },
+      "AuthOrgCreate": {
+        "additionalProperties": false,
+        "description": "End-user org creation (`POST /api/v1/auth/orgs`).",
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 5000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "slug": {
+            "maxLength": 63,
+            "pattern": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "account_id",
+          "slug",
+          "name"
+        ],
+        "title": "AuthOrgCreate",
+        "type": "object"
+      },
+      "AuthOrgRead": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OrganizationStatus"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "description",
+          "status",
+          "created_at",
+          "updated_at",
+          "roles"
+        ],
+        "title": "AuthOrgRead",
+        "type": "object"
+      },
+      "ErrorBody": {
+        "description": "The error object of every non-2xx JSON response.",
+        "properties": {
+          "code": {
+            "description": "Machine-readable code, e.g. validation_error, unprocessable, not_found, conflict, unauthorized, permission_denied, rate_limited.",
+            "title": "Code",
+            "type": "string"
+          },
+          "details": {
+            "description": "Always present. A list for validation_error and unprocessable, an object for rate_limited and permission_denied, otherwise null.",
+            "title": "Details"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "details"
+        ],
+        "title": "ErrorBody",
+        "type": "object"
+      },
+      "ErrorEnvelope": {
+        "description": "R6: `{\"error\": {\"code\", \"message\", \"details\"}}`.",
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorBody"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "ErrorEnvelope",
+        "type": "object"
+      },
       "ForgotPasswordRequest": {
         "additionalProperties": false,
         "properties": {
@@ -391,17 +784,108 @@
         "title": "ForgotPasswordRequest",
         "type": "object"
       },
-      "HTTPValidationError": {
+      "InvitationAccept": {
+        "additionalProperties": false,
         "properties": {
-          "detail": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "token": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "account_id",
+          "token"
+        ],
+        "title": "InvitationAccept",
+        "type": "object"
+      },
+      "InvitationAccepted": {
+        "properties": {
+          "org_id": {
+            "format": "uuid",
+            "title": "Org Id",
+            "type": "string"
+          },
+          "roles": {
             "items": {
-              "$ref": "#/components/schemas/ValidationError"
+              "type": "string"
             },
-            "title": "Detail",
+            "title": "Roles",
             "type": "array"
           }
         },
-        "title": "HTTPValidationError",
+        "required": [
+          "org_id",
+          "roles"
+        ],
+        "title": "InvitationAccepted",
+        "type": "object"
+      },
+      "InvitationCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "role": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "account_id",
+          "email",
+          "role"
+        ],
+        "title": "InvitationCreate",
+        "type": "object"
+      },
+      "InvitationCreated": {
+        "description": "Identical whatever the target email is (no account/member oracle); never echoes it.",
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "org_id": {
+            "format": "uuid",
+            "title": "Org Id",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "org_id",
+          "role",
+          "expires_at"
+        ],
+        "title": "InvitationCreated",
         "type": "object"
       },
       "JoinPolicy": {
@@ -651,6 +1135,42 @@
         "title": "MePermissions",
         "type": "object"
       },
+      "MyOrgRead": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OrganizationStatus"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "status",
+          "roles"
+        ],
+        "title": "MyOrgRead",
+        "type": "object"
+      },
       "OrgMode": {
         "enum": [
           "none",
@@ -699,6 +1219,18 @@
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
           },
           "description": {
             "anyOf": [
@@ -856,6 +1388,68 @@
         "title": "Page[AssignmentRead]",
         "type": "object"
       },
+      "Page_AuditLogRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AuditLogRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[AuditLogRead]",
+        "type": "object"
+      },
+      "Page_MyOrgRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MyOrgRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[MyOrgRead]",
+        "type": "object"
+      },
       "Page_OrganizationRead_": {
         "properties": {
           "items": {
@@ -951,7 +1545,7 @@
       },
       "PermissionCreate": {
         "additionalProperties": false,
-        "description": "`is_admin` absent or null: false, except `<app>:*` which is always stored `true`.",
+        "description": "`is_admin` absent or null: false, except `<app>:*` and admin-app permissions, which are\nalways stored `true`.",
         "properties": {
           "description": {
             "anyOf": [
@@ -1455,46 +2049,6 @@
         "title": "UserStatusUpdate",
         "type": "object"
       },
-      "ValidationError": {
-        "properties": {
-          "ctx": {
-            "title": "Context",
-            "type": "object"
-          },
-          "input": {
-            "title": "Input"
-          },
-          "loc": {
-            "items": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "integer"
-                }
-              ]
-            },
-            "title": "Location",
-            "type": "array"
-          },
-          "msg": {
-            "title": "Message",
-            "type": "string"
-          },
-          "type": {
-            "title": "Error Type",
-            "type": "string"
-          }
-        },
-        "required": [
-          "loc",
-          "msg",
-          "type"
-        ],
-        "title": "ValidationError",
-        "type": "object"
-      },
       "VerifyEmailRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1543,13 +2097,47 @@
               },
               "application/jwk-set+json": {}
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "304": {
-            "description": "Not modified"
+            "description": "Not modified",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "429": {
-            "description": "Rate limited"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Rate limited",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "summary": "Access-token signing public keys (ADR-0005)",
@@ -1595,23 +2183,73 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid Bearer token"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Missing permission"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1646,23 +2284,92 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid Bearer token"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Missing permission"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Key or origin already taken",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1693,23 +2400,73 @@
         ],
         "responses": {
           "204": {
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid Bearer token"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Missing permission"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1745,23 +2502,73 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid Bearer token"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Missing permission"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1807,23 +2614,92 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid Bearer token"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Missing permission"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Admin app invariant or origin already taken",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1884,23 +2760,73 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid Bearer token"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Missing permission"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1946,23 +2872,73 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid Bearer token"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Missing permission"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2003,23 +2979,73 @@
         ],
         "responses": {
           "204": {
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid Bearer token"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Missing permission"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2075,23 +3101,92 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid Bearer token"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Missing permission"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Held by the default role or by an assigned role",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2129,26 +3224,85 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "304": {
-            "description": "Not modified"
+            "description": "Not modified",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "404": {
-            "description": "Unknown, disabled or `admin` app"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unknown, disabled or `admin` app",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "429": {
-            "description": "Rate limited"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Rate limited",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "summary": "Public role catalog (D17)",
@@ -2188,23 +3342,73 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid Bearer token"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Missing permission"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2245,23 +3449,73 @@
         ],
         "responses": {
           "204": {
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid Bearer token"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Missing permission"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2317,23 +3571,73 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid Bearer token"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Missing permission"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2391,23 +3695,92 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid Bearer token"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Missing permission"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Default/super-admin role rule or role has assignments",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2420,6 +3793,273 @@
           "apps"
         ],
         "x-permission": "admin:roles:manage"
+      }
+    },
+    "/api/v1/audit-logs": {
+      "get": {
+        "operationId": "list_audit_logs_api_v1_audit_logs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "actor_user_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Actor User Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "actor_kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ActorKind"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Actor Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/AuditAction"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Action"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/AuditTarget"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "app_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-z][a-z0-9-]{1,31}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "App Key"
+            }
+          },
+          {
+            "in": "query",
+            "name": "outcome",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/AuditOutcome"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Outcome"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_AuditLogRead_"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List Audit Logs",
+        "tags": [
+          "audit"
+        ],
+        "x-permission": "admin:audit:read"
       }
     },
     "/api/v1/auth/accounts": {
@@ -2442,22 +4082,6 @@
               ],
               "title": "X-Mm-App"
             }
-          },
-          {
-            "in": "header",
-            "name": "origin",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Origin"
-            }
           }
         ],
         "responses": {
@@ -2469,26 +4093,92 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "429": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2531,22 +4221,6 @@
               ],
               "title": "X-Mm-App"
             }
-          },
-          {
-            "in": "header",
-            "name": "origin",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Origin"
-            }
           }
         ],
         "requestBody": {
@@ -2568,19 +4242,92 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "429": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2589,6 +4336,165 @@
           }
         ],
         "summary": "Join App",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/invitations/accept": {
+      "post": {
+        "description": "Accepts with the one-time token from the mail link. The account must be verified and\nsigned in with the invited email address; a token that is unknown, used, expired or\nrevoked gets one 422 `token_invalid`.",
+        "operationId": "accept_invitation_api_v1_auth_invitations_accept_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-MM-App",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mm-App"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvitationAccept"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationAccepted"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "DeviceCookie": []
+          }
+        ],
+        "summary": "Accept Invitation",
         "tags": [
           "auth"
         ]
@@ -2614,22 +4520,6 @@
               ],
               "title": "X-Mm-App"
             }
-          },
-          {
-            "in": "header",
-            "name": "origin",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Origin"
-            }
           }
         ],
         "requestBody": {
@@ -2651,26 +4541,92 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "429": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2704,22 +4660,6 @@
               ],
               "title": "X-Mm-App"
             }
-          },
-          {
-            "in": "header",
-            "name": "origin",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Origin"
-            }
           }
         ],
         "requestBody": {
@@ -2734,23 +4674,73 @@
         },
         "responses": {
           "204": {
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2764,9 +4754,498 @@
         ]
       }
     },
+    "/api/v1/auth/orgs": {
+      "get": {
+        "description": "Orgs where the account holds a role of the calling app (own data only).",
+        "operationId": "list_my_orgs_api_v1_auth_orgs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MM-App",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mm-App"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_MyOrgRead_"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "DeviceCookie": []
+          }
+        ],
+        "summary": "List My Orgs",
+        "tags": [
+          "auth"
+        ]
+      },
+      "post": {
+        "description": "The caller needs the app-scope permission `<app>:org:create`; the creator gets the app's\norg owner role in the new org.",
+        "operationId": "create_org_api_v1_auth_orgs_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-MM-App",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mm-App"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthOrgCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthOrgRead"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "DeviceCookie": []
+          }
+        ],
+        "summary": "Create Org",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/orgs/{org_id}/invitations": {
+      "post": {
+        "description": "The caller needs `<app>:org:invite` in that org and may grant only a role of the app\nthat holds no `is_admin` permission and nothing beyond the caller's own org permissions.\n\nThe same 201 for every target email (no account oracle); the mail is queued after commit\nand the link uses the validated `Origin`. The `admin` app is refused (403).",
+        "operationId": "create_invitation_api_v1_auth_orgs__org_id__invitations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "org_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Org Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MM-App",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mm-App"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvitationCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationCreated"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "DeviceCookie": []
+          }
+        ],
+        "summary": "Create Invitation",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/auth/password/forgot": {
       "post": {
-        "description": "Public (R3 class 3: per-IP limit + Turnstile) + required app context (owner 2026-11-13):\n`X-MM-App` of an active app and an `Origin` registered for it (403 otherwise).\n\nAlways 202 for any email (no enumeration); per-email limits are silent. The reset link\nuses the validated `Origin`; the email is queued after the commit.",
+        "description": "Public (R3 class 3: per-IP limit + Turnstile) + required app context (owner 2026-11-13):\n`X-MM-App` of an active app and an `Origin` registered for it (403 otherwise).\n`X-MM-App: admin` gets the same 403 (ADM-002d).\n\nAlways 202 for any email (no enumeration); per-email limits are silent. The reset link\nuses the validated `Origin`; the email is queued after the commit.",
         "operationId": "forgot_password_api_v1_auth_password_forgot_post",
         "parameters": [
           {
@@ -2784,15 +5263,6 @@
               ],
               "title": "X-Mm-App"
             }
-          },
-          {
-            "in": "header",
-            "name": "origin",
-            "required": true,
-            "schema": {
-              "title": "Origin",
-              "type": "string"
-            }
           }
         ],
         "requestBody": {
@@ -2807,16 +5277,73 @@
         },
         "responses": {
           "202": {
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "429": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "summary": "Forgot Password",
@@ -2841,13 +5368,54 @@
         },
         "responses": {
           "204": {
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "429": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "summary": "Reset Password",
@@ -2858,7 +5426,7 @@
     },
     "/api/v1/auth/signup": {
       "post": {
-        "description": "Public by design (R3 class 3): per-IP rate limit + Turnstile, plus the required app\ncontext: `X-MM-App` of an active app and an `Origin` registered for it (403 otherwise,\nbefore any account is created).\n\nThe verification link uses the validated `Origin`; the email is queued after the commit.",
+        "description": "Public by design (R3 class 3): per-IP rate limit + Turnstile, plus the required app\ncontext: `X-MM-App` of an active app and an `Origin` registered for it (403 otherwise,\nbefore any account is created). `X-MM-App: admin` gets the same 403 (ADM-002d).\n\nThe verification link uses the validated `Origin`; the email is queued after the commit.",
         "operationId": "signup_api_v1_auth_signup_post",
         "parameters": [
           {
@@ -2875,15 +5443,6 @@
                 }
               ],
               "title": "X-Mm-App"
-            }
-          },
-          {
-            "in": "header",
-            "name": "origin",
-            "required": true,
-            "schema": {
-              "title": "Origin",
-              "type": "string"
             }
           }
         ],
@@ -2906,19 +5465,92 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "409": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "429": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "summary": "Signup",
@@ -2947,22 +5579,6 @@
               ],
               "title": "X-Mm-App"
             }
-          },
-          {
-            "in": "header",
-            "name": "origin",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Origin"
-            }
           }
         ],
         "requestBody": {
@@ -2984,19 +5600,92 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "429": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3026,13 +5715,54 @@
         },
         "responses": {
           "204": {
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "429": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "summary": "Verify Email",
@@ -3043,7 +5773,7 @@
     },
     "/api/v1/auth/verify-email/resend": {
       "post": {
-        "description": "Cookie class (R3 class 2): `__Host-mm_device` + Origin + `X-MM-App`.\n\nThe route-level `AppContextDep` comes before `DeviceDep`, so a bad app context answers\n403 before any device lookup or cookie rotation, even if `get_link_origin` changes.",
+        "description": "Cookie class (R3 class 2): `__Host-mm_device` + Origin + `X-MM-App`.\n\nThe route-level `AppContextDep` comes before `DeviceDep`, so a bad app context\nanswers 403 before any device lookup or cookie rotation.\n`X-MM-App: admin` is accepted for staff only (USR-12); others get 403.",
         "operationId": "resend_verification_api_v1_auth_verify_email_resend_post",
         "parameters": [
           {
@@ -3061,15 +5791,6 @@
               ],
               "title": "X-Mm-App"
             }
-          },
-          {
-            "in": "header",
-            "name": "origin",
-            "required": true,
-            "schema": {
-              "title": "Origin",
-              "type": "string"
-            }
           }
         ],
         "requestBody": {
@@ -3084,22 +5805,111 @@
         },
         "responses": {
           "202": {
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "409": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "429": {
-            "description": "Error envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3125,10 +5935,35 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid Bearer token"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3179,23 +6014,73 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid Bearer token"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Missing permission"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3230,23 +6115,73 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid Bearer token"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Missing permission"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3278,23 +6213,73 @@
         ],
         "responses": {
           "204": {
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid Bearer token"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Missing permission"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3331,23 +6316,73 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid Bearer token"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Missing permission"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3394,23 +6429,73 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid Bearer token"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Missing permission"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3496,23 +6581,73 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid Bearer token"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Missing permission"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3551,23 +6686,73 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid Bearer token"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Missing permission"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3614,26 +6799,92 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid Bearer token"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Missing permission"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "409": {
-            "description": "Last active super-admin"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Last active super-admin",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3712,23 +6963,73 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid Bearer token"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Missing permission"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3775,23 +7076,73 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid Bearer token"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Missing permission"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3833,26 +7184,92 @@
         ],
         "responses": {
           "204": {
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid Bearer token"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Missing permission"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "409": {
-            "description": "Last active super-admin"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Last active super-admin",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3883,7 +7300,16 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "summary": "Liveness",
@@ -3908,7 +7334,16 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "summary": "Readiness",
