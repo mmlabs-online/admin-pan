@@ -193,7 +193,7 @@ describe('AppJoinRequestsTab', () => {
     await expect.element(sheet.getByText('Showing 1–20 of 25')).toBeVisible()
   })
 
-  it('page clamp: an empty page 2 falls back to the last page that exists', async () => {
+  it('page clamp: an empty page 2 with total 20 makes the tab request offset 0', async () => {
     let total = 21
     const { client, seen } = fakeApi(
       server((req) => {
@@ -220,6 +220,99 @@ describe('AppJoinRequestsTab', () => {
         new URL(r.url).searchParams.get('offset')
       )
     ).toEqual(['0', '20', '0'])
+  })
+
+  it('page clamp: an empty page with total 21 at offset 20 does not loop or refetch', async () => {
+    const { client, seen } = fakeApi(
+      server((req) => {
+        const offset = Number(new URL(req.url).searchParams.get('offset'))
+        return json(
+          joinRequestsPage(offset >= 20 ? [] : JOIN_REQUESTS, 21, 20, offset)
+        )
+      })
+    )
+    const screen = await renderApps(client)
+    const sheet = await openTab(screen, 'stoktok')
+    await userEvent.click(sheet.getByRole('button', { name: 'Next' }))
+    await expect
+      .element(sheet.getByRole('cell', { name: 'No pending join requests.' }))
+      .toBeVisible()
+    const n = listCalls(seen, 'stoktok').length
+    await new Promise((r) => setTimeout(r, 300))
+    expect(listCalls(seen, 'stoktok')).toHaveLength(n)
+    expect(n).toBe(2)
+  })
+
+  it('an empty display_name falls back to the email without a sub-line', async () => {
+    const { client } = fakeApi(
+      server(() =>
+        json(
+          joinRequestsPage([
+            {
+              ...JOIN_REQUESTS[0],
+              display_name: '  ',
+              email: 'blank@people.test',
+            },
+          ])
+        )
+      )
+    )
+    const screen = await renderApps(client)
+    const sheet = await openTab(screen, 'stoktok')
+    await expect.element(sheet.getByText('blank@people.test')).toBeVisible()
+    expect(sheet.getByText('blank@people.test').elements()).toHaveLength(1)
+    await expect
+      .element(sheet.getByRole('button', { name: 'Approve blank@people.test' }))
+      .toBeVisible()
+  })
+
+  it('pager buttons use aria-disabled and stay focusable; a disabled click does nothing', async () => {
+    const { client, seen } = fakeApi(
+      server((req) => {
+        const offset = Number(new URL(req.url).searchParams.get('offset'))
+        return json(joinRequestsPage(JOIN_REQUESTS, 25, 20, offset))
+      })
+    )
+    const screen = await renderApps(client)
+    const sheet = await openTab(screen, 'stoktok')
+    const prev = sheet.getByRole('button', { name: 'Previous' })
+    await expect.element(prev).toHaveAttribute('aria-disabled', 'true')
+    expect(prev.element().hasAttribute('disabled')).toBe(false)
+    const calls = listCalls(seen, 'stoktok').length
+    ;(prev.element() as HTMLElement).click()
+    expect(listCalls(seen, 'stoktok')).toHaveLength(calls)
+    ;(prev.element() as HTMLElement).focus()
+    expect(document.activeElement).toBe(prev.element())
+    await userEvent.click(sheet.getByRole('button', { name: 'Next' }))
+    await expect.element(sheet.getByText('Showing 21–25 of 25')).toBeVisible()
+    const next = sheet.getByRole('button', { name: 'Next' })
+    await expect.element(next).toHaveAttribute('aria-disabled', 'true')
+    expect(next.element().hasAttribute('disabled')).toBe(false)
+    const after = listCalls(seen, 'stoktok').length
+    ;(next.element() as HTMLElement).click()
+    await new Promise((r) => setTimeout(r, 200))
+    expect(listCalls(seen, 'stoktok')).toHaveLength(after)
+  })
+
+  it('a polite status announces the result count after the filter changes', async () => {
+    const { client } = fakeApi(
+      server((req) =>
+        new URL(req.url).searchParams.get('status') === 'approved'
+          ? json(joinRequestsPage([]))
+          : json(joinRequestsPage(JOIN_REQUESTS))
+      )
+    )
+    const screen = await renderApps(client)
+    const sheet = await openTab(screen, 'stoktok')
+    const live = sheet.getByText('3 pending join requests found.')
+    await expect.element(live).toBeInTheDocument()
+    expect(live.element().getAttribute('role')).toBe('status')
+    expect(live.element().className).toContain('sr-only')
+    await userEvent.click(sheet.getByRole('combobox', { name: 'Status' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Approved' }))
+    await expect
+      .element(sheet.getByText('0 approved join requests found.'))
+      .toBeInTheDocument()
   })
 
   it('only admin:users:read: rows shown, no Approve/Reject, permission note', async () => {

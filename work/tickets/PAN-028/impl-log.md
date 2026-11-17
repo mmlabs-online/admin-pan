@@ -54,3 +54,25 @@ None.
 ### Scope self-check
 - Could the diff be smaller? No: each file is listed in the plan.
 - Diff size: not measured (the directory is not a git repository here); roughly 900 lines including tests.
+
+## Attempt 2 (REWORK)
+
+### Fixed
+- Review blocker 1: the render-time page clamp now calls `setOffset` only when the target differs from the current offset (no "Too many re-renders" for `{items: [], total: 21}` at offset 20).
+- Review blocker 2: the clamp test is replaced by two: empty page 2 with total 20 -> tab requests offset 0 (offsets `0,20,0`); empty page with total 21 at offset 20 -> no crash, empty row shown, no extra request.
+- Security 1: `requesterLabel(r)` (`display_name?.trim() || email`) in `data/data.ts`, used by the tab (row text, title, button aria-labels) and the dialog; the email sub-line shows only for a non-blank name. Test: blank display_name falls back to the email, one occurrence, Approve label uses the email.
+- Security 2: `joinRequestDecisionError` shows fixed copy for every unmapped status (403 still returns the forbidden alert); `errors.test.ts` 422 case updated.
+- a11y 1: pager Previous/Next use `aria-disabled` (with disabled styling) and ignore clicks; test checks no `disabled` attribute, focusable, and a click sends no request. Note: Playwright `userEvent.click` refuses aria-disabled elements, so the test clicks the DOM element.
+- a11y 3: an always-mounted `sr-only` `role=status aria-live=polite` paragraph outside the swapped region announces "N <status> join request(s) found." once loaded; test covers pending -> approved filter change.
+- a11y 2 (conditional): not changed; the focus-to-heading unit/e2e tests were not flaky in any run.
+
+### Observation (not changed)
+- The pager unmounts while a new page loads (the query has no keepPreviousData, by design in queries.ts), so focus on Next is lost on page change regardless of aria-disabled. Follow-up if wanted.
+
+### Checks
+- pnpm typecheck, pnpm lint, pnpm format:check: clean
+- pnpm test: 91 files, 680 tests passed
+- `pnpm test src/features/apps` x5: 4 runs fully green (130/130); 1 run had one failure in the unrelated `app-status-dialog.test.tsx` "disable" test (15 s timeout, passed in the other 4 runs and in the full run).
+- pnpm build: built
+- pnpm e2e (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium): 27 passed
+- Not committed (per instruction).

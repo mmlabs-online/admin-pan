@@ -4,6 +4,7 @@ import { ConfirmDialog } from '@/components/confirm-dialog'
 import { ForbiddenPanel } from '@/components/forbidden-panel'
 import { useDecideJoinRequestMutation } from '../api/queries'
 import { type App, type JoinRequest } from '../data/app-schema'
+import { requesterLabel } from '../data/data'
 import { joinRequestDecisionError } from '../data/errors'
 import { useApps } from './apps-provider'
 
@@ -48,9 +49,9 @@ export function AppJoinRequestDecisionDialog({
   const failure = mutation.isError
     ? joinRequestDecisionError(mutation.error)
     : null
-  const who = request.display_name ? (
+  const who = request.display_name?.trim() ? (
     <>
-      {request.display_name} ({request.email})
+      {requesterLabel(request)} ({request.email})
     </>
   ) : (
     request.email

@@ -312,6 +312,8 @@ describe('joinRequestDecisionError', () => {
     expect(text(err(403, 'permission_denied'))).toBe('forbidden')
     for (const e of [apiErr('network', 0), apiErr('http', 502)])
       expect(text(e)).toContain("couldn't confirm the decision")
-    expect(text(err(422, 'validation_error'))).toBe('server text')
+    expect(text(err(422, 'validation_error'))).toBe(
+      'The API refused this decision. Refresh the list and try again.'
+    )
   })
 })

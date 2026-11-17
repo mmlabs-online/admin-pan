@@ -48,6 +48,12 @@ export function joinRequestStatusLabel(status: string): string {
   )
 }
 
+/** Name when it has visible text, else the email. */
+export const requesterLabel = (r: {
+  display_name?: string | null
+  email: string
+}): string => r.display_name?.trim() || r.email
+
 // Key segments of apps, roles and permissions: lowercase, digits, hyphens.
 export const KEY_SEGMENT_PATTERN = /^[a-z][a-z0-9-]*$/
 

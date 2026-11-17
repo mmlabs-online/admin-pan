@@ -295,5 +295,9 @@ export function joinRequestDecisionError(error: unknown): AppAlert {
       DECISION_409[firstReason(error) ?? ''] ??
         'The API refused this decision. Refresh the list and try again.'
     )
-  return fallback(error)
+  if (isForbidden(error))
+    return { kind: 'forbidden', copy: forbiddenCopy(error) }
+  return message(
+    'The API refused this decision. Refresh the list and try again.'
+  )
 }

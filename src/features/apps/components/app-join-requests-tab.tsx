@@ -33,6 +33,7 @@ import {
   joinPolicyLabels,
   joinRequestStatusLabel,
   joinRequestStatusOptions,
+  requesterLabel,
 } from '../data/data'
 import { AppJoinRequestDecisionDialog } from './app-join-request-decision-dialog'
 import { useApps } from './apps-provider'
@@ -77,13 +78,14 @@ export function AppJoinRequestsTab({ app }: { app: App }) {
 
   // After the last row of the last page is decided, step back to a page that
   // exists (React re-renders at once; no effect needed).
-  if (q.isSuccess && offset !== 0 && !q.data.items.length)
-    setOffset(
+  if (q.isSuccess && offset !== 0 && !q.data.items.length) {
+    const target =
       q.data.total > 0
         ? Math.floor((q.data.total - 1) / JOIN_REQUESTS_PAGE_SIZE) *
-            JOIN_REQUESTS_PAGE_SIZE
+          JOIN_REQUESTS_PAGE_SIZE
         : 0
-    )
+    if (target !== offset) setOffset(target)
+  }
 
   const total = q.data?.total ?? 0
   const from = total ? offset + 1 : 0
@@ -91,7 +93,7 @@ export function AppJoinRequestsTab({ app }: { app: App }) {
   const pending = status === 'pending'
 
   const actionButton = (r: JoinRequest, decision: Decision) => {
-    const label = r.display_name ?? r.email
+    const label = requesterLabel(r)
     const key = `${r.id}:${decision}`
     return (
       <Button
@@ -155,6 +157,12 @@ export function AppJoinRequestsTab({ app }: { app: App }) {
         </Select>
       </div>
 
+      <p role='status' aria-live='polite' className='sr-only'>
+        {q.isSuccess
+          ? `${total} ${status} join ${total === 1 ? 'request' : 'requests'} found.`
+          : ''}
+      </p>
+
       {view.status === 'forbidden' ? (
         <ForbiddenPanel variant='inline' copy={view.copy} />
       ) : view.status === 'pending' ? (
@@ -188,14 +196,11 @@ export function AppJoinRequestsTab({ app }: { app: App }) {
                   view.data.items.map((r) => (
                     <TableRow key={r.id}>
                       <TableCell className='max-w-64'>
-                        <div
-                          className='truncate'
-                          title={r.display_name ?? r.email}
-                        >
-                          {r.display_name ?? r.email}
+                        <div className='truncate' title={requesterLabel(r)}>
+                          {requesterLabel(r)}
                           {r.user_id === selfId && ' (you)'}
                         </div>
-                        {r.display_name && (
+                        {r.display_name?.trim() && (
                           <div
                             className='truncate text-xs text-muted-foreground'
                             title={r.email}
@@ -283,18 +288,24 @@ export function AppJoinRequestsTab({ app }: { app: App }) {
                 <Button
                   size='sm'
                   variant='outline'
-                  disabled={offset === 0}
-                  onClick={() =>
+                  className='aria-disabled:cursor-not-allowed aria-disabled:opacity-50'
+                  aria-disabled={offset === 0}
+                  onClick={() => {
+                    if (offset === 0) return
                     setOffset((o) => Math.max(0, o - JOIN_REQUESTS_PAGE_SIZE))
-                  }
+                  }}
                 >
                   Previous
                 </Button>
                 <Button
                   size='sm'
                   variant='outline'
-                  disabled={to >= total}
-                  onClick={() => setOffset((o) => o + JOIN_REQUESTS_PAGE_SIZE)}
+                  className='aria-disabled:cursor-not-allowed aria-disabled:opacity-50'
+                  aria-disabled={to >= total}
+                  onClick={() => {
+                    if (to >= total) return
+                    setOffset((o) => o + JOIN_REQUESTS_PAGE_SIZE)
+                  }}
                 >
                   Next
                 </Button>
