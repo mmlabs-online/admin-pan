@@ -58,11 +58,7 @@ export type AuthenticatedRouteId = Extract<
 >
 
 export const ROUTE_PERMISSIONS = {
-  '/_authenticated/': {
-    kind: 'pending',
-    ticket: 'PAN-020',
-    reason: 'No stats API (spec §5.7 gap)',
-  },
+  '/_authenticated/': perm('admin:stats:read', 'GET /api/v1/stats/dashboard'),
   '/_authenticated/users/': perm('admin:users:read', 'GET /api/v1/users'),
   '/_authenticated/organizations/': perm(
     'admin:organizations:read',

@@ -200,6 +200,40 @@ export interface paths {
         patch: operations["update_permission_api_v1_apps__key__permissions__permission_id__patch"];
         trace?: never;
     };
+    "/api/v1/apps/{key}/role-definitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Role Definitions */
+        get: operations["list_role_definitions_api_v1_apps__key__role_definitions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/apps/{key}/role-definitions/{role_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Role Definition */
+        get: operations["get_role_definition_api_v1_apps__key__role_definitions__role_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/apps/{key}/roles": {
         parameters: {
             query?: never;
@@ -307,7 +341,8 @@ export interface paths {
          * @description Cookie class (R3 class 2): `__Host-mm_device` + Origin + `X-MM-App`; `{key}` must be the
          *     calling app. "Continue as <account>" is the consent (D8). 200 for a new or an existing
          *     membership (idempotent); 202 `pending` + `request_id` on an `approval` app (idempotent);
-         *     403 `join_rejected` inside the cooldown after a rejection.
+         *     403 `join_rejected` inside the cooldown after a rejection; 403 `join_queue_full` when the
+         *     app's pending queue is at its cap (`join_available` does not reflect this).
          */
         post: operations["join_app_api_v1_auth_apps__key__join_post"];
         delete?: never;
@@ -760,14 +795,14 @@ export interface paths {
         };
         /**
          * List a user's active account sessions
-         * @description List a user's active account sessions. Revoking sessions stops the user from getting **new** access tokens (`/auth/token` -> 401 `session_invalid`). It does **not** end tokens already issued, including admin (`aud=admin`) tokens: they stay valid until `exp`, at most `ACCESS_TOKEN_TTL_SECONDS` (12 h in production) plus 30 s leeway. It also does not stop a new sign-in with the password. IP and user agent are recorded when the browser first signed in and are shared by every account on that browser.
+         * @description List a user's active account sessions. Revoking sessions stops the user from getting **new** access tokens (`/auth/token` -> 401 `session_invalid`) and ends the user's admin (`aud=admin`) tokens bound to those sessions on their next admin request. Tokens of other apps stay valid until `exp`, at most `ACCESS_TOKEN_TTL_SECONDS` (12 h in production) plus 30 s leeway. It does not stop a new sign-in with the password. IP and user agent are recorded when the browser first signed in and are shared by every account on that browser.
          */
         get: operations["list_user_sessions_api_v1_users__user_id__sessions_get"];
         put?: never;
         post?: never;
         /**
          * Revoke all account sessions of a user, on every device
-         * @description Revoke all account sessions of a user, on every device. Revoking sessions stops the user from getting **new** access tokens (`/auth/token` -> 401 `session_invalid`). It does **not** end tokens already issued, including admin (`aud=admin`) tokens: they stay valid until `exp`, at most `ACCESS_TOKEN_TTL_SECONDS` (12 h in production) plus 30 s leeway. It also does not stop a new sign-in with the password. IP and user agent are recorded when the browser first signed in and are shared by every account on that browser.
+         * @description Revoke all account sessions of a user, on every device. Revoking sessions stops the user from getting **new** access tokens (`/auth/token` -> 401 `session_invalid`) and ends the user's admin (`aud=admin`) tokens bound to those sessions on their next admin request. Tokens of other apps stay valid until `exp`, at most `ACCESS_TOKEN_TTL_SECONDS` (12 h in production) plus 30 s leeway. It does not stop a new sign-in with the password. IP and user agent are recorded when the browser first signed in and are shared by every account on that browser.
          */
         delete: operations["revoke_all_user_sessions_api_v1_users__user_id__sessions_delete"];
         options?: never;
@@ -787,7 +822,7 @@ export interface paths {
         post?: never;
         /**
          * Revoke one account session of a user
-         * @description Revoke one account session of a user. Revoking sessions stops the user from getting **new** access tokens (`/auth/token` -> 401 `session_invalid`). It does **not** end tokens already issued, including admin (`aud=admin`) tokens: they stay valid until `exp`, at most `ACCESS_TOKEN_TTL_SECONDS` (12 h in production) plus 30 s leeway. It also does not stop a new sign-in with the password. IP and user agent are recorded when the browser first signed in and are shared by every account on that browser.
+         * @description Revoke one account session of a user. Revoking sessions stops the user from getting **new** access tokens (`/auth/token` -> 401 `session_invalid`) and ends the user's admin (`aud=admin`) tokens bound to those sessions on their next admin request. Tokens of other apps stay valid until `exp`, at most `ACCESS_TOKEN_TTL_SECONDS` (12 h in production) plus 30 s leeway. It does not stop a new sign-in with the password. IP and user agent are recorded when the browser first signed in and are shared by every account on that browser.
          */
         delete: operations["revoke_user_session_api_v1_users__user_id__sessions__session_id__delete"];
         options?: never;
@@ -1061,7 +1096,7 @@ export interface components {
          * AuditAction
          * @enum {string}
          */
-        AuditAction: "organization.created" | "organization.updated" | "organization.deleted" | "organization.invitation_created" | "organization.invitation_accepted" | "organization.invitation_revoked" | "user.created" | "user.disabled" | "user.enabled" | "user.session_revoked" | "user.sessions_revoked" | "app.created" | "app.updated" | "app.deleted" | "app.registered" | "app.admin_origins_set" | "app.joined" | "app.join_requested" | "app.join_request_approved" | "app.join_request_rejected" | "app_credential.issued" | "app_credential.revoked" | "app.manifest_synced" | "entitlement.granted" | "entitlement.updated" | "entitlement.revoked" | "permission.created" | "permission.updated" | "permission.deleted" | "role.created" | "role.updated" | "role.deleted" | "role.permissions_replaced" | "role_assignment.granted" | "role_assignment.revoked" | "email_retention.purged" | "audit_log.purged" | "auth.login_succeeded" | "auth.login_failed" | "auth.logged_out" | "auth.logged_out_all" | "device_session.reuse_revoked" | "auth.password_reset_completed" | "auth.email_verified";
+        AuditAction: "organization.created" | "organization.updated" | "organization.deleted" | "organization.invitation_created" | "organization.invitation_accepted" | "organization.invitation_revoked" | "user.created" | "user.disabled" | "user.enabled" | "user.session_revoked" | "user.sessions_revoked" | "app.created" | "app.updated" | "app.deleted" | "app.registered" | "app.admin_origins_set" | "app.joined" | "app.join_requested" | "app.join_request_approved" | "app.join_request_rejected" | "app.join_request_cancelled" | "app_credential.issued" | "app_credential.revoked" | "app.manifest_synced" | "entitlement.granted" | "entitlement.updated" | "entitlement.revoked" | "permission.created" | "permission.updated" | "permission.deleted" | "role.created" | "role.updated" | "role.deleted" | "role.permissions_replaced" | "role_assignment.granted" | "role_assignment.revoked" | "email_retention.purged" | "join_request_retention.purged" | "audit_log.purged" | "auth.login_succeeded" | "auth.login_failed" | "auth.logged_out" | "auth.logged_out_all" | "device_session.reuse_revoked" | "auth.password_reset_completed" | "auth.email_verified";
         /** AuditLogRead */
         AuditLogRead: {
             /** Action */
@@ -1789,6 +1824,17 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** Page[RoleDefinitionRead] */
+        Page_RoleDefinitionRead_: {
+            /** Items */
+            items: components["schemas"]["RoleDefinitionRead"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
         /** Page[UserRead] */
         Page_UserRead_: {
             /** Items */
@@ -1905,6 +1951,48 @@ export interface components {
             key: string;
             /** Name */
             name: string;
+        };
+        /**
+         * RoleDefinitionRead
+         * @description Staff read model of a role (USR-16): any app, `admin` and disabled ones included.
+         */
+        RoleDefinitionRead: {
+            /** App */
+            app: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Is Default
+             * @description This role is the app's default role (apps.default_role_id).
+             */
+            is_default: boolean;
+            /** Is System */
+            is_system: boolean;
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Permissions */
+            permissions: string[];
+            /**
+             * Privileged
+             * @description App is `admin`, or the role holds a permission with is_admin. Granting or revoking it needs admin:* (ADR-0008 G4). UI hint; the server enforces on every write.
+             */
+            privileged: boolean;
+            /**
+             * Updated At
+             * Format: date-time
+             * @description Last change to the role row (e.g. name); permission changes do not bump it.
+             */
+            updated_at: string;
         };
         /**
          * RolePermissionsReplace
@@ -2462,7 +2550,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Admin app invariant or origin already taken */
+            /** @description Admin app invariant, origin already taken, or org_mode in use */
             409: {
                 headers: {
                     /** @description Server-generated request id (UUID4); quote it to support. */
@@ -2673,7 +2761,7 @@ export interface operations {
     list_join_requests_api_v1_apps__key__join_requests_get: {
         parameters: {
             query?: {
-                status?: "pending" | "approved" | "rejected";
+                status?: "pending" | "approved" | "rejected" | "cancelled";
                 limit?: number;
                 offset?: number;
             };
@@ -3180,6 +3268,124 @@ export interface operations {
             };
             /** @description Held by the default role or by an assigned role */
             409: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    list_role_definitions_api_v1_apps__key__role_definitions_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_RoleDefinitionRead_"];
+                };
+            };
+            /** @description Missing or invalid Bearer token */
+            401: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Missing permission */
+            403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    get_role_definition_api_v1_apps__key__role_definitions__role_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+                role_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleDefinitionRead"];
+                };
+            };
+            /** @description Missing or invalid Bearer token */
+            401: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Missing permission */
+            403: {
                 headers: {
                     /** @description Server-generated request id (UUID4); quote it to support. */
                     "X-Request-ID"?: string;

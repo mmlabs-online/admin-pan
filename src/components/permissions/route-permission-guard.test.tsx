@@ -54,10 +54,27 @@ describe('RoutePermissionGate', () => {
     await expect.element(granted.getByText('The page')).toBeInTheDocument()
   })
 
+  it('`/` without admin:stats:read renders the fallback; with it renders the page', async () => {
+    const denied = await render(
+      <WithPermissions granted={[]}>{gate('/_authenticated/')}</WithPermissions>
+    )
+    await expect
+      .element(denied.getByText('Denied: admin:stats:read'))
+      .toBeInTheDocument()
+    await expect.element(denied.getByText('The page')).not.toBeInTheDocument()
+    await denied.unmount()
+
+    const granted = await render(
+      <WithPermissions granted={['admin:stats:read']}>
+        {gate('/_authenticated/')}
+      </WithPermissions>
+    )
+    await expect.element(granted.getByText('The page')).toBeInTheDocument()
+  })
+
   it('a none or pending route renders under a deny-all source', async () => {
     for (const id of [
       '/_authenticated/settings/account',
-      '/_authenticated/',
       '/_authenticated/reports/',
     ]) {
       const screen = await render(
