@@ -92,3 +92,55 @@ None. `security-review.md` and `a11y-review.md` (attempt 1) report no 🔴 items
 
 ### Follow-ups (out of scope)
 - As in impl-log: `users-table.tsx:118` `aria-busy={q.isFetching}`; `role-holders-sheet.tsx` status regions; unescaped selectors in `apps-dialogs.tsx` and `app-permissions-tab.tsx`; org-admin-api optimistic concurrency for `PUT …/roles/{id}/permissions`; PAN-015b 💭 items.
+
+## Attempt 2 — 2026-11-18
+Verdict: PASS
+
+Reviewed commit 2c2bd67 (changes since a9b48bc) against origin/main.
+
+### Checks (run by reviewer)
+- pnpm typecheck: clean (`tsc -b`)
+- pnpm lint: clean
+- pnpm format:check: "All matched files use Prettier code style!"
+- pnpm test (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium), run 1: Test Files 115 passed (115), Tests 973 passed (973). Run 2: same. This matches impl-log.
+- pnpm build: "built in 1.27s"
+- pnpm e2e: 30 passed (1.6m)
+
+### Mutation checks (each change applied alone, the named tests run, then restored with `git checkout HEAD --`)
+| Mutation | Result |
+|---|---|
+| Dark `--input` back to `oklch(1 0 0 / 15%)` (`theme.css:54`) | theme-contrast FAILS: "expected 1.4420265630548335 to be greater than or equal to 3". Issue 1 is fixed |
+| `send()` guard reduced to `if (inFlight.current) return` | "no PUT when the role refetch fails during confirm" FAILS (1 failed, 18 passed). Issue 2 is fixed |
+| `searchInvalid={rejected}` (no term check) in both tables | Both "422 marks the search input invalid…" tests FAIL |
+| Button base ring back to `focus-visible:ring-ring/50` | "buttons use a full-opacity focus ring" FAILS |
+| `forbidden = false` in `role-permissions-dialog.tsx:151` | "403 on the role refetch during confirm does not say Loading" FAILS |
+
+Baseline theme-contrast: 6 passed. The new pinned compositor case covers the alpha blend directly.
+
+### Attempt 1 issues
+- Issue 1 🔴 (alpha composited in linear light): fixed. `theme-contrast.test.ts` now blends in gamma-encoded sRGB, and the pinned case `oklch(1 0 0 / 15%)` < 3:1 is mutation-proven above.
+- Issue 2 🔴 (no test discriminates the readiness guard): fixed. The test now asserts that no "role changed" alert appears and that "Remove and save" remains, and it is mutation-proven.
+- Issue 3 🟡 (inaccurate before-fix evidence): fixed. The Attempt 2 impl-log corrects the "dark ring 2.63:1" claim and records the real before-fix failures. I reproduced the dark-input failure value exactly.
+- Nits addressed: the CSS.escape test now spies on `console.error` and the window `error` event, and asserts none fired. The Choose fallback is singular (`assign-pickers.tsx:189`, e.g. "Choose organization 2"); no test pins the fallback text, which is acceptable for a nit.
+
+### Acceptance criteria
+Every criterion has evidence: the Attempt 1 evidence still holds and the full suite is green. 1b and 2g are now met (mutation table above), and 5 is met, since every fix has a discriminating test.
+
+### Scope
+- `src/components/ui/button.tsx` is outside the plan. impl-log justifies it under Out-of-plan files: the a11y reviewer flagged it 🟡 in Attempt 1. It changes one class and has a guard test. Accepted.
+- Every other changed `src/` file is in the plan.
+- `role-permissions-dialog.tsx` adds a `forbidden` reason. This is a small correctness fix inside the planned file, it is tested, and it is noted in impl-log.
+
+### Rules R1–R11
+No violations. No HTTP is added (R1/R2), there are no new sinks (R6), the guards and confirm snapshot are intact (R9), and the a11y fixes are tested (R10).
+
+### Security / a11y
+- `security-review.md` Attempt 2: no blockers and nothing should-fix.
+- `a11y-review.md` Attempt 2: no blockers and one new 🟡. The destructive button variant (`button.tsx:14`) keeps `focus-visible:ring-destructive/20` / `dark:…/40`, which twMerge lets override the new base ring. This problem predates PAN-030; base and variant were both faint before. Fixing it would widen the scope of a shared primitive beyond the plan. It is recorded as a follow-up and does not block.
+
+### Nits (do not block)
+- 💭 `noun.replace(/s$/, '')` is fine for 'users'/'organizations'. A `singular` prop would be sturdier if irregular nouns are added later.
+
+### Follow-ups (out of scope)
+- The destructive button variant focus ring (`button.tsx:14`, and `badge.tsx:16` for `[a&]`): use `focus-visible:ring-ring` and extend the theme-contrast class assertion to forbid `ring-destructive/` (a11y-review Attempt 2 🟡 1).
+- Carried over from Attempt 1: `users-table.tsx:118` `aria-busy={q.isFetching}`; `role-holders-sheet.tsx` status regions; unescaped selectors in `apps-dialogs.tsx` / `app-permissions-tab.tsx`; org-admin-api optimistic concurrency for `PUT …/roles/{id}/permissions`; the PAN-015b 💭 items.

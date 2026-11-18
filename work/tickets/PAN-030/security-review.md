@@ -70,3 +70,44 @@ I read the full `git diff origin/main...HEAD`. I did not run the checks: my mode
 ## Follow-ups (outside PAN-030 scope, R7)
 - The same unescaped-selector pattern still exists in `/home/user/admin-pan/src/features/apps/components/apps-dialogs.tsx:12-20` and `/home/user/admin-pan/src/features/apps/components/app-permissions-tab.tsx:40-44`. Share one `focusByData()` helper there; PAN-031 may already cover this, so check it.
 - Lost update on the full-replace `PUT …/roles/{id}/permissions`: the snapshot check only narrows the window on this client. Propose an org-admin-api ticket for optimistic concurrency (ETag/If-Match or a version field) if one isn't already planned.
+
+## Attempt 2
+
+## PAN-030 security re-review, attempt 2 (`a9b48bc..HEAD`, commit 2c2bd67)
+
+**Verdict: no blockers and nothing should-fix. Both Attempt 1 💭 items are resolved, and the rework did not weaken the `send()` guard, the snapshot check, the DISABLE/ENABLE copy, or the no-unsafe-rendering status.**
+
+I read the whole source diff since a9b48bc and the surrounding code in `role-permissions-dialog.tsx`. I did not run the checks: in this mode I can only run `make check`, and this repo uses pnpm. So whether R8 checks are green is still for the reviewer to confirm.
+
+### Attempt 1 items
+
+1. **💭1, the CSS.escape test now watches for errors. Resolved.**
+   - In `/home/user/admin-pan/src/features/roles/components/roles-table.test.tsx:470-492`, the test spies on `console.error` and adds a `window` `error` listener before opening Rename.
+   - After the focus check it asserts there were no `console.error` calls and no window errors, then cleans both up.
+   - Minor: the cleanup is not in a `finally`, so if an earlier assertion fails the spy and listener stay installed. That only affects later tests in the same file, not product code.
+
+2. **💭2, a 403 during confirm no longer shows "Loading…". Resolved.**
+   - In `/home/user/admin-pan/src/features/roles/components/role-permissions-dialog.tsx:151-167`, `forbidden` is excluded from `waiting`. `confirmReason` now says "You no longer have access to this role."
+   - On the edit step, a 403 now gives no "Loading…" reason. The Save button keeps `aria-disabled` (`!ready`, line 326), and the ForbiddenPanel explains why in the body.
+   - **No PUT is still guaranteed.** A 403 refetch puts `roleQ` in an error state, so `fresh` is false (line 79), which makes `ready` false. `confirmBlocked` (line 159) and the early return in `send()` (line 106) both depend on `!ready`.
+   - The new test (`role-permissions-dialog.test.tsx:476-500`) checks that the button is `aria-disabled`, that its accessible description is the new text, and that zero writes happened.
+
+3. **💭3, the confirm list comes from live `base`.** Not changed. That is acceptable: it was optional hardening, and the snapshot check still prevents any wrong write.
+
+### Regression check
+- **`send()` guard and snapshot:** lines 105-118 are unchanged. `confirmBlocked` is unchanged. The "refetch fails during confirm" test now also asserts that no stale-role alert appears and that the confirm button is still there.
+- **DISABLE/ENABLE copy:** `src/features/users/data/status.ts` and its guard test are not touched by this diff.
+- **Unsafe rendering:** none added. No `dangerouslySetInnerHTML`, `innerHTML`, data-driven `href`, storage, logging or `fetch`.
+  - The new aria-label fallback in `/home/user/admin-pan/src/features/users/components/assign-pickers.tsx:189` changes only the fallback after `toPlainLabel` (`noun.replace(/s$/, '')`). `noun` is a constant, not API data, and the bidi/control stripping still applies first.
+- **Other changes, no security impact:**
+  - `searchInvalid={rejected && Boolean(term)}` in `apps-table.tsx:146` and `organizations-table.tsx:146` only changes the `aria-invalid` state.
+  - The `button.tsx` focus-ring class change is styling only.
+  - The `theme-contrast.test.ts` changes are test-only (sRGB compositing, plus a `?raw` import of `button.tsx`).
+
+## Findings
+- **💭** `/home/user/admin-pan/src/features/roles/components/role-permissions-dialog.test.tsx:476-500`: the 403 test asserts zero writes but never clicks "Remove and save" after the 403. The guard is correct by code inspection (lines 79, 83, 106). To prove it at runtime too, add `press(confirm)`, a short wait, then `expect(writes(seen)).toHaveLength(0)`, the same way the refetch-failure test does.
+- **💭** `/home/user/admin-pan/src/features/roles/components/roles-table.test.tsx:488-491`: move the `mockRestore()` and `removeEventListener` calls into `try/finally` (or `afterEach`) so a failing assertion cannot leave them installed. This is test hygiene only.
+
+## Follow-ups (outside PAN-030, unchanged from attempt 1)
+- The same unescaped selector is still in `/home/user/admin-pan/src/features/apps/components/apps-dialogs.tsx:12-20` and `/home/user/admin-pan/src/features/apps/components/app-permissions-tab.tsx:40-44`. A shared `focusByData()` helper would fix both; PAN-031 may already cover it.
+- Updates can still be lost on the full-replace `PUT …/roles/{id}/permissions`. Propose an org-admin-api ticket for optimistic concurrency (ETag/If-Match or a version field).

@@ -66,3 +66,41 @@ Relevant files:
 - `/home/user/admin-pan/src/features/roles/components/role-permissions-dialog.tsx`
 - `/home/user/admin-pan/src/features/roles/components/roles-row-actions.tsx`
 - `/home/user/admin-pan/src/features/roles/index.tsx`
+
+## Attempt 2
+
+PAN-030 a11y re-review, attempt 2 (WCAG 2.2 AA). I read the diff `a9b48bc..HEAD` and did not run axe, a screen reader or `pnpm test`. There are no 🔴 blockers. Both Attempt 1 🟡 findings are fixed, but the button fix does not cover the destructive variant, which leaves one new 🟡.
+
+**Attempt 1 findings**
+- 🟡 Button focus ring (1.4.11 / 2.4.7): fixed for default, outline, secondary, ghost and link.
+  - `src/components/ui/button.tsx:7` now has `focus-visible:ring-ring` at full opacity.
+  - `--ring` is `oklch(0.446 …)` in light (`src/styles/theme.css:20`, about 7:1 on white) and `oklch(0.704 …)` in dark (`theme.css:55`, well above 3:1).
+  - `theme-contrast.test.ts` pins the full-opacity class.
+  - `--input` is unchanged, and the test now blends alpha in gamma-encoded sRGB as browsers do.
+- 🟡 422 `aria-invalid` (3.3.1): fixed. `apps-table.tsx:146` and `organizations-table.tsx:146` set `searchInvalid={rejected && Boolean(term)}`. `aria-describedby` still points at the alert whenever `rejected` is true, so the message stays linked. The tests cover empty search, then typing a term.
+
+**New finding**
+1. 🟡 Destructive button variant keeps a near-invisible focus ring (2.4.7 Focus Visible, 1.4.11 Non-text Contrast).
+   - Location: `src/components/ui/button.tsx:14`.
+   - The variant sets `focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40`. twMerge lets these override the new base `ring-ring`, so the ring is 20% opacity in light mode and 40% in dark, far below 3:1.
+   - Destructive buttons have no `border` class, so the `border-ring` on focus does nothing. The effective indicator is that faint ring.
+   - This is not a regression, since the old base was `/50`, but the Attempt 1 fix leaves this variant out.
+   - It affects a changed screen: the Remove button at `role-permissions-dialog.tsx:302` uses `variant='destructive'`.
+   - It also affects `reports-row-actions.tsx`, `nav-user.tsx`, `profile-dropdown.tsx` and `config-drawer.tsx`.
+   - Fix: in the destructive variant, replace those two ring classes with `focus-visible:ring-ring`, or add `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring`.
+   - Also extend the `theme-contrast.test.ts` button assertion to forbid `ring-destructive/`. `badge.tsx:16` has the same pattern, but it only matters if the badge is focusable (`[a&]`).
+
+**Other changes in the diff**
+- `role-permissions-dialog.tsx` now treats a `forbidden` view as non-waiting and shows "You no longer have access to this role." as the confirm reason. That is better than an indefinite "Loading…" (4.1.3), and nothing regressed.
+- `assign-pickers.tsx` changes the fallback label to "Choose app 1". The accessible name is still unique and explicit.
+
+**Follow-ups**
+- Fix the destructive focus ring, or record it as a shared-primitive bug.
+- Run axe on `/apps`, `/organizations` and `/roles` when PAN-023 lands.
+
+Files:
+- /home/user/admin-pan/src/components/ui/button.tsx
+- /home/user/admin-pan/src/styles/theme.css
+- /home/user/admin-pan/src/features/apps/components/apps-table.tsx
+- /home/user/admin-pan/src/features/organizations/components/organizations-table.tsx
+- /home/user/admin-pan/src/features/roles/components/role-permissions-dialog.tsx
