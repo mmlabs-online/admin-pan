@@ -34,7 +34,7 @@ Phases: **1. UI with mock data** (PAN-001…008, done) → **2. Foundations** (P
 | PAN-017 | User sessions: list and revoke | DONE | P2 | api, ui, security | 1 | 2026-11-17 |
 | PAN-018 | Organization members and invitations | BACKLOG | P3 | api, ui | 0 | 2026-11-11 |
 | PAN-019 | Org product entitlements screen | DONE | P2 | ui, api | 1 | 2026-11-17 |
-| PAN-020 | Dashboard stats on the real API | REVIEW | P3 | api, ui | 1 | 2026-11-11 |
+| PAN-020 | Dashboard stats on the real API | DONE | P3 | api, ui | 1 | 2026-11-18 |
 | PAN-021 | Reports on the real API | BACKLOG | P3 | api, ui | 0 | 2026-11-11 |
 | PAN-022 | Release and deploy to admin-portal.mmlabs.online | DONE | P2 | architecture, security | 1 | 2026-11-16 |
 | PAN-023 | End-to-end smoke tests | DONE | P2 | ui, a11y | 1 | 2026-11-17 |

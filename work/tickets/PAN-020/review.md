@@ -95,3 +95,59 @@ None provided to the reviewer for this attempt.
   - the BUG (S2) for the sessions revoke copy in `src/features/users/data/sessions.ts` after USR-14;
   - org-admin-api: previous-period values, a daily sign-in series, an active-only unverified count / `email_verified` filter, per-app `status` in `members_per_app`, an org `status` filter, documenting `Cache-Control: no-store`, and seeding `admin:stats:read`;
   - admin-pan: the recent-activity card, attention links for suspended/unverified, the join-request UI for `cancelled`, a role-definitions screen, the README refresh-types block, and `X-Request-ID` on `ApiError`.
+
+## Attempt 2 — 2026-11-18
+Verdict: PASS
+
+Checked against HEAD `6834c32` (the attempt-2 commit). The working tree was clean before and after every run (`git diff --quiet` was clean, and `git status --short` was empty apart from git-ignored `__screenshots__`).
+
+### Checks (run by reviewer, `PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium`)
+- pnpm typecheck: pass (exit 0)
+- pnpm lint: pass (exit 0)
+- pnpm format:check: pass ("All matched files use Prettier code style!")
+- `pnpm test src/features/dashboard` x3: 5 files, 22/22 passed on each run.
+- pnpm test (full) x5: 97 files, 740/740 passed on every run, all with exit 0.
+  - **Flake:** I did not reproduce impl-log's single unidentified failure in 5 full runs, so it stays unidentified.
+  - The dashboard tests passed 8 times in a row with no failure (3 targeted runs plus 5 full runs).
+  - The attempt-2 diff only touches `src/features/dashboard`.
+  - I judge it unrelated to this diff. No evidence ties it to PAN-020.
+- pnpm build: pass (built in 1.16s)
+- pnpm e2e: 28 passed. This includes the dashboard axe entry on the fake stats API, now with the h2 headings and the dashed partial bar.
+
+### Blocker from Attempt 1 (Issue 1): fixed
+- **The fix:** `src/features/dashboard/components/dashboard-content.test.tsx:283` adds a 200 ms settle after the DOM click, before `expect(seen).toHaveLength(2)` at `:284`.
+- **Reviewer mutation:** I changed `if (!q.isFetching) void q.refetch()` to `void q.refetch()` (`dashboard-content.tsx:47`).
+  - The test **fails**: "Refresh: … a second click sends no extra request", with "AssertionError: expected [ Request{}, Request{}, Request{} ] to have a length of 2 but got 3" at `dashboard-content.test.tsx:284:17`.
+  - Result of that run: 1 failed / 21 passed.
+  - Restored with `git checkout -- <file>`. `git diff --quiet` was clean afterwards, and the guarded code then passed 22/22 x3.
+  - This matches the mutation impl-log records.
+
+### a11y-review Attempt 1 fixes
+- **🟡 2 (heading semantics): fixed.** The three section titles are now real headings:
+  - `dashboard-content.tsx:98-103` "New sign-ups", `:121-126` "Needs attention", `:138-143` "Members per app".
+  - Each is an `<h2 data-slot='card-title' className='leading-none font-semibold'>`, the same classes and slot as `CardTitle` (`src/components/ui/card.tsx:33-34`), so there is no visual change and `components/ui` is not edited.
+  - The order is h1 "Dashboard" (`index.tsx:22`), then h2 sections, with KPI labels unchanged as planned.
+- **🟡 1 (partial bar, 1.4.11): fixed.**
+  - `charts.tsx:63-70`: the partial `Cell` now has `fillOpacity` 0.6 plus `stroke='currentColor' strokeDasharray='4'`.
+  - `currentColor` comes from the wrapper's `text-muted-foreground` (`charts.tsx:49`): about 4.8:1 on white, and far higher in dark. That is a non-colour, ≥3:1 cue.
+  - The partial month is still stated in text as well.
+- **💭 3 (link name whitespace): fixed.**
+  - `attention-list.tsx:25` adds `{' '}` between the label and count spans. It is visually inert in the `flex justify-between` row (`:8-9`).
+  - Pinned by the updated expectation `dashboard-content.test.tsx:198`: "Failed sign-ins (last 24 h) 0, open in the audit log".
+
+### Acceptance criteria
+- Every criterion from Attempt 1 still holds. The "states tested" criterion is now met because its Refresh claim is verified by the mutation above.
+- No acceptance-relevant production logic changed in attempt 2. It touches markup and presentation only.
+
+### Scope / rules
+- **Scope:** attempt 2 touches exactly the 4 source files named in the review and a11y findings, plus workflow state (`work/backlog.md`, `ticket.md`, `impl-log.md`). There are no out-of-plan changes.
+- **R1–R11:** nothing new. There are no HTML sinks, no new data paths and no permission changes.
+- **Security review:** Attempt 1 had no 🔴. Its 🟡 (the session copy in `src/features/users`) is a follow-up and is untouched by this diff, which is correct under R7.
+
+### Nits (do not block)
+- No unit test asserts the new heading semantics, for example `getByRole('heading', { level: 2, name: 'New sign-ups' })` in `dashboard-content.test.tsx`. The e2e axe run covers structure only indirectly.
+- The 200 ms fixed wait at `dashboard-content.test.tsx:283` is time-based. It is reliable here (8/8 green, and the mutation shows red), but `expect.poll` over a short window or `vi.waitFor` with a negative check would be less arbitrary.
+- The Attempt 1 nits are still open and optional: the "Refreshing…" label during the initial load, and the a11y 💭 4–7.
+
+### Follow-ups (out of scope)
+- Unchanged from Attempt 1. Also carry over the a11y follow-ups (axe on the loading/403 states and a dark-theme run, and a shared heading-capable `CardTitle`) and the security follow-ups (session revocation copy bug, the `cancelled` join-request option, the `generated_at` validity guard).
