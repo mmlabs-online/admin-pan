@@ -51,7 +51,7 @@ APP_ENV=local ADMIN_USERS_API_ENABLED=true ADMIN_RBAC_API_ENABLED=true \
 pnpm api:types   # commit both files
 ```
 
-Snapshot: org-admin-api main (`4c01328`) as of 2026-11-15, users and RBAC flags on.
+Snapshot: org-admin-api main (`c7b86dd`) as of 2026-11-18, generated with `python -m app.cli openapi`.
 
 ## How we work
 

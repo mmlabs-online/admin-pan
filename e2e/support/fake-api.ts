@@ -15,6 +15,7 @@ type AppCredentialRead = components['schemas']['AppCredentialRead']
 type JoinRequestRead = components['schemas']['JoinRequestRead']
 type UserSessionRead = components['schemas']['UserSessionRead']
 type MePermissions = components['schemas']['MePermissions']
+type DashboardStats = components['schemas']['DashboardStats']
 
 /** The fake API origin baked into the bundle by `.env.e2e`; never resolved. */
 export const API_ORIGIN = 'https://api.e2e.test'
@@ -98,6 +99,41 @@ const APPS: AppRead[] = [
     origins: ['https://stoktok.mmlabs.online', 'http://localhost:5173'],
   }),
 ]
+// Consistent with USERS / ORGS / APPS. Months are fixed (no Date) so runs are stable.
+const STATS: DashboardStats = {
+  generated_at: '2026-11-18T03:00:00Z',
+  users: { total: 3, by_status: { active: 2, disabled: 1 }, unverified: 0 },
+  organizations: { total: 3, by_status: { active: 2, suspended: 1 } },
+  apps: { total: 3, by_status: { active: 3, disabled: 0 } },
+  sign_ins_24h: {
+    window_start: '2026-11-17T03:00:00Z',
+    window_end: '2026-11-18T03:00:00Z',
+    succeeded: 4,
+    failed: 1,
+  },
+  sign_ups: {
+    time_zone: 'Asia/Ho_Chi_Minh',
+    by_month: [
+      '2025-12',
+      '2026-01',
+      '2026-02',
+      '2026-03',
+      '2026-04',
+      '2026-05',
+      '2026-06',
+      '2026-07',
+      '2026-08',
+      '2026-09',
+      '2026-10',
+      '2026-11',
+    ].map((month, i) => ({ month, count: i + 1 })),
+  },
+  members_per_app: APPS.map((a) => ({
+    app_key: a.key,
+    name: a.name,
+    member_count: a.member_count,
+  })),
+}
 const permission = (
   n: number,
   key: string,
@@ -253,6 +289,7 @@ export async function installFakeApi(context: BrowserContext) {
     'GET /api/v1/organizations': ({ query }) => json(200, page(ORGS, query)),
     'GET /api/v1/audit-logs': ({ query }) => json(200, page(AUDIT_LOGS, query)),
     'GET /api/v1/apps': ({ query }) => json(200, page(APPS, query)),
+    'GET /api/v1/stats/dashboard': () => json(200, STATS),
   }
   // User detail and role assignments (empty), so the user sheet opens.
   for (const u of USERS) {

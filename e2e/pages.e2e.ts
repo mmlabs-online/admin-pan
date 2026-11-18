@@ -32,7 +32,12 @@ const pages: {
     id: 'dashboard',
     path: '/',
     heading: 'Dashboard',
-    action: (p) => selectTab(p, 'Activity'),
+    action: async (p) => {
+      await p.getByText('Show data as table').first().click()
+      await expect(
+        p.getByRole('cell', { name: 'Nov 2026 (partial)' })
+      ).toBeVisible()
+    },
   },
   {
     id: 'reports',

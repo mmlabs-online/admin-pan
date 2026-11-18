@@ -52,8 +52,8 @@ Read-only, filterable list (actor, action, target, time) with before/after detai
 API: **org-admin-api ADM-004** (backlog).
 
 ### §5.7 Dashboard and reports
-Dashboard: KPIs (users, active orgs, apps, sign-ins), sign-up and sign-in trends, members per app, items needing attention, recent admin activity. Reports: define, run and export operational reports (see Q7).
-API: none yet — **gap** (stats and reports endpoints).
+Dashboard: KPIs (users, active orgs, registered apps, sign-ins in the last 24 h) with factual breakdowns from the API (e.g. "N active · M disabled"), new accounts per month (last 12 months), members per app, and items needing attention (unverified emails, suspended organizations, failed sign-ins in the last 24 h). The dashboard (`/`) requires `admin:stats:read`; without it staff see the 403 page (owner, 2026-11-18). Not in v1 (owner, 2026-11-18, PAN-020): change vs a previous period, a daily sign-in series, recent admin activity — follow-ups for org-admin-api / a later ticket. Reports: define, run and export operational reports (see Q7).
+API: `GET /api/v1/stats/dashboard` (`admin:stats:read`) — **org-admin-api ADM-015** (done). Reports: **gap** (ADM-017 proposed).
 
 ### §5.6 Org product entitlements
 Enable/disable a product for an org, set plan/limits.
@@ -88,4 +88,4 @@ API: **org-admin-api ADM-006** (backlog).
 
 All tickets are in [`work/backlog.md`](../work/backlog.md). Phase 1 (screens on mock data) is done; the rest waits on org-admin-api endpoints, except PAN-009.
 
-API gaps to raise in org-admin-api (no ticket there yet): admin sessions list/revoke, dashboard stats, reports, member count per app.
+API gaps to raise in org-admin-api (no ticket there yet): admin sessions list/revoke, reports.

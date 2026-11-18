@@ -1,26 +1,29 @@
 import { describe, expect, it } from 'vitest'
 import { render } from 'vitest-browser-react'
-import { kpis } from '../data/stats'
-import { formatChange } from '../lib/format'
+import { toKpis } from '../data/view'
 import { KpiCards } from './kpi-cards'
-
-describe('formatChange', () => {
-  it('formats positive, negative and zero changes', () => {
-    expect(formatChange(8.24)).toBe('+8.2%')
-    expect(formatChange(-4.1)).toBe('-4.1%')
-    expect(formatChange(0)).toBe('0%')
-  })
-})
+import { STATS } from './test-data'
 
 describe('KpiCards', () => {
-  it('renders one card per KPI with a formatted value', async () => {
-    const screen = await render(<KpiCards items={kpis} />)
-    await expect
-      .element(screen.getByText('Users', { exact: true }))
-      .toBeInTheDocument()
-    await expect.element(screen.getByText('1,284')).toBeInTheDocument()
-    await expect
-      .element(screen.getByText('Sign-ins (24 h)'))
-      .toBeInTheDocument()
+  it('renders four cards with label, formatted value and the detail sub-line; no trend', async () => {
+    const screen = await render(<KpiCards items={toKpis(STATS)} />)
+    for (const [label, value, detail] of [
+      ['Users', '1,284', '1,200 active · 84 disabled'],
+      ['Active organizations', '57', '4 suspended · 61 total'],
+      ['Registered apps', '9', '8 active · 1 disabled'],
+      ['Sign-ins (24 h)', '342', '19 failed'],
+    ]) {
+      await expect
+        .element(screen.getByText(label, { exact: true }))
+        .toBeInTheDocument()
+      await expect
+        .element(screen.getByText(value, { exact: true }))
+        .toBeInTheDocument()
+      await expect
+        .element(screen.getByText(detail, { exact: true }))
+        .toBeInTheDocument()
+    }
+    expect(screen.container.textContent).not.toContain('%')
+    expect(screen.container.textContent).not.toContain('vs ')
   })
 })
