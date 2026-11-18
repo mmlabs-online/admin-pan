@@ -178,6 +178,10 @@ export const ACTIONS = {
     'admin:users:read',
     'GET /api/v1/users/{user_id}/role-assignments'
   ),
+  'roles.viewHolders': perm(
+    'admin:users:read',
+    'GET /api/v1/apps/{key}/role-definitions/{role_id}/assignments'
+  ),
   'roles.assign': perm(
     'admin:roles:assign',
     'POST /api/v1/users/{user_id}/role-assignments'

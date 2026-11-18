@@ -6,12 +6,17 @@ import { renderHook } from 'vitest-browser-react'
 import {
   PERMISSIONS,
   ROLES,
+  OPERATOR_ID,
   VIEWER_ID,
   pageOf,
   role,
 } from '../components/test-data'
 import {
+  HOLDERS_GC_TIME_MS,
+  HOLDERS_PAGE_SIZE,
+  allRoleDefinitionsQueryOptions,
   appAllPermissionsQueryOptions,
+  roleHoldersQueryOptions,
   roleDefinitionQueryOptions,
   roleDefinitionsQueryOptions,
   rolesKeys,
@@ -92,6 +97,86 @@ describe('role queries', () => {
         queryKey: rolesKeys.list('calechip', { limit: 10, offset: 0 }),
       })
     ).toBeUndefined()
+  })
+
+  it("rolesKeys.holdersOf(app) = [...all(app),'holders']; holders(app,id,p) is under it and holds only ids and paging", () => {
+    expect(rolesKeys.holdersOf('stoktok')).toEqual([
+      ...rolesKeys.all('stoktok'),
+      'holders',
+    ])
+    const key = rolesKeys.holders('stoktok', VIEWER_ID, {
+      limit: 20,
+      offset: 0,
+    })
+    expect(key.slice(0, 5)).toEqual(rolesKeys.holdersOf('stoktok'))
+    expect(JSON.stringify(key)).not.toContain('@')
+    expect(rolesKeys.allDefinitions('stoktok').slice(0, 4)).toEqual(
+      rolesKeys.all('stoktok')
+    )
+  })
+
+  it('roleHoldersQueryOptions: GET …/role-definitions/{id}/assignments?limit=20&offset=0; gcTime 5000; placeholder kept only for the same app and role', async () => {
+    const { client, seen } = fakeApi(() => json(pageOf([], 20, 0)))
+    const options = roleHoldersQueryOptions(
+      'stoktok',
+      VIEWER_ID,
+      { limit: HOLDERS_PAGE_SIZE, offset: 0 },
+      client
+    )
+    await new QueryClient().fetchQuery(options)
+    expect(seen[0].url).toBe(
+      `https://api.test/api/v1/apps/stoktok/role-definitions/${VIEWER_ID}/assignments?limit=20&offset=0`
+    )
+    expect(options.gcTime).toBe(HOLDERS_GC_TIME_MS)
+    expect(HOLDERS_GC_TIME_MS).toBe(5000)
+    const placeholder = options.placeholderData as (
+      prev: unknown,
+      q: { queryKey: readonly unknown[] } | undefined
+    ) => unknown
+    const q = (app: string, id: string) => ({
+      queryKey: rolesKeys.holders(app, id, { limit: 20, offset: 20 }),
+    })
+    expect(placeholder('p', q('stoktok', VIEWER_ID))).toBe('p')
+    expect(placeholder('p', q('stoktok', OPERATOR_ID))).toBeUndefined()
+    expect(placeholder('p', q('calechip', VIEWER_ID))).toBeUndefined()
+  })
+
+  it('allRoleDefinitionsQueryOptions pages limit=100 until total (130 -> offset 0 and 100); the page cap throws invalid_response', async () => {
+    const all = Array.from({ length: 130 }, (_, i) =>
+      role(
+        'stoktok',
+        `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
+        `r${i}`
+      )
+    )
+    const { client, seen } = fakeApi((req) => {
+      const q = new URL(req.url).searchParams
+      return json(pageOf(all, Number(q.get('limit')), Number(q.get('offset'))))
+    })
+    const items = await new QueryClient().fetchQuery(
+      allRoleDefinitionsQueryOptions('stoktok', client)
+    )
+    expect(items).toHaveLength(130)
+    expect(seen.map((r) => new URL(r.url).search)).toEqual([
+      '?limit=100&offset=0',
+      '?limit=100&offset=100',
+    ])
+
+    // A server that always claims more rows hits the page cap.
+    const endless = fakeApi((req) => {
+      const offset = Number(new URL(req.url).searchParams.get('offset'))
+      return json({
+        items: [ROLES.stoktok[0]],
+        total: offset + 2,
+        limit: 100,
+        offset,
+      })
+    })
+    await expect(
+      new QueryClient().fetchQuery(
+        allRoleDefinitionsQueryOptions('stoktok', endless.client)
+      )
+    ).rejects.toMatchObject({ code: 'invalid_response' })
   })
 
   it('all-permissions query pages with limit=100 until total (130 -> 2 requests, offset 0 and 100) and returns all items', async () => {

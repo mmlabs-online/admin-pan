@@ -10,6 +10,7 @@ type RolesDialogType =
   | 'permissions'
   | 'delete'
   | 'default'
+  | 'holders'
 
 type RolesContextType = {
   api: ApiClient

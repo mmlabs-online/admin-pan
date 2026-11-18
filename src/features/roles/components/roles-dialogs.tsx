@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { RoleCreateDialog } from './role-create-dialog'
 import { RoleDefaultDialog } from './role-default-dialog'
 import { RoleDeleteDialog } from './role-delete-dialog'
+import { RoleHoldersSheet } from './role-holders-sheet'
 import { RolePermissionsDialog } from './role-permissions-dialog'
 import { RoleRenameDialog } from './role-rename-dialog'
 import { useRoles } from './roles-provider'
@@ -74,6 +75,14 @@ export function RolesDialogs() {
             app={app}
             currentRow={currentRow}
             open={open === 'permissions'}
+            onOpenChange={closeWithRow}
+            returnFocus={() => focusOpener(currentRow.key)}
+          />
+          <RoleHoldersSheet
+            key={`role-holders-${currentRow.id}`}
+            app={app}
+            role={currentRow}
+            open={open === 'holders'}
             onOpenChange={closeWithRow}
             returnFocus={() => focusOpener(currentRow.key)}
           />

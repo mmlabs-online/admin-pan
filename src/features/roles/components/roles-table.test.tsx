@@ -1,7 +1,7 @@
 import { apiError, fakeApi, json } from '@/test-utils/api'
 import { describe, expect, it } from 'vitest'
 import { userEvent } from 'vitest/browser'
-import { OPERATOR_ID, ROLES, pageOf, role } from './test-data'
+import { OPERATOR_ID, ROLES, VIEWER_ID, pageOf, role } from './test-data'
 import { renderRoles, rolesServer } from './test-fixtures'
 
 const path = (r: Request) => new URL(r.url).pathname
@@ -371,5 +371,57 @@ describe('RolesTable', () => {
     await expect
       .poll(() => seen.filter((r) => r.method === 'DELETE').map(path))
       .toEqual([`/api/v1/apps/stoktok/roles/${OPERATOR_ID}`])
+  })
+
+  it('the Assignments item is shown with admin:users:read, hidden when denied; it opens the holders sheet', async () => {
+    const base = rolesServer(noWrite)
+    const { client, seen } = fakeApi((req) =>
+      path(req).endsWith('/assignments') ? json(pageOf([])) : base(req)
+    )
+    const screen = await renderRoles(client, {
+      search: { app: 'stoktok' },
+      granted: ['admin:apps:read', 'admin:users:read'],
+    })
+    await expect.element(screen.getByText('stoktok:viewer')).toBeVisible()
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Actions for stoktok:viewer' })
+    )
+    await userEvent.click(screen.getByRole('menuitem', { name: /Assignments/ }))
+    await expect
+      .element(
+        screen.getByRole('heading', {
+          name: 'Assignments of Viewer (stoktok:viewer)',
+        })
+      )
+      .toBeVisible()
+    await expect
+      .element(screen.getByText('No one holds this role.'))
+      .toBeVisible()
+    expect(
+      seen.filter((r) => path(r).endsWith('/assignments')).map(path)
+    ).toEqual([
+      `/api/v1/apps/stoktok/role-definitions/${VIEWER_ID}/assignments`,
+    ])
+    await userEvent.keyboard('{Escape}')
+    await expect
+      .element(
+        screen.getByRole('button', { name: 'Actions for stoktok:viewer' })
+      )
+      .toHaveFocus()
+
+    await screen.unmount()
+    const denied = await renderRoles(client, {
+      search: { app: 'stoktok' },
+      granted: ['admin:apps:read'],
+    })
+    await userEvent.click(
+      denied.getByRole('button', { name: 'Actions for stoktok:viewer' })
+    )
+    await expect
+      .element(denied.getByRole('menuitem', { name: /Permissions/ }))
+      .toBeVisible()
+    await expect
+      .element(denied.getByRole('menuitem', { name: /Assignments/ }))
+      .not.toBeInTheDocument()
   })
 })

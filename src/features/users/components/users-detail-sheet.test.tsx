@@ -12,7 +12,7 @@ import { WithPermissions } from '@/test-utils/permissions'
 import { describe, expect, it } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { page, userEvent } from 'vitest/browser'
-import { type RoleAssignment, type User } from '../data/schema'
+import { type User } from '../data/schema'
 import { UsersDialogs } from './users-dialogs'
 import { UsersProvider } from './users-provider'
 import { UsersTable } from './users-table'
@@ -26,21 +26,6 @@ const ALICE: User = {
   created_at: '2026-01-15T08:30:00Z',
   updated_at: '2026-02-01T10:00:00Z',
 }
-const ORG = '7d1f0c52-9a3b-4e6f-8c21-5b4a3d2e1f00'
-
-const assignment = (over: Partial<RoleAssignment>): RoleAssignment => ({
-  id: '11111111-1111-4111-8111-111111111111',
-  app: 'stoktok',
-  role_id: '22222222-2222-4222-8222-222222222222',
-  role_key: 'member',
-  org_id: null,
-  expires_at: null,
-  active: true,
-  granted_by: null,
-  created_at: '2026-03-01T00:00:00Z',
-  ...over,
-})
-
 type Respond = (path: string) => Response | Promise<Response>
 
 function setup(respond: Respond) {
@@ -131,100 +116,15 @@ describe('UsersDetailSheet', () => {
       .toBeVisible()
   })
 
-  it('assignments: loading status shows while the user fields render', async () => {
-    const { client } = setup((path) =>
-      path === USER_PATH ? json(ALICE) : new Promise<Response>(() => {})
-    )
-    const sheet = await openDetails(client)
-    await expect
-      .element(sheet.getByText('Loading role assignments…'))
-      .toBeVisible()
-    await expect.element(sheet.getByText(ALICE.id)).toBeVisible()
-  })
-
-  it('assignments: rows with app-wide and org scope, expiry and Inactive', async () => {
-    const { client } = setup((path) =>
-      path === USER_PATH
-        ? json(ALICE)
-        : json({
-            items: [
-              assignment({}),
-              assignment({
-                id: '33333333-3333-4333-8333-333333333333',
-                app: 'admin',
-                role_key: 'viewer',
-                org_id: ORG,
-                expires_at: '2030-01-01T00:00:00Z',
-                active: false,
-              }),
-            ],
-            total: 2,
-            limit: 100,
-            offset: 0,
-          })
-    )
-    const sheet = await openDetails(client)
-    const table = sheet.getByRole('table', { name: 'Apps & roles' })
-    await expect.element(table.getByText('stoktok')).toBeVisible()
-    await expect.element(table.getByText('App-wide')).toBeVisible()
-    await expect.element(table.getByText('Never')).toBeVisible()
-    await expect.element(table.getByText(ORG)).toBeVisible()
-    await expect.element(table.getByText('viewer')).toBeVisible()
-    await expect.element(table.getByText('Inactive')).toBeVisible()
-    await expect
-      .element(table.getByText('Active', { exact: true }))
-      .toBeVisible()
-    await expect
-      .element(table.getByRole('columnheader', { name: 'Expires' }))
-      .toBeVisible()
-  })
-
-  it('assignments: empty', async () => {
+  it('Apps & roles section renders inside Details', async () => {
     const { client } = setup((path) =>
       path === USER_PATH ? json(ALICE) : emptyPage()
     )
     const sheet = await openDetails(client)
-    await expect.element(sheet.getByText('No role assignments.')).toBeVisible()
-  })
-
-  it('assignments: error shows an alert with Retry and keeps the user fields', async () => {
-    const { client } = setup((path) =>
-      path === USER_PATH ? json(ALICE) : apiError(500, 'internal_error')
-    )
-    const sheet = await openDetails(client)
     await expect
-      .element(sheet.getByRole('alert'))
-      .toHaveTextContent("Couldn't load role assignments.")
-    await expect
-      .element(sheet.getByRole('button', { name: 'Retry' }))
+      .element(sheet.getByRole('heading', { name: 'Apps & roles' }))
       .toBeVisible()
-    await expect.element(sheet.getByText(ALICE.id)).toBeVisible()
-  })
-
-  it('assignments: 403 shows an inline panel and keeps the user fields', async () => {
-    const { client } = setup((path) =>
-      path === USER_PATH ? json(ALICE) : apiError(403, 'permission_denied')
-    )
-    const sheet = await openDetails(client)
-    await expect
-      .element(sheet.getByRole('alert'))
-      .toHaveTextContent("You don't have permission to do this")
-    await expect.element(sheet.getByText(ALICE.id)).toBeVisible()
-  })
-
-  it('assignments: total 130 with 100 items shows "Showing 100 of 130"', async () => {
-    const items = Array.from({ length: 100 }, (_, i) =>
-      assignment({
-        id: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
-      })
-    )
-    const { client } = setup((path) =>
-      path === USER_PATH
-        ? json(ALICE)
-        : json({ items, total: 130, limit: 100, offset: 0 })
-    )
-    const sheet = await openDetails(client)
-    await expect.element(sheet.getByText('Showing 100 of 130')).toBeVisible()
+    await expect.element(sheet.getByText('No role assignments.')).toBeVisible()
   })
 
   it('has no Preview badge or sample data', async () => {

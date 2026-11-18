@@ -2,9 +2,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fakeApi, apiError, json } from '@/test-utils/api'
 import { describe, expect, it, vi } from 'vitest'
 import { renderHook } from 'vitest-browser-react'
+import { rolesKeys } from '@/features/roles/api/queries'
 import {
+  PICKER_GC_TIME_MS,
   SESSIONS_GC_TIME_MS,
+  orgPickerQueryOptions,
   toUsersListParams,
+  useAssignRoleMutation,
+  useRevokeAssignmentMutation,
+  userPickerQueryOptions,
   userQueryOptions,
   userRoleAssignmentsQueryOptions,
   userSessionsQueryOptions,
@@ -100,14 +106,59 @@ describe('users queries', () => {
     ).rejects.toMatchObject({ name: 'ApiError', status: 404 })
   })
 
-  it('userRoleAssignmentsQueryOptions sends GET .../role-assignments?limit=100&offset=0', async () => {
+  it("userRoleAssignmentsQueryOptions sends GET …/role-assignments?limit=20&offset=40; key ['users','detail',id,'role-assignments',{limit,offset}]", async () => {
     const { client, seen } = fakeApi(() => json(page))
-    await new QueryClient().fetchQuery(
-      userRoleAssignmentsQueryOptions(ID, client)
+    const options = userRoleAssignmentsQueryOptions(
+      ID,
+      { limit: 20, offset: 40 },
+      client
     )
+    await new QueryClient().fetchQuery(options)
     expect(seen[0].url).toBe(
-      `https://api.test/api/v1/users/${ID}/role-assignments?limit=100&offset=0`
+      `https://api.test/api/v1/users/${ID}/role-assignments?limit=20&offset=40`
     )
+    expect(options.queryKey).toEqual([
+      'users',
+      'detail',
+      ID,
+      'role-assignments',
+      { limit: 20, offset: 40 },
+    ])
+    const placeholder = options.placeholderData as (
+      prev: unknown,
+      q: { queryKey: readonly unknown[] } | undefined
+    ) => unknown
+    expect(placeholder('p', { queryKey: options.queryKey })).toBe('p')
+    expect(
+      placeholder('p', {
+        queryKey: usersKeys.roleAssignments('other', { limit: 20, offset: 0 }),
+      })
+    ).toBeUndefined()
+  })
+
+  it('userPickerQueryOptions: GET /users?email=ann&limit=10&offset=0; no placeholderData; gcTime 5000', async () => {
+    const { client, seen } = fakeApi(() => json(page))
+    const options = userPickerQueryOptions('ann', client)
+    await new QueryClient().fetchQuery(options)
+    expect(seen[0].url).toBe(
+      'https://api.test/api/v1/users?email=ann&limit=10&offset=0'
+    )
+    expect(options.placeholderData).toBeUndefined()
+    expect(options.gcTime).toBe(PICKER_GC_TIME_MS)
+    expect(PICKER_GC_TIME_MS).toBe(5000)
+  })
+
+  it("orgPickerQueryOptions: GET /organizations?q=ac&limit=10&offset=0; key under ['organizations']", async () => {
+    const { client, seen } = fakeApi(() => json(page))
+    const options = orgPickerQueryOptions('ac', client)
+    await new QueryClient().fetchQuery(options)
+    const url = new URL(seen[0].url)
+    expect(url.pathname).toBe('/api/v1/organizations')
+    expect(url.searchParams.get('q')).toBe('ac')
+    expect(url.searchParams.get('limit')).toBe('10')
+    expect(url.searchParams.get('offset')).toBe('0')
+    expect(options.queryKey[0]).toBe('organizations')
+    expect(options.placeholderData).toBeUndefined()
   })
 
   it('list 403 surfaces ApiError 403', async () => {
@@ -236,5 +287,157 @@ describe('session revoke mutations', () => {
     expect(h.invalidate).toHaveBeenCalledWith({
       queryKey: usersKeys.sessionsAll(ID),
     })
+  })
+})
+
+describe('assignment mutations', () => {
+  const APP = 'stoktok'
+  const ROLE = 'd1000001-0000-4000-8000-000000000001'
+  const AID = 'e0000001-0000-4000-8000-000000000001'
+  const assignmentsKey = usersKeys.roleAssignmentsAll(ID)
+  const holdersKey = rolesKeys.holdersOf(APP)
+  const calls = (h: { invalidate: { mock: { calls: unknown[][] } } }) =>
+    h.invalidate.mock.calls.map((c) => (c[0] as { queryKey: unknown }).queryKey)
+  const has = (keys: unknown[], key: readonly unknown[]) =>
+    keys.some((k) => JSON.stringify(k) === JSON.stringify(key))
+
+  it('assign POSTs exactly {role_id} or {role_id, org_id, expires_at} to the given user id; retry false (a 500 is sent once)', async () => {
+    let res = () => json({ id: AID }, 201)
+    const { client, seen } = fakeApi(() => res())
+    const h = mutationHarness(() => useAssignRoleMutation(client))
+    const { result } = await h.render()
+    await result.current.mutateAsync({
+      userId: ID,
+      app: APP,
+      body: { role_id: ROLE },
+    })
+    expect(seen[0].method).toBe('POST')
+    expect(seen[0].url).toBe(
+      `https://api.test/api/v1/users/${ID}/role-assignments`
+    )
+    expect(await seen[0].json()).toEqual({ role_id: ROLE })
+    const body = {
+      role_id: ROLE,
+      org_id: 'c0000001-0000-4000-8000-000000000001',
+      expires_at: '2099-01-02T03:04:00.000Z',
+    }
+    await result.current.mutateAsync({ userId: ID, app: APP, body })
+    expect(await seen[1].json()).toEqual(body)
+
+    res = () => apiError(500, 'internal_error')
+    await expect(
+      result.current.mutateAsync({ userId: ID, app: APP, body })
+    ).rejects.toMatchObject({ status: 500 })
+    expect(seen).toHaveLength(3)
+  })
+
+  it('assign success invalidates the user assignments and the app holders, not the user detail or me/permissions', async () => {
+    const { client } = fakeApi(() => json({ id: AID }, 201))
+    const h = mutationHarness(() => useAssignRoleMutation(client))
+    const { result } = await h.render()
+    await result.current.mutateAsync({
+      userId: ID,
+      app: 'admin',
+      body: { role_id: ROLE },
+    })
+    const keys = calls(h)
+    expect(has(keys, assignmentsKey)).toBe(true)
+    expect(has(keys, rolesKeys.holdersOf('admin'))).toBe(true)
+    expect(has(keys, usersKeys.detail(ID))).toBe(false)
+    expect(has(keys, ['me', 'permissions'])).toBe(false)
+  })
+
+  it('assign 409 / 404 / unknown outcome invalidate the same keys; 422 unknown_role also invalidates the app roles', async () => {
+    let res = () => apiError(409, 'conflict')
+    const { client } = fakeApi(() => res())
+    const h = mutationHarness(() => useAssignRoleMutation(client))
+    const { result } = await h.render()
+    const vars = { userId: ID, app: APP, body: { role_id: ROLE } }
+    for (const make of [
+      () => apiError(409, 'conflict'),
+      () => apiError(404, 'not_found'),
+      () => apiError(503, 'unavailable'),
+    ]) {
+      h.invalidate.mockClear()
+      res = make
+      await expect(result.current.mutateAsync(vars)).rejects.toBeDefined()
+      expect(has(calls(h), assignmentsKey)).toBe(true)
+      expect(has(calls(h), holdersKey)).toBe(true)
+    }
+    h.invalidate.mockClear()
+    res = () =>
+      apiError(422, 'unprocessable', [
+        { field: 'role_id', reason: 'unknown_role' },
+      ])
+    await expect(result.current.mutateAsync(vars)).rejects.toBeDefined()
+    expect(has(calls(h), rolesKeys.all(APP))).toBe(true)
+  })
+
+  it('revoke DELETEs …/role-assignments/{aid} with retry false; success, 404, 409 and unknown outcome invalidate assignments + holders; 404 also the user detail', async () => {
+    let res = () => new Response(null, { status: 204 })
+    const { client, seen } = fakeApi(() => res())
+    const h = mutationHarness(() => useRevokeAssignmentMutation(client))
+    const { result } = await h.render()
+    const vars = { userId: ID, app: APP, assignmentId: AID }
+    await result.current.mutateAsync(vars)
+    expect(seen[0].method).toBe('DELETE')
+    expect(seen[0].url).toBe(
+      `https://api.test/api/v1/users/${ID}/role-assignments/${AID}`
+    )
+    expect(has(calls(h), assignmentsKey)).toBe(true)
+    expect(has(calls(h), holdersKey)).toBe(true)
+
+    for (const [make, detail] of [
+      [() => apiError(404, 'not_found'), true],
+      [() => apiError(409, 'last_super_admin'), false],
+      [() => apiError(500, 'internal_error'), false],
+    ] as const) {
+      h.invalidate.mockClear()
+      res = make as typeof res
+      const before = seen.length
+      await expect(result.current.mutateAsync(vars)).rejects.toBeDefined()
+      expect(seen.length).toBe(before + 1)
+      expect(has(calls(h), assignmentsKey)).toBe(true)
+      expect(has(calls(h), holdersKey)).toBe(true)
+      expect(has(calls(h), usersKeys.detail(ID))).toBe(detail)
+    }
+  })
+
+  it('revoke writes nothing to the cache before success (no optimistic update)', async () => {
+    let release: (r: Response) => void = () => {}
+    const { client } = fakeApi(
+      () => new Promise<Response>((resolve) => (release = resolve))
+    )
+    const queryClient = new QueryClient()
+    queryClient.setQueryData(
+      usersKeys.roleAssignments(ID, { limit: 20, offset: 0 }),
+      {
+        items: [{ id: AID }],
+        total: 1,
+      }
+    )
+    const { result } = await renderHook(
+      () => useRevokeAssignmentMutation(client),
+      {
+        wrapper: ({ children }) => (
+          <QueryClientProvider client={queryClient}>
+            {children}
+          </QueryClientProvider>
+        ),
+      }
+    )
+    const p = result.current.mutateAsync({
+      userId: ID,
+      app: APP,
+      assignmentId: AID,
+    })
+    await vi.waitFor(() => expect(result.current.isPending).toBe(true))
+    expect(
+      queryClient.getQueryData(
+        usersKeys.roleAssignments(ID, { limit: 20, offset: 0 })
+      )
+    ).toEqual({ items: [{ id: AID }], total: 1 })
+    release(new Response(null, { status: 204 }))
+    await p
   })
 })
