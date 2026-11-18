@@ -72,6 +72,47 @@ describe('apps queries', () => {
     ).toEqual({ limit: 100, offset: 0 })
   })
 
+  it('toAppsListParams sends q, status, join_policy, org_mode, sort; omits blank/default', () => {
+    const pagination = { pageIndex: 0, pageSize: 10 }
+    expect(
+      toAppsListParams({
+        pagination,
+        q: ' stok ',
+        status: 'active',
+        join_policy: 'closed',
+        org_mode: 'none',
+        sort: '-name',
+      })
+    ).toEqual({
+      limit: 10,
+      offset: 0,
+      q: 'stok',
+      status: 'active',
+      join_policy: 'closed',
+      org_mode: 'none',
+      sort: '-name',
+    })
+    expect(toAppsListParams({ pagination, q: ' ', sort: 'key' })).toEqual({
+      limit: 10,
+      offset: 0,
+    })
+  })
+
+  it('appsKeys.list({limit, offset}) equals the pre-PAN-029 key; filters are added only when set', () => {
+    expect(appsKeys.list({ limit: 100, offset: 0 })).toEqual([
+      'apps',
+      'list',
+      { limit: 100, offset: 0 },
+    ])
+    expect(
+      appsKeys.list({ limit: 10, offset: 0, join_policy: 'open', sort: 'name' })
+    ).toEqual([
+      'apps',
+      'list',
+      { limit: 10, offset: 0, join_policy: 'open', sort: 'name' },
+    ])
+  })
+
   it('list GET /api/v1/apps?limit=10&offset=20; detail GET /api/v1/apps/stoktok; permissions GET /api/v1/apps/stoktok/permissions?limit=50&offset=0', async () => {
     const { client, seen } = fakeApi((req) => {
       const p = new URL(req.url).pathname

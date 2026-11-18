@@ -11,14 +11,25 @@ import {
   unwrap,
   type ApiClient,
   type components,
+  type paths,
 } from '@/api'
+import { toSearchTerm } from '@/lib/list-search'
+import { ORG_DEFAULT_SORT } from '../data/schema'
 
 type OrganizationCreate = components['schemas']['OrganizationCreate']
 type OrganizationUpdate = components['schemas']['OrganizationUpdate']
 
-// `GET /api/v1/organizations` takes only limit/offset (order is fixed:
-// created_at DESC). Add status/q/sort here when the API ships them.
-export type OrganizationsListParams = { limit: number; offset: number }
+type OrganizationsQuery = NonNullable<
+  paths['/api/v1/organizations']['get']['parameters']['query']
+>
+// Optional filters are left out when unset; the default order is not sent.
+export type OrganizationsListParams = {
+  limit: number
+  offset: number
+  status?: NonNullable<OrganizationsQuery['status']>
+  q?: string
+  sort?: OrganizationsQuery['sort']
+}
 
 export const organizationsKeys = {
   all: ['organizations'] as const,
@@ -27,17 +38,35 @@ export const organizationsKeys = {
   list: (p: OrganizationsListParams) =>
     [
       ...organizationsKeys.lists(),
-      { limit: p.limit, offset: p.offset },
+      {
+        limit: p.limit,
+        offset: p.offset,
+        ...(p.status && { status: p.status }),
+        ...(p.q && { q: p.q }),
+        ...(p.sort && { sort: p.sort }),
+      },
     ] as const,
 }
 
-/** Table state -> `GET /api/v1/organizations` params: paging only. */
+/** Table state -> `GET /api/v1/organizations` params. */
 export function toOrganizationsListParams({
   pagination,
+  q,
+  status,
+  sort,
 }: {
   pagination: { pageIndex: number; pageSize: number }
+  q?: string
+  status?: OrganizationsListParams['status']
+  sort?: OrganizationsListParams['sort']
 }): OrganizationsListParams {
-  return toPageParams(pagination)
+  const term = toSearchTerm(q)
+  return {
+    ...toPageParams(pagination),
+    ...(status && { status }),
+    ...(term && { q: term }),
+    ...(sort && sort !== ORG_DEFAULT_SORT && { sort }),
+  }
 }
 
 // Needs admin:organizations:read (R4). The injected client is a dependency,

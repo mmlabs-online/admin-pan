@@ -48,14 +48,42 @@ describe('organizationFormSchema', () => {
 })
 
 describe('organizationsSearchSchema', () => {
-  it('keeps page/pageSize and drops filter/status', () => {
+  it('keeps valid values and drops unknown keys', () => {
     expect(
       organizationsSearchSchema.parse({
         page: 2,
         pageSize: 20,
         filter: 'acme',
-        status: ['active'],
+        q: '  acme ',
+        status: 'suspended',
+        sort: '-name',
       })
-    ).toEqual({ page: 2, pageSize: 20 })
+    ).toEqual({
+      page: 2,
+      pageSize: 20,
+      q: 'acme',
+      status: 'suspended',
+      sort: '-name',
+    })
+  })
+
+  it("bogus status/sort -> undefined; '-created_at' (the default) -> undefined; blank q -> undefined; bad page -> 1", () => {
+    expect(
+      organizationsSearchSchema.parse({
+        status: ['active'],
+        sort: 'member_count',
+        q: '   ',
+        page: 'x',
+      })
+    ).toEqual({ page: 1 })
+    expect(
+      organizationsSearchSchema.parse({ sort: '-created_at' }).sort
+    ).toBeUndefined()
+    expect(organizationsSearchSchema.parse({ sort: 'created_at' }).sort).toBe(
+      'created_at'
+    )
+    expect(organizationsSearchSchema.parse({ status: 'gone' }).status).toBe(
+      undefined
+    )
   })
 })

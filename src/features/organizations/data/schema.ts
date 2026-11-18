@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import { type components } from '@/api'
+import { type components, type paths } from '@/api'
+import { searchTermSchema } from '@/lib/list-search'
 
 // Generated from org-admin-api OpenAPI (R2); never hand-copy these shapes.
 export type Organization = components['schemas']['OrganizationRead']
@@ -36,9 +37,52 @@ export const organizationFormSchema = z.object({
 })
 export type OrganizationForm = z.infer<typeof organizationFormSchema>
 
-// URL state of /organizations: paging only. The API has no status/q/sort on
-// the list, so old ?filter= and ?status= keys are dropped.
+// Used only to validate the `status` URL search param.
+export const organizationStatusSchema = z.enum(['active', 'suspended'])
+// Compile-time guard: the zod enum must stay equal to the generated type.
+const _statusMatches: [OrganizationStatus] extends [
+  z.infer<typeof organizationStatusSchema>,
+]
+  ? [z.infer<typeof organizationStatusSchema>] extends [OrganizationStatus]
+    ? true
+    : never
+  : never = true
+void _statusMatches
+
+// API `sort` values (leading '-' = descending); the default is not kept in
+// the URL.
+type OrgSort = NonNullable<
+  NonNullable<
+    paths['/api/v1/organizations']['get']['parameters']['query']
+  >['sort']
+>
+export const ORG_SORTS = [
+  'created_at',
+  '-created_at',
+  'name',
+  '-name',
+  'slug',
+  '-slug',
+] as const
+export const ORG_DEFAULT_SORT = '-created_at'
+const _sortsMatch: [OrgSort] extends [(typeof ORG_SORTS)[number]]
+  ? [(typeof ORG_SORTS)[number]] extends [OrgSort]
+    ? true
+    : never
+  : never = true
+void _sortsMatch
+
+// URL state of /organizations. `q` is an org name or slug, which is not PII,
+// so it may sit in the URL (R5, ADR 0005 amendment). Unknown values fall back
+// to the defaults.
 export const organizationsSearchSchema = z.object({
   page: z.number().optional().catch(1),
   pageSize: z.number().optional().catch(10),
+  q: searchTermSchema,
+  status: organizationStatusSchema.optional().catch(undefined),
+  sort: z
+    .enum(ORG_SORTS)
+    .optional()
+    .catch(undefined)
+    .transform((v) => (v === ORG_DEFAULT_SORT ? undefined : v)),
 })
