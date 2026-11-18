@@ -251,7 +251,9 @@ describe('RoleAssignDialog, user fixed', () => {
       .toHaveAttribute('aria-disabled', 'true')
     domClick(submit(screen))
     expect(posts(seen)).toHaveLength(0)
-    await userEvent.click(screen.getByRole('radio', { name: /Acme Corp/ }))
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Choose Acme Corp' })
+    )
     await expect.element(screen.getByText(/Selected:/)).toBeVisible()
     await expect
       .element(submit(screen))
@@ -274,7 +276,9 @@ describe('RoleAssignDialog, user fixed', () => {
       screen.getByRole('radio', { name: 'One organization' })
     )
     await searchFor(screen.getByLabelText('Find an organization'), 'acme')
-    await userEvent.click(screen.getByRole('radio', { name: /Acme Corp/ }))
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Choose Acme Corp' })
+    )
     await userEvent.click(submit(screen))
     await expect.poll(() => posts(seen)).toHaveLength(1)
     expect(await bodyOf(posts(seen)[0])).toEqual({
@@ -621,7 +625,7 @@ describe('RoleAssignDialog, role fixed', () => {
     const { screen } = await renderDialog(client, roleTarget())
     await searchFor(screen.getByLabelText('Find a user by email'), 'ann')
     await userEvent.click(
-      screen.getByRole('radio', { name: /ann@example\.com/ })
+      screen.getByRole('button', { name: 'Choose ann@example.com' })
     )
     await expect
       .element(screen.getByText(/Selected: Ann Nguyen \(ann@example\.com\)/))
@@ -640,7 +644,7 @@ describe('RoleAssignDialog, role fixed', () => {
     const input = screen.getByLabelText('Find a user by email')
     await searchFor(input, 'ann')
     await userEvent.click(
-      screen.getByRole('radio', { name: /ann@example\.com/ })
+      screen.getByRole('button', { name: 'Choose ann@example.com' })
     )
     await expect.element(screen.getByText(/Selected:/)).toBeVisible()
     await expect
@@ -648,7 +652,9 @@ describe('RoleAssignDialog, role fixed', () => {
       .not.toHaveAttribute('aria-disabled', 'true')
     await userEvent.type(input, 'x')
     await expect.element(screen.getByText(/Selected:/)).not.toBeInTheDocument()
-    await expect.element(screen.getByRole('radiogroup')).not.toBeInTheDocument()
+    await expect
+      .element(screen.getByRole('list', { name: 'Matching users' }))
+      .not.toBeInTheDocument()
     await expect
       .element(submit(screen))
       .toHaveAttribute('aria-disabled', 'true')
@@ -656,15 +662,15 @@ describe('RoleAssignDialog, role fixed', () => {
     await userEvent.fill(input, 'ann')
     await userEvent.keyboard('{Enter}')
     await userEvent.click(
-      screen.getByRole('radio', { name: /ann@example\.com/ })
+      screen.getByRole('button', { name: 'Choose ann@example.com' })
     )
     await userEvent.click(screen.getByRole('button', { name: 'Change' }))
     await expect
       .element(submit(screen))
       .toHaveAttribute('aria-disabled', 'true')
     await expect
-      .element(screen.getByRole('radio', { name: /ann@example\.com/ }))
-      .not.toBeChecked()
+      .element(screen.getByRole('button', { name: 'Choose ann@example.com' }))
+      .toBeVisible()
   })
 
   it('a late response for an old term never changes the list or the selection', async () => {
@@ -741,7 +747,7 @@ describe('RoleAssignDialog, role fixed', () => {
     const { screen } = await renderDialog(client, roleTarget())
     await searchFor(screen.getByLabelText('Find a user by email'), 'ann')
     await userEvent.click(
-      screen.getByRole('radio', { name: /ann@example\.com/ })
+      screen.getByRole('button', { name: 'Choose ann@example.com' })
     )
     await userEvent.click(submit(screen))
     await expect.poll(() => posts(seen)).toHaveLength(1)
@@ -753,6 +759,101 @@ describe('RoleAssignDialog, role fixed', () => {
       if (path(r) === '/api/v1/users') continue
       expect(r.url).not.toContain('@')
       expect(r.url).not.toContain('ann')
+    }
+  })
+})
+
+describe('RoleAssignDialog, keyboard and missing input', () => {
+  it('ArrowDown and Tab through the result rows never select one; Enter on a row does and focuses Change', async () => {
+    const { client } = fakeApi(assignmentsServer())
+    const { screen } = await renderDialog(client, roleTarget())
+    await searchFor(screen.getByLabelText('Find a user by email'), 'ann')
+    const row = screen.getByRole('button', { name: 'Choose ann@example.com' })
+    await expect.element(row).toBeVisible()
+    ;(row.element() as HTMLElement).focus()
+    await userEvent.keyboard('{ArrowDown}')
+    await userEvent.keyboard('{Tab}')
+    await expect.element(screen.getByText(/Selected:/)).not.toBeInTheDocument()
+    ;(row.element() as HTMLElement).focus()
+    await userEvent.keyboard('{Enter}')
+    await expect.element(screen.getByText(/Selected:/)).toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: 'Change' }))
+      .toHaveFocus()
+    await userEvent.keyboard('{Enter}')
+    await expect
+      .element(screen.getByLabelText('Find a user by email'))
+      .toHaveFocus()
+  })
+
+  it('Grant with no user chosen shows "Choose a user." linked to the search input and focuses it; nothing is sent', async () => {
+    const { client, seen } = fakeApi(assignmentsServer())
+    const { screen } = await renderDialog(client, roleTarget())
+    domClick(submit(screen))
+    const input = screen.getByLabelText('Find a user by email')
+    await expect.element(screen.getByText('Choose a user.')).toBeVisible()
+    await expect.element(input).toHaveFocus()
+    await expect.element(input).toHaveAttribute('aria-invalid', 'true')
+    await expect.element(input).toHaveAccessibleDescription('Choose a user.')
+    expect(posts(seen)).toHaveLength(0)
+  })
+
+  it('Grant with "One organization" and none chosen shows "Choose an organization." and focuses the org search', async () => {
+    const { client, seen } = fakeApi(assignmentsServer())
+    const { screen } = await renderDialog(client, userTarget())
+    await choose(screen, 'App', /Calechip/)
+    await choose(screen, 'Role', /Member/)
+    await userEvent.click(
+      screen.getByRole('radio', { name: 'One organization' })
+    )
+    domClick(submit(screen))
+    const input = screen.getByLabelText('Find an organization')
+    await expect
+      .element(screen.getByText('Choose an organization.'))
+      .toBeVisible()
+    await expect.element(input).toHaveFocus()
+    await expect
+      .element(input)
+      .toHaveAccessibleDescription('Choose an organization.')
+    expect(posts(seen)).toHaveLength(0)
+  })
+
+  it('confirm step: focus moves to the summary, Back focuses Review, and an expiry that passed meanwhile returns to the form with the error focused', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2030-01-01T00:00:00'))
+    try {
+      const { client, seen } = fakeApi(assignmentsServer())
+      const { screen } = await renderDialog(client, userTarget())
+      await choose(screen, 'App', /Stoktok/)
+      await choose(screen, 'Role', /Operator/)
+      await userEvent.fill(
+        screen.getByLabelText('Expires (optional)'),
+        '2030-06-01T00:00'
+      )
+      await userEvent.click(submit(screen, 'Review grant'))
+      const dialog = screen.getByRole('dialog')
+      await expect
+        .element(dialog.getByText(/This role gives admin-level access/))
+        .toBeVisible()
+      expect(
+        (
+          dialog.getByText(/Grant Operator/).element().parentElement as Element
+        ).contains(document.activeElement)
+      ).toBe(true)
+      domClick(dialog.getByRole('button', { name: 'Back' }))
+      await expect.element(submit(screen, 'Review grant')).toHaveFocus()
+      await userEvent.click(submit(screen, 'Review grant'))
+      vi.setSystemTime(new Date('2031-01-01T00:00:00'))
+      await userEvent.click(dialog.getByRole('button', { name: 'Grant role' }))
+      await expect
+        .element(screen.getByText('Pick a time in the future.'))
+        .toBeVisible()
+      await expect
+        .element(screen.getByLabelText('Expires (optional)'))
+        .toHaveFocus()
+      expect(posts(seen)).toHaveLength(0)
+    } finally {
+      vi.useRealTimers()
     }
   })
 })

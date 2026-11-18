@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { type ApiClient, type components } from '@/api'
 import { queryView } from '@/lib/query-view'
@@ -26,15 +26,21 @@ type PickListProps<T extends { id: string }> = {
     data: Results<T> | undefined
     error: unknown
     isPending: boolean
+    isPlaceholderData?: boolean
     refetch: () => unknown
   }
   selected: T | null
   onSelect: (row: T | null) => void
   describe: (row: T) => React.ReactNode
+  /** Plain-text name for the row's Choose button. */
+  rowName: (row: T) => string
   /** The chosen row as one line; defaults to `describe`. */
   summary?: (row: T) => React.ReactNode
   /** Visible reason this picker can't be used (permission denied). */
   unavailable?: string
+  /** Visible validation error, linked to the search input. */
+  error?: string | null
+  inputRef?: React.RefObject<HTMLInputElement | null>
 }
 
 // Explicit selection (appsec F1): a search never picks anything. Results show
@@ -50,13 +56,29 @@ function PickList<T extends { id: string }>({
   selected,
   onSelect,
   describe,
+  rowName,
   summary = describe,
   unavailable,
+  error,
+  inputRef,
 }: PickListProps<T>) {
   const inputId = useId()
-  const groupId = useId()
+  const reasonId = useId()
+  const errorId = useId()
   const [text, setText] = useState('')
-  const view = queryView(q)
+  const ownRef = useRef<HTMLInputElement>(null)
+  const searchRef = inputRef ?? ownRef
+  const changeRef = useRef<HTMLButtonElement>(null)
+  const focusNext = useRef<'change' | 'input' | null>(null)
+  // Never show data kept from a previous term (placeholder data).
+  const view = queryView(
+    q.isPlaceholderData ? { ...q, data: undefined, isPending: true } : q
+  )
+  useEffect(() => {
+    if (focusNext.current === 'change') changeRef.current?.focus()
+    else if (focusNext.current === 'input') searchRef.current?.focus()
+    focusNext.current = null
+  }, [selected, searchRef])
   const search = () => {
     const trimmed = text.trim()
     if (trimmed) onTerm(trimmed)
@@ -68,7 +90,14 @@ function PickList<T extends { id: string }>({
       <div className='flex gap-2'>
         <Input
           id={inputId}
+          ref={searchRef}
           value={text}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={
+            [error && errorId, unavailable && reasonId]
+              .filter(Boolean)
+              .join(' ') || undefined
+          }
           maxLength={maxLength}
           autoComplete='off'
           disabled={!!unavailable}
@@ -88,6 +117,7 @@ function PickList<T extends { id: string }>({
           type='button'
           variant='outline'
           aria-disabled={!!unavailable || !text.trim()}
+          aria-describedby={unavailable ? reasonId : undefined}
           className='aria-disabled:cursor-not-allowed aria-disabled:opacity-50'
           onClick={() => {
             if (!unavailable) search()
@@ -97,7 +127,14 @@ function PickList<T extends { id: string }>({
         </Button>
       </div>
       {unavailable && (
-        <p className='text-sm text-muted-foreground'>{unavailable}</p>
+        <p id={reasonId} className='text-sm text-muted-foreground'>
+          {unavailable}
+        </p>
+      )}
+      {error && (
+        <p id={errorId} role='alert' className='text-sm text-destructive'>
+          {error}
+        </p>
       )}
       {selected ? (
         <p className='text-sm'>
@@ -107,7 +144,11 @@ function PickList<T extends { id: string }>({
             variant='link'
             size='sm'
             className='h-auto p-0'
-            onClick={() => onSelect(null)}
+            ref={changeRef}
+            onClick={() => {
+              focusNext.current = 'input'
+              onSelect(null)
+            }}
           >
             Change
           </Button>
@@ -134,30 +175,30 @@ function PickList<T extends { id: string }>({
           </p>
         ) : (
           <>
-            <div
-              role='radiogroup'
+            <ul
               aria-label={`Matching ${noun}`}
-              id={groupId}
               className='max-h-48 divide-y overflow-y-auto rounded-md border'
             >
               {view.data.items.map((row) => (
-                <label
-                  key={row.id}
-                  className='flex cursor-pointer items-start gap-2 px-3 py-2 text-sm'
-                >
-                  <input
-                    type='radio'
-                    name={groupId}
-                    checked={false}
-                    onChange={() => onSelect(row)}
-                    className='mt-1'
-                  />
-                  <span className='flex flex-wrap items-center gap-x-2'>
+                <li key={row.id} className='flex items-start gap-2 px-3 py-2'>
+                  <Button
+                    type='button'
+                    variant='outline'
+                    size='sm'
+                    aria-label={`Choose ${rowName(row)}`}
+                    onClick={() => {
+                      focusNext.current = 'change'
+                      onSelect(row)
+                    }}
+                  >
+                    Choose
+                  </Button>
+                  <span className='flex flex-wrap items-center gap-x-2 text-sm'>
                     {describe(row)}
                   </span>
-                </label>
+                </li>
               ))}
-            </div>
+            </ul>
             {view.data.total > view.data.items.length && (
               <p role='status' className='text-sm text-muted-foreground'>
                 More than {view.data.items.length} {noun} match. Refine the
@@ -188,11 +229,15 @@ export function UserPicker({
   selected,
   onSelect,
   unavailable,
+  error,
+  inputRef,
 }: {
   api: ApiClient
   selected: User | null
   onSelect: (user: User | null) => void
   unavailable?: string
+  error?: string | null
+  inputRef?: React.RefObject<HTMLInputElement | null>
 }) {
   const [term, setTerm] = useState<string | null>(null)
   const query = useQuery({
@@ -209,7 +254,10 @@ export function UserPicker({
       selected={selected}
       onSelect={onSelect}
       unavailable={unavailable}
+      error={error}
+      inputRef={inputRef}
       describe={describeUser}
+      rowName={(u) => u.email}
       summary={(u) => (
         <>
           <bdi>{userLabel(u)}</bdi> (<bdi>{u.email}</bdi>)
@@ -225,11 +273,15 @@ export function OrgPicker({
   selected,
   onSelect,
   unavailable,
+  error,
+  inputRef,
 }: {
   api: ApiClient
   selected: Organization | null
   onSelect: (org: Organization | null) => void
   unavailable?: string
+  error?: string | null
+  inputRef?: React.RefObject<HTMLInputElement | null>
 }) {
   const [term, setTerm] = useState<string | null>(null)
   const query = useQuery({
@@ -247,6 +299,9 @@ export function OrgPicker({
       selected={selected}
       onSelect={onSelect}
       unavailable={unavailable}
+      error={error}
+      inputRef={inputRef}
+      rowName={(o) => o.name}
       describe={(o) => (
         <>
           <bdi className='font-medium'>{o.name}</bdi>

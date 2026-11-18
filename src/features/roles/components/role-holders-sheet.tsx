@@ -172,7 +172,7 @@ export function RoleHoldersSheet({
                       <TableHead scope='col'>User</TableHead>
                       <TableHead scope='col'>Scope</TableHead>
                       <TableHead scope='col'>Expires</TableHead>
-                      <TableHead scope='col'>Expiry</TableHead>
+                      <TableHead scope='col'>Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

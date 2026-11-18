@@ -166,7 +166,7 @@ export function UserRoleAssignments({
                   <TableHead scope='col'>Role</TableHead>
                   <TableHead scope='col'>Scope</TableHead>
                   <TableHead scope='col'>Expires</TableHead>
-                  <TableHead scope='col'>Expiry</TableHead>
+                  <TableHead scope='col'>Status</TableHead>
                   {canRevoke && (
                     <TableHead scope='col' className='text-end'>
                       <span className='sr-only'>Actions</span>

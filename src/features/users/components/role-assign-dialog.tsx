@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { z } from 'zod'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -100,6 +100,15 @@ export function RoleAssignDialog({ api, target, onDone }: Props) {
   const [orgScope, setOrgScope] = useState<'app' | 'org'>('app')
   const [pickedOrg, setPickedOrg] = useState<Organization | null>(null)
   const [orgError, setOrgError] = useState<string | null>(null)
+  const [userError, setUserError] = useState<string | null>(null)
+  const userInputRef = useRef<HTMLInputElement>(null)
+  const orgInputRef = useRef<HTMLInputElement>(null)
+  const confirmRef = useRef<HTMLDivElement>(null)
+  const submitRef = useRef<HTMLButtonElement>(null)
+  const focusExpiry = useRef(false)
+  const prevPhase = useRef(phase)
+  const wildcardId = useId()
+  const selfId_ = useId()
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -154,6 +163,16 @@ export function RoleAssignDialog({ api, target, onDone }: Props) {
     orgChosen
   const expiry = toExpiresAt(noExpiry ? '' : expiresLocal)
 
+  // Move focus when the dialog switches between form and confirm (WCAG 2.4.3).
+  useEffect(() => {
+    if (prevPhase.current === phase) return
+    prevPhase.current = phase
+    if (phase === 'confirm') confirmRef.current?.focus()
+    else if (focusExpiry.current) form.setFocus('expiresLocal')
+    else submitRef.current?.focus()
+    focusExpiry.current = false
+  }, [phase, form])
+
   const scope =
     showOrg && orgScope === 'org' && pickedOrg ? pickedOrg.name : 'app-wide'
   const summary =
@@ -192,6 +211,7 @@ export function RoleAssignDialog({ api, target, onDone }: Props) {
         onError: (error) => {
           const mapped = assignRoleError(error)
           setPhase('form')
+          if (mapped.fields.expires_at) focusExpiry.current = true
           let next = mapped.alert
           const field = (name: keyof FormValues, text: string, focus = false) =>
             form.setError(name, { message: text }, { shouldFocus: focus })
@@ -215,6 +235,13 @@ export function RoleAssignDialog({ api, target, onDone }: Props) {
   }
 
   const onSubmit = () => {
+    if (assign.isPending) return
+    if (!user || (!orgChosen && showOrg)) {
+      if (!user) setUserError('Choose a user.')
+      if (!orgChosen) setOrgError('Choose an organization.')
+      ;(!user ? userInputRef : orgInputRef).current?.focus()
+      return
+    }
     if (!ready) return
     if (!expiry.ok) {
       form.setError(
@@ -289,7 +316,11 @@ export function RoleAssignDialog({ api, target, onDone }: Props) {
         )}
 
         {phase === 'confirm' ? (
-          <div className='space-y-2 text-sm'>
+          <div
+            ref={confirmRef}
+            tabIndex={-1}
+            className='space-y-2 text-sm outline-none'
+          >
             <p>{summary}</p>
             <p>
               This role gives admin-level access. Granting it needs admin:*.
@@ -310,7 +341,12 @@ export function RoleAssignDialog({ api, target, onDone }: Props) {
                 <UserPicker
                   api={api}
                   selected={pickedUser}
-                  onSelect={setPickedUser}
+                  onSelect={(u) => {
+                    setPickedUser(u)
+                    setUserError(null)
+                  }}
+                  error={userError}
+                  inputRef={userInputRef}
                   unavailable={
                     usersPermission === 'denied'
                       ? 'Searching users needs admin:users:read.'
@@ -462,7 +498,7 @@ export function RoleAssignDialog({ api, target, onDone }: Props) {
               )}
 
               {needsAdminWildcard && (
-                <p className='text-sm text-muted-foreground'>
+                <p id={wildcardId} className='text-sm text-muted-foreground'>
                   Needs admin:* to grant this role.
                 </p>
               )}
@@ -496,6 +532,8 @@ export function RoleAssignDialog({ api, target, onDone }: Props) {
                     <OrgPicker
                       api={api}
                       selected={pickedOrg}
+                      error={orgError}
+                      inputRef={orgInputRef}
                       onSelect={(o) => {
                         setPickedOrg(o)
                         setOrgError(null)
@@ -507,7 +545,7 @@ export function RoleAssignDialog({ api, target, onDone }: Props) {
                       }
                     />
                   )}
-                  {orgError && (
+                  {orgError && orgScope !== 'org' && (
                     <p role='alert' className='text-sm text-destructive'>
                       {orgError}
                     </p>
@@ -540,12 +578,12 @@ export function RoleAssignDialog({ api, target, onDone }: Props) {
               />
 
               {isSelf && (
-                <p className='text-sm text-muted-foreground'>
+                <p id={selfId_} className='text-sm text-muted-foreground'>
                   You can&apos;t change your own admin roles.
                 </p>
               )}
               {summary && (
-                <div aria-live='polite' className='space-y-1 text-sm'>
+                <div className='space-y-1 text-sm'>
                   <p>{summary}</p>
                   <p className='text-muted-foreground'>
                     {assignmentEffect(appKey)}
@@ -587,7 +625,15 @@ export function RoleAssignDialog({ api, target, onDone }: Props) {
                 className={assign.isPending ? 'opacity-50' : undefined}
                 onClick={() => {
                   if (assign.isPending) return
-                  if (expiry.ok) send(expiry.value)
+                  // Recomputed now: the chosen time may have passed meanwhile.
+                  const fresh = toExpiresAt(noExpiry ? '' : expiresLocal)
+                  if (!fresh.ok) {
+                    focusExpiry.current = true
+                    form.setError('expiresLocal', { message: fresh.error })
+                    setPhase('form')
+                    return
+                  }
+                  send(fresh.value)
                 }}
               >
                 {submitLabel}
@@ -597,7 +643,13 @@ export function RoleAssignDialog({ api, target, onDone }: Props) {
             <Button
               type='submit'
               form='role-assign-form'
+              ref={submitRef}
               aria-disabled={!ready || undefined}
+              aria-describedby={
+                [needsAdminWildcard && wildcardId, isSelf && selfId_]
+                  .filter(Boolean)
+                  .join(' ') || undefined
+              }
               className='aria-disabled:cursor-not-allowed aria-disabled:opacity-50'
             >
               {submitLabel}

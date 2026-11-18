@@ -67,3 +67,21 @@
 ### Scope self-check
 - Could the diff be smaller? No: roughly 3,600 lines are new files, about half of them tests; existing files changed by +992 / -223 (mostly tests and the move out of the sheet).
 - Diff size: tracked files +992 / -223; 12 new files.
+
+## Attempt 2 (REWORK)
+
+Fixed only the issues in the latest review.md / security-review.md / a11y-review.md.
+
+- a11y 🔴 1 / appsec S1: `assign-pickers.tsx` results are now a `<ul>` of `<Button type='button' aria-label="Choose <email|org name>">` (no radios). After Choose focus goes to "Change"; after Change, to the search input.
+- a11y 🔴 2 / 🟡 7: Grant with no user / no org (when "One organization") shows "Choose a user." / "Choose an organization.", focuses that picker's input. Pickers take `error` and `inputRef`; input gets `aria-invalid` + `aria-describedby`.
+- appsec S2: confirm-phase Grant recomputes the expiry at click time; if it has passed, back to the form with the expiry error and the field focused.
+- a11y 🟡 3: focus moves to the confirm summary (`tabIndex=-1`) on confirm; Back focuses the Review button; an expiry/server expiry error focuses the expiry field after the form remounts.
+- a11y 🟡 4: dropped `aria-live` on the summary (no per-keystroke announcement).
+- a11y 🟡 5: picker reason, "Needs admin:*" and self reason are linked with `aria-describedby` (inputs, Search button, Grant button).
+- a11y 🟡 6: second "Expiry" header renamed "Status" (user-role-assignments.tsx, role-holders-sheet.tsx).
+- nit: picker treats `isPlaceholderData` as pending.
+- Tests: picker radios -> buttons in role-assign-dialog.test.tsx and role-holders-sheet.test.tsx; new describe "keyboard and missing input" (ArrowDown/Tab never select + focus moves; no-user Grant; no-org Grant; confirm focus, Back focus, expired-expiry on confirm).
+- Mutation proofs: ArrowDown-selects on the Choose button -> arrow-key test fails; removing `setUserError('Choose a user.')` -> no-user test fails. Both restored.
+
+Checks: typecheck, lint, format:check clean; `pnpm test` Test Files 109 passed, Tests 901 passed; `pnpm build` built; `pnpm e2e` (with PLAYWRIGHT_CHROMIUM_PATH) 30 passed.
+Out-of-plan files: none. Not committed (per instruction).

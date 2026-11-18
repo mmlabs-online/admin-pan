@@ -253,7 +253,7 @@ describe('RoleHoldersSheet', () => {
     await userEvent.fill(dialog.getByLabelText('Find a user by email'), 'ada')
     await userEvent.keyboard('{Enter}')
     await userEvent.click(
-      dialog.getByRole('radio', { name: /ada@example\.com/ })
+      dialog.getByRole('button', { name: 'Choose ada@example.com' })
     )
     await userEvent.click(dialog.getByRole('button', { name: 'Grant role' }))
     await expect
