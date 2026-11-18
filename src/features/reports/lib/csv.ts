@@ -140,7 +140,7 @@ export function reportFileName(report: Report): string {
 /** Triggers a browser download of `content` as a CSV file. */
 export function downloadCsv(fileName: string, content: string) {
   // BOM so Excel opens UTF-8 correctly.
-  const blob = new Blob(['﻿', content], {
+  const blob = new Blob(['\uFEFF', content], {
     type: 'text/csv;charset=utf-8',
   })
   const url = URL.createObjectURL(blob)

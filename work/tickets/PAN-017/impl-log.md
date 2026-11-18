@@ -64,3 +64,32 @@ None.
 ### Scope self-check
 - Could the diff be smaller? No; the product code is the plan's minimum. Most of the diff is the regenerated schema.
 - Diff size: +1895 / -74 across tracked files (incl. +1305 / -19 generated `src/api`), plus 5 new files. Nothing committed, per instruction.
+
+## Attempt 2 (security follow-up)
+
+Scope: the two yellow items in security-review.md "Attempt 1". Nothing else changed. Not committed, per instruction.
+
+### Changes
+- `src/features/users/data/sessions.ts`: the sanitizer's bidi class is now written with `\u` escapes only. It also strips U+200B-U+200F (zero-width and marks), U+2060, U+FEFF, U+FFF9-U+FFFB and tag characters U+E0000-U+E007F (regex uses the `u` flag). U+2028/U+2029 are mapped to a space (added to the control-character replace).
+- `src/features/users/data/sessions.test.ts`: literal characters replaced by escapes; four new tests (zero-width, interlinear annotation, tag characters, line/paragraph separators), inputs built with escapes.
+- `src/features/users/components/user-sessions-tab.test.tsx`: the two literal U+202E replaced by `‮`.
+
+### Literal-character scan
+`grep -P` rejects code points above 0xFF in this environment ("character code point value in \x{} or \o{} is too large"), so I used a Python scan (`python3 -I scan.py`, all of src/ and e2e/, every line, all listed ranges including U+E0000-U+E007F).
+- Before: 6 hits (the 5 expected lines plus `src/features/reports/lib/csv.ts:143`, a literal U+FEFF BOM).
+- After: `hits 0`.
+
+### Out-of-plan files
+- `src/features/reports/lib/csv.ts:143`: the literal U+FEFF BOM written as `'﻿'` (same runtime value). Needed to meet the "no literal character anywhere in src/ or e2e/" requirement.
+
+### Checks (`PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium`)
+- pnpm typecheck: clean.
+- pnpm lint: clean.
+- pnpm format:check: "All matched files use Prettier code style!"
+- pnpm test (full): 93 files, 719 tests passed.
+- `pnpm test src/features/users` x2: 8 files / 89 tests passed on both runs.
+- pnpm build: built, no errors (only the existing `__dirname` vite warning).
+- pnpm e2e: 28 passed.
+
+### Follow-ups
+None new.

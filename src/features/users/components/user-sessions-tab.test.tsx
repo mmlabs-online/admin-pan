@@ -202,13 +202,13 @@ describe('UserSessionsTab', () => {
 
   it('user agent with U+202E is sanitized and isolated in <bdi>', async () => {
     const { client } = fakeApi(
-      server([sess(1, { user_agent: 'Mozilla‮evil' })])
+      server([sess(1, { user_agent: 'Mozilla\u202Eevil' })])
     )
     await renderTab(client)
     const el = page.getByText('Mozillaevil')
     await expect.element(el).toBeVisible()
     expect(el.element().tagName).toBe('BDI')
-    expect(el.element().textContent).not.toContain('‮')
+    expect(el.element().textContent).not.toContain('\u202E')
   })
 
   it("revoke one: confirm names email and the session dates and states the 12-hour limit; Cancel sends no DELETE and focus returns to the row's Revoke button", async () => {
