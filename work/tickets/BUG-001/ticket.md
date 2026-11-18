@@ -12,7 +12,7 @@
 | Attempts | 1 |
 | Created | 2026-11-18 |
 | Record PR | — |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/26 |
 
 ## Report
 Owner, 2026-11-18: "merge rồi sửa bug PAN-017" — after the PAN-020 security review flagged that the PAN-017 session-revoke copy no longer matches the API.
