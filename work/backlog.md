@@ -44,7 +44,7 @@ Phases: **1. UI with mock data** (PAN-001…008, done) → **2. Foundations** (P
 | PAN-027 | App credentials (list, issue, revoke) | DONE | P2 | api, ui, security | 1 | 2026-11-17 |
 | PAN-028 | App join requests (list, approve, reject) | DONE | P2 | api, ui, auth | 2 | 2026-11-17 |
 | PAN-029 | Filters and sort for the Organizations and Apps lists | DONE | P1 | api, ui, a11y | 0 | 2026-11-18 |
-| BUG-002 | Row dialogs close themselves when re-opened within 500 ms (flaky dialog/toast tests) | BACKLOG | P1 | ui, a11y | 0 | 2026-11-18 |
+| BUG-002 | Row dialogs close themselves when re-opened within 500 ms (flaky dialog/toast tests) | PLANNING | P1 | ui, a11y | 0 | 2026-11-18 |
 | BUG-001 | Session revoke copy says admin tokens stay valid up to 12 h | DONE | P1 | ui, auth | 1 | 2026-11-18 |
 
 Order of work (dependencies): PAN-001 → PAN-002…008 → PAN-009 → PAN-010 → PAN-011 → PAN-013, PAN-014, PAN-015 → PAN-016 → PAN-012, PAN-019, PAN-022, PAN-023 → PAN-025 → PAN-026 → PAN-027 (after PAN-015) → PAN-019, PAN-028 → PAN-017, PAN-018, PAN-020, PAN-021, PAN-024 · PAN-029 (after PAN-014, PAN-015; org-admin-api ADM-020, USR-18).
