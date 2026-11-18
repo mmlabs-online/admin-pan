@@ -7,7 +7,7 @@
 | Areas | api, ui |
 | Attempts | 1 |
 | Created | 2026-11-11 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/25 |
 
 ## Goal
 Replace dashboard mock stats with an org-admin-api stats endpoint.
