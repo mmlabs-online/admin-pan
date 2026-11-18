@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| State | BACKLOG |
+| State | PLANNING |
 | Priority | P1 |
 | Areas | api, ui, auth |
 | Attempts | 0 |
@@ -25,7 +25,7 @@ Split from PAN-015 (owner, 2026-11-17).
 
 ## Depends on
 - PAN-015 (apps and permissions).
-- **A new org-admin-api ticket for a staff (Bearer) role listing with ids.** It must cover the `admin` app and disabled apps, and must not be the public catalog. The request is in `work/tickets/PAN-015/org-admin-api-request.md`.
+- org-admin-api USR-16 (DONE, merged): `GET /api/v1/apps/{key}/role-definitions` and `GET …/role-definitions/{role_id}` (`admin:apps:read`), covering the `admin` app and disabled apps.
 
 ## Acceptance criteria
 - [ ] Every role action maps to an endpoint, and role ids come only from the API.
