@@ -29,7 +29,7 @@ Phases: **1. UI with mock data** (PAN-001…008, done) → **2. Foundations** (P
 | PAN-014 | Organizations screen on the real API | DONE | P1 | api, ui | 1 | 2026-11-17 |
 | PAN-015 | Apps registry and app permissions on the real API | DONE | P1 | api, ui, auth | 1 | 2026-11-17 |
 | PAN-015b | Roles and role permissions on the real API | DONE | P1 | api, ui, auth | 0 | 2026-11-18 |
-| PAN-015c | Role assignments (assign, revoke, holders of a role) on the real API | BACKLOG | P1 | api, ui, auth, security | 0 | 2026-11-17 |
+| PAN-015c | Role assignments (assign, revoke, holders of a role) on the real API | PLANNING | P1 | api, ui, auth, security | 0 | 2026-11-18 |
 | PAN-016 | Audit log on the real API | DONE | P2 | api, ui | 1 | 2026-11-17 |
 | PAN-017 | User sessions: list and revoke | DONE | P2 | api, ui, security | 1 | 2026-11-17 |
 | PAN-018 | Organization members and invitations | BACKLOG | P3 | api, ui | 0 | 2026-11-11 |
