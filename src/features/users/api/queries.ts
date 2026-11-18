@@ -5,7 +5,10 @@ import {
   useQueryClient,
 } from '@tanstack/react-query'
 import { getApi, isApiError, toPageParams, unwrap, type ApiClient } from '@/api'
-import { isUnknownOutcome } from '@/features/apps/data/errors'
+import { firstReason, isUnknownOutcome } from '@/features/apps/data/errors'
+import { organizationsKeys } from '@/features/organizations/api/queries'
+import { rolesKeys } from '@/features/roles/api/queries'
+import { type AssignmentCreate } from '../data/assignments'
 import { type UserStatus } from '../data/schema'
 
 type ListParams = {
@@ -15,8 +18,10 @@ type ListParams = {
   status?: UserStatus
 }
 
-const ASSIGNMENTS_PAGE = { limit: 100, offset: 0 }
-
+export const ASSIGNMENTS_PAGE_SIZE = 20
+export const PICKER_PAGE_SIZE = 10
+// Picker results hold emails: drop them from memory soon after the dialog closes.
+export const PICKER_GC_TIME_MS = 5_000
 export const SESSIONS_PAGE_SIZE = 20
 // Sessions hold IP and user agent: drop them from memory soon after the tab closes.
 export const SESSIONS_GC_TIME_MS = 5_000
@@ -35,8 +40,17 @@ export const usersKeys = {
       },
     ] as const,
   detail: (id: string) => [...usersKeys.all, 'detail', id] as const,
+  roleAssignmentsAll: (id: string) =>
+    [...usersKeys.detail(id), 'role-assignments'] as const,
   roleAssignments: (id: string, p: { limit: number; offset: number }) =>
-    [...usersKeys.detail(id), 'role-assignments', p] as const,
+    [...usersKeys.roleAssignmentsAll(id), p] as const,
+  // The typed email is in the key (as in the list); the short gcTime bounds it.
+  picker: (email: string) =>
+    [
+      ...usersKeys.all,
+      'picker',
+      { email, limit: PICKER_PAGE_SIZE, offset: 0 },
+    ] as const,
   sessionsAll: (id: string) => [...usersKeys.detail(id), 'sessions'] as const,
   sessions: (id: string, p: { limit: number; offset: number }) =>
     [...usersKeys.sessionsAll(id), p] as const,
@@ -94,20 +108,67 @@ export function userQueryOptions(id: string, api: ApiClient = getApi()) {
   })
 }
 
+/** GET /api/v1/users/{id}/role-assignments — admin:users:read. Newest first. */
 export function userRoleAssignmentsQueryOptions(
   id: string,
+  params: { limit: number; offset: number },
   api: ApiClient = getApi()
 ) {
   // eslint-disable-next-line @tanstack/query/exhaustive-deps
   return queryOptions({
-    queryKey: usersKeys.roleAssignments(id, ASSIGNMENTS_PAGE),
+    queryKey: usersKeys.roleAssignments(id, params),
     queryFn: async ({ signal }) =>
       unwrap(
         await api.GET('/api/v1/users/{user_id}/role-assignments', {
-          params: { path: { user_id: id }, query: ASSIGNMENTS_PAGE },
+          params: { path: { user_id: id }, query: params },
           signal,
         })
       ),
+    // Keep the previous page within one user only.
+    placeholderData: (prev, prevQuery) =>
+      prevQuery?.queryKey[2] === id ? prev : undefined,
+  })
+}
+
+/**
+ * GET /api/v1/users?email= (case-insensitive substring) for the user picker.
+ * No placeholder data: a stale result must never look like the current one.
+ */
+export function userPickerQueryOptions(
+  email: string,
+  api: ApiClient = getApi()
+) {
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps
+  return queryOptions({
+    queryKey: usersKeys.picker(email),
+    queryFn: async ({ signal }) =>
+      unwrap(
+        await api.GET('/api/v1/users', {
+          params: {
+            query: { email, limit: PICKER_PAGE_SIZE, offset: 0 },
+          },
+          signal,
+        })
+      ),
+    gcTime: PICKER_GC_TIME_MS,
+  })
+}
+
+/** GET /api/v1/organizations?q= for the org picker (key under ['organizations']). */
+export function orgPickerQueryOptions(q: string, api: ApiClient = getApi()) {
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps
+  return queryOptions({
+    queryKey: [...organizationsKeys.all, 'picker', { q }] as const,
+    queryFn: async ({ signal }) =>
+      unwrap(
+        await api.GET('/api/v1/organizations', {
+          params: {
+            query: { q, limit: PICKER_PAGE_SIZE, offset: 0, sort: 'name' },
+          },
+          signal,
+        })
+      ),
+    gcTime: PICKER_GC_TIME_MS,
   })
 }
 
@@ -203,5 +264,85 @@ export function useRevokeAllUserSessionsMutation(
         })
       ),
     ...useSessionRevokeOptions(userId),
+  })
+}
+
+type AssignmentVars = { userId: string; app: string }
+
+// Never optimistic (R9), never retried (a retry could grant or revoke twice).
+// The list and the holders of the app are refetched on success and whenever
+// the state may have changed elsewhere (404, 409, unknown outcome).
+function useAssignmentMutationOptions() {
+  const queryClient = useQueryClient()
+  const invalidate = (queryKey: readonly unknown[]) =>
+    void queryClient.invalidateQueries({ queryKey })
+  const refetchAssignments = ({ userId, app }: AssignmentVars) => {
+    invalidate(usersKeys.roleAssignmentsAll(userId))
+    invalidate(rolesKeys.holdersOf(app))
+  }
+  return {
+    meta: { handlesOwnErrors: true },
+    retry: false as const,
+    onSuccess: (_data: unknown, vars: AssignmentVars) =>
+      refetchAssignments(vars),
+    onError: (error: unknown, vars: AssignmentVars) => {
+      if (
+        isApiError(error, 404) ||
+        isApiError(error, 409) ||
+        isUnknownOutcome(error)
+      )
+        refetchAssignments(vars)
+      if (isApiError(error, 422) && firstReason(error) === 'unknown_role')
+        invalidate(rolesKeys.all(vars.app))
+    },
+  }
+}
+
+/** POST /api/v1/users/{id}/role-assignments (201) — admin:roles:assign. */
+export function useAssignRoleMutation(api: ApiClient = getApi()) {
+  const options = useAssignmentMutationOptions()
+  return useMutation({
+    mutationFn: async ({
+      userId,
+      body,
+    }: AssignmentVars & { body: AssignmentCreate }) =>
+      unwrap(
+        await api.POST('/api/v1/users/{user_id}/role-assignments', {
+          params: { path: { user_id: userId } },
+          body,
+        })
+      ),
+    ...options,
+  })
+}
+
+/** DELETE /api/v1/users/{id}/role-assignments/{assignment_id} (204) — admin:roles:assign. */
+export function useRevokeAssignmentMutation(api: ApiClient = getApi()) {
+  const options = useAssignmentMutationOptions()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      userId,
+      assignmentId,
+    }: AssignmentVars & { assignmentId: string }) =>
+      unwrap(
+        await api.DELETE(
+          '/api/v1/users/{user_id}/role-assignments/{assignment_id}',
+          {
+            params: {
+              path: { user_id: userId, assignment_id: assignmentId },
+            },
+          }
+        )
+      ),
+    ...options,
+    // The user may be gone too.
+    onError: (error: unknown, vars) => {
+      options.onError(error, vars)
+      if (isApiError(error, 404))
+        void queryClient.invalidateQueries({
+          queryKey: usersKeys.detail(vars.userId),
+        })
+    },
   })
 }

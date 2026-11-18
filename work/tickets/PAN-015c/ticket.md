@@ -2,12 +2,12 @@
 
 | Field | Value |
 |---|---|
-| State | BACKLOG |
+| State | DONE |
 | Priority | P1 |
 | Areas | api, ui, auth, security |
-| Attempts | 0 |
+| Attempts | 1 |
 | Created | 2026-11-17 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/28 |
 
 ## Goal
 Make role assignments work on the real API in two places:
@@ -20,12 +20,9 @@ Split from PAN-015 (owner, 2026-11-17).
 `docs/spec-v1.md` §5.4
 
 ## Depends on
-- PAN-015b, which provides role ids.
-- **New org-admin-api endpoints:**
-  - the staff role listing with ids;
-  - a "holders of a role" listing (assignments by role, with user id and email).
-
-  The request is in `work/tickets/PAN-015/org-admin-api-request.md`.
+- PAN-015b (DONE, merged in #27): role ids from `GET /apps/{key}/role-definitions`.
+- org-admin-api USR-16 (DONE, merged): staff role listing with ids.
+- org-admin-api USR-17 (DONE, merged): `GET /apps/{key}/role-definitions/{role_id}/assignments` (holders of a role, `admin:users:read`).
 
 ## Acceptance criteria
 - [ ] Assign picks the user explicitly from the `GET /users?email=` results (never auto-picks the first match), picks the role, optionally the org (only when the app's `org_mode` is not `none`), and optionally an expiry. The expiry is sent as an ISO timestamp with an offset.

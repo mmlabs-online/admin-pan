@@ -1,5 +1,5 @@
 import { DotsHorizontalIcon } from '@radix-ui/react-icons'
-import { KeyRound, Pencil, Star, Trash2 } from 'lucide-react'
+import { KeyRound, Pencil, Star, Trash2, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -23,7 +23,7 @@ const Reason = ({ children }: { children: React.ReactNode }) => (
 export function RolesRowActions({ role }: { role: RoleDefinition }) {
   const { app, setOpen, setCurrentRow } = useRoles()
   const openDialog = (
-    type: 'rename' | 'permissions' | 'delete' | 'default'
+    type: 'rename' | 'permissions' | 'delete' | 'default' | 'holders'
   ) => {
     setCurrentRow(role)
     setOpen(type)
@@ -58,6 +58,14 @@ export function RolesRowActions({ role }: { role: RoleDefinition }) {
               <KeyRound size={16} aria-hidden='true' />
             </DropdownMenuShortcut>
           </DropdownMenuItem>
+          <Can action='roles.viewHolders'>
+            <DropdownMenuItem onClick={() => openDialog('holders')}>
+              Assignments
+              <DropdownMenuShortcut>
+                <Users size={16} aria-hidden='true' />
+              </DropdownMenuShortcut>
+            </DropdownMenuItem>
+          </Can>
           <Can action='roles.rename'>
             <DropdownMenuItem onClick={() => openDialog('rename')}>
               Rename

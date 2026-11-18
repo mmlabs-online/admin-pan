@@ -15,6 +15,8 @@ type RoleDefinitionRead = components['schemas']['RoleDefinitionRead']
 type AppCredentialRead = components['schemas']['AppCredentialRead']
 type JoinRequestRead = components['schemas']['JoinRequestRead']
 type UserSessionRead = components['schemas']['UserSessionRead']
+type AssignmentRead = components['schemas']['AssignmentRead']
+type RoleHolderRead = components['schemas']['RoleHolderRead']
 type MePermissions = components['schemas']['MePermissions']
 type DashboardStats = components['schemas']['DashboardStats']
 
@@ -359,12 +361,73 @@ export async function installFakeApi(context: BrowserContext) {
     'GET /api/v1/apps': ({ query }) => json(200, page(APPS, query)),
     'GET /api/v1/stats/dashboard': () => json(200, STATS),
   }
-  // User detail and role assignments (empty), so the user sheet opens.
+  // User detail and role assignments. Per-install: empty at start; POST adds a
+  // row like the API (unknown role 422, same role and org 409) and DELETE
+  // removes it (404 once gone).
+  const assignments: Record<string, AssignmentRead[]> = {}
+  let assignmentCount = 0
+  const addDeleteAssignmentRoute = (u: UserRead, row: AssignmentRead) => {
+    routes[`DELETE /api/v1/users/${u.id}/role-assignments/${row.id}`] = () => {
+      const i = assignments[u.id].indexOf(row)
+      if (i < 0) return envelope(404, 'not_found')
+      assignments[u.id].splice(i, 1)
+      return null
+    }
+  }
   for (const u of USERS) {
+    assignments[u.id] = []
     routes[`GET /api/v1/users/${u.id}`] = () => json(200, u)
     routes[`GET /api/v1/users/${u.id}/role-assignments`] = ({ query }) =>
-      json(200, page([], query))
+      json(200, page(assignments[u.id], query))
+    routes[`POST /api/v1/users/${u.id}/role-assignments`] = ({ body }) => {
+      const b = body as { role_id: string; org_id?: string }
+      const role = Object.values(ROLES)
+        .flat()
+        .find((r) => r.id === b.role_id)
+      if (!role)
+        return json(422, {
+          error: {
+            code: 'unprocessable',
+            message: 'unprocessable',
+            details: [{ field: 'role_id', reason: 'unknown_role' }],
+          },
+        })
+      const orgId = b.org_id ?? null
+      if (
+        assignments[u.id].some(
+          (a) => a.role_id === role.id && a.org_id === orgId
+        )
+      )
+        return envelope(409, 'conflict')
+      const row: AssignmentRead = {
+        id: `eeeeeee${++assignmentCount}-eeee-4eee-8eee-eeeeeeeeeeee`,
+        app: role.app,
+        role_id: role.id,
+        role_key: role.key,
+        org_id: orgId,
+        granted_by: SELF_USER_ID,
+        expires_at: null,
+        active: true,
+        created_at: stamp,
+      }
+      assignments[u.id].unshift(row)
+      addDeleteAssignmentRoute(u, row)
+      return json(201, row)
+    }
   }
+  // Holders of a role: the assignments above joined with USERS.
+  const holdersOf = (roleId: string): RoleHolderRead[] =>
+    USERS.flatMap((u) =>
+      assignments[u.id]
+        .filter((a) => a.role_id === roleId)
+        .map((a) => ({
+          ...a,
+          user_id: u.id,
+          email: u.email,
+          display_name: u.display_name,
+          user_status: u.status,
+        }))
+    )
   // Per-install sessions: only ada has any. Revoke removes rows like the API
   // (revoke-one 404s once the row is gone).
   const LONG_UA = 'Mozilla/5.0 (E2E) ' + 'Gecko/20100101 '.repeat(8)
@@ -488,9 +551,12 @@ export async function installFakeApi(context: BrowserContext) {
       json(200, page(PERMISSIONS[a.key] ?? [], query))
     routes[`GET /api/v1/apps/${a.key}/role-definitions`] = ({ query }) =>
       json(200, page(ROLES[a.key] ?? [], query))
-    for (const r of ROLES[a.key] ?? [])
+    for (const r of ROLES[a.key] ?? []) {
       routes[`GET /api/v1/apps/${a.key}/role-definitions/${r.id}`] = () =>
         json(200, r)
+      routes[`GET /api/v1/apps/${a.key}/role-definitions/${r.id}/assignments`] =
+        ({ query }) => json(200, page(holdersOf(r.id), query))
+    }
     routes[`GET /api/v1/apps/${a.key}/credentials`] = ({ query }) =>
       json(200, page(creds[a.key], query))
     for (const c of creds[a.key]) addRevokeRoute(a.key, c)

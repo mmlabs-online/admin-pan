@@ -8,12 +8,17 @@ import { mePermissionsKeys } from '@/lib/permissions/me-permissions'
 import { appsKeys } from '@/features/apps/api/queries'
 import { ADMIN_APP_KEY, type Permission } from '@/features/apps/data/app-schema'
 import { isUnknownOutcome } from '@/features/apps/data/errors'
-import { type RoleCreate } from '../data/role-schema'
+import { type RoleCreate, type RoleDefinition } from '../data/role-schema'
 
 export type RolesParams = { limit: number; offset: number }
 
 const ALL_PERMISSIONS_PAGE = 100
 const ALL_PERMISSIONS_MAX_PAGES = 50
+const ALL_ROLES_PAGE = 100
+const ALL_ROLES_MAX_PAGES = 50
+export const HOLDERS_PAGE_SIZE = 20
+// Holders carry emails and the API sends no-store: drop them soon after close.
+export const HOLDERS_GC_TIME_MS = 5_000
 
 // Nested under the app, so `useUpdateAppMutation` (invalidates ['apps']) also
 // refreshes `is_default`.
@@ -27,6 +32,15 @@ export const rolesKeys = {
     ] as const,
   detail: (app: string, id: string) =>
     [...rolesKeys.all(app), 'detail', id] as const,
+  allDefinitions: (app: string) => [...rolesKeys.all(app), 'all'] as const,
+  // Holders carry emails: the key has only ids and paging (R5).
+  holdersOf: (app: string) => [...rolesKeys.all(app), 'holders'] as const,
+  holders: (app: string, roleId: string, p: RolesParams) =>
+    [
+      ...rolesKeys.holdersOf(app),
+      roleId,
+      { limit: p.limit, offset: p.offset },
+    ] as const,
   allPermissions: (app: string) =>
     [...appsKeys.detail(app), 'permissions', 'all'] as const,
 }
@@ -71,6 +85,71 @@ export function roleDefinitionQueryOptions(
           signal,
         })
       ),
+  })
+}
+
+/** Every role definition of the app, all pages (limit 100), for the assign dialog. */
+export function allRoleDefinitionsQueryOptions(
+  app: string,
+  api: ApiClient = getApi()
+) {
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps
+  return queryOptions({
+    queryKey: rolesKeys.allDefinitions(app),
+    queryFn: async ({ signal }): Promise<RoleDefinition[]> => {
+      const items: RoleDefinition[] = []
+      for (let n = 0; n < ALL_ROLES_MAX_PAGES; n++) {
+        const page = unwrap(
+          await api.GET('/api/v1/apps/{key}/role-definitions', {
+            params: {
+              path: { key: app },
+              query: { limit: ALL_ROLES_PAGE, offset: items.length },
+            },
+            signal,
+          })
+        )
+        items.push(...page.items)
+        if (!page.items.length || items.length >= page.total) return items
+      }
+      throw new ApiError({
+        kind: 'invalid_response',
+        status: 0,
+        code: 'invalid_response',
+        message: 'Too many roles to load',
+      })
+    },
+  })
+}
+
+/** GET /api/v1/apps/{key}/role-definitions/{role_id}/assignments — admin:users:read. */
+export function roleHoldersQueryOptions(
+  app: string,
+  roleId: string,
+  params: RolesParams,
+  api: ApiClient = getApi()
+) {
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps
+  return queryOptions({
+    queryKey: rolesKeys.holders(app, roleId, params),
+    queryFn: async ({ signal }) =>
+      unwrap(
+        await api.GET(
+          '/api/v1/apps/{key}/role-definitions/{role_id}/assignments',
+          {
+            params: {
+              path: { key: app, role_id: roleId },
+              query: params,
+            },
+            signal,
+          }
+        )
+      ),
+    // Keep the previous page only for the same app and role.
+    placeholderData: (prev, prevQuery) =>
+      prevQuery?.queryKey[2] === app && prevQuery.queryKey[5] === roleId
+        ? prev
+        : undefined,
+    gcTime: HOLDERS_GC_TIME_MS,
   })
 }
 

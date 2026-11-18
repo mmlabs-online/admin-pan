@@ -388,6 +388,97 @@ test('apps join requests: stoktok tab lists pending, passes axe; reject confirm 
   ).toBe(true)
 })
 
+test('role assignments: ada sheet -> Assign role stoktok:viewer (one POST, exact body, effect note, axe); revoke confirm names ada and the role, Cancel sends no DELETE, Confirm sends one; roles -> stoktok:viewer -> Assignments sheet passes axe; no email in a request URL other than /users?email=', async ({
+  page,
+  api,
+  signIn,
+}) => {
+  const VIEWER_ID = 'd1000001-0000-4000-8000-000000000001'
+  const posts = () =>
+    api.calls.filter(
+      (c) => c.method === 'POST' && c.path.endsWith('/role-assignments')
+    )
+  const deletes = () => api.calls.filter((c) => c.method === 'DELETE')
+  await signIn('/users')
+  await expect(heading(page, 'Users')).toBeVisible()
+  await page
+    .getByRole('button', { name: /Open actions for ada@people\.e2e\.test/ })
+    .click()
+  await page.getByRole('menuitem', { name: /View details/ }).click()
+  const sheet = page.getByRole('dialog')
+  await expect(sheet.getByText('No role assignments.')).toBeVisible()
+
+  await sheet.getByRole('button', { name: 'Assign role' }).click()
+  const assign = page.getByRole('dialog', { name: /Assign a role to/ })
+  await assign.getByRole('combobox', { name: 'App' }).click()
+  await page.getByRole('option', { name: /Stoktok/ }).click()
+  await assign.getByRole('combobox', { name: 'Role' }).click()
+  await page.getByRole('option', { name: /Viewer \(stoktok:viewer\)/ }).click()
+  // Stoktok has org mode none: no scope field.
+  await expect(assign.getByRole('radio', { name: 'App-wide' })).toHaveCount(0)
+  await expectNoSeriousA11y(page, 'users-role-assign')
+  await assign.getByRole('button', { name: 'Grant role' }).click()
+  await expect(assign).toBeHidden()
+  expect(posts()).toHaveLength(1)
+  expect(posts()[0].path).toMatch(
+    /^\/api\/v1\/users\/[0-9a-f-]+\/role-assignments$/
+  )
+  expect(posts()[0].body).toEqual({ role_id: VIEWER_ID })
+  await expect(sheet.getByRole('row', { name: /stoktok:viewer/ })).toBeVisible()
+  await expect(
+    sheet.getByText(/Granted stoktok:viewer in stoktok\./)
+  ).toContainText('up to 12 hours')
+  await expectNoSeriousA11y(page, 'users-role-assignments')
+
+  const rowRevoke = sheet.getByRole('button', {
+    name: 'Revoke stoktok:viewer in stoktok',
+  })
+  // The sheet is aria-hidden while the dialog is open: grab the handle first.
+  const trigger = await rowRevoke.elementHandle()
+  await rowRevoke.click()
+  const dialog = page.getByRole('alertdialog')
+  await expect(dialog).toContainText('ada@people.e2e.test')
+  await expect(dialog).toContainText('stoktok:viewer')
+  await expect(dialog).toContainText('App-wide')
+  await expectNoSeriousA11y(page, 'users-role-revoke')
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  await expect(dialog).toBeHidden()
+  expect(deletes()).toHaveLength(0)
+  expect(
+    await page.evaluate((el) => document.activeElement === el, trigger)
+  ).toBe(true)
+  await rowRevoke.click()
+  await dialog.getByRole('button', { name: 'Revoke role' }).click()
+  await expect(dialog).toBeHidden()
+  expect(deletes()).toHaveLength(1)
+  expect(deletes()[0].path).toMatch(
+    /^\/api\/v1\/users\/[0-9a-f-]+\/role-assignments\/eeeeeee1-eeee-4eee-8eee-eeeeeeeeeeee$/
+  )
+  await expect(sheet.getByText('No role assignments.')).toBeVisible()
+
+  await page.goto('/roles?app=stoktok')
+  await expect(heading(page, 'Roles')).toBeVisible()
+  await page.getByRole('button', { name: 'Actions for stoktok:viewer' }).click()
+  await page.getByRole('menuitem', { name: /Assignments/ }).click()
+  const holders = page.getByRole('dialog')
+  await expect(
+    holders.getByRole('heading', {
+      name: 'Assignments of Viewer (stoktok:viewer)',
+    })
+  ).toBeVisible()
+  await expect(holders.getByText('No one holds this role.')).toBeVisible()
+  await expectNoSeriousA11y(page, 'roles-holders')
+
+  expect(
+    api.calls.every(
+      (c) =>
+        c.path === '/api/v1/users' ||
+        (!c.path.includes('@') &&
+          ![...c.query.values()].some((v) => v.includes('@')))
+    )
+  ).toBe(true)
+})
+
 test('users sessions: Sessions tab lists ada sessions and passes axe; revoke one: confirm names ada, Cancel sends no DELETE and focus returns to the row Revoke; Confirm sends one DELETE, the row leaves, focus on the heading; revoke all: Cancel returns focus to Revoke all, Confirm sends one DELETE and shows No active sessions; no IP or user agent in any request URL', async ({
   page,
   api,
