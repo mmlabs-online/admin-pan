@@ -3,13 +3,13 @@
 | Field | Value |
 |---|---|
 | Type | bug |
-| State | REVIEW |
+| State | DONE |
 | Severity | S2 |
 | Priority | P1 |
 | Areas | ui, auth |
 | Found in | main b406001 (real API; contract change from org-admin-api USR-14) |
 | Introduced in | PAN-017 (c4e0365); became wrong when org-admin-api USR-14 merged |
-| Attempts | 0 |
+| Attempts | 1 |
 | Created | 2026-11-18 |
 | Record PR | — |
 | PR | — |
