@@ -7,7 +7,7 @@
 | Areas | api, ui, a11y |
 | Attempts | 0 |
 | Created | 2026-11-18 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/29 |
 
 ## Goal
 Add server-side search, filters and sort to the `/organizations` and `/apps` tables using the query params org-admin-api now supports, replacing the "build without filters" decision of PAN-014 / PAN-015.
