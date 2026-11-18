@@ -7,7 +7,7 @@
 | Areas | api, ui, auth, security |
 | Attempts | 1 |
 | Created | 2026-11-17 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/28 |
 
 ## Goal
 Make role assignments work on the real API in two places:
