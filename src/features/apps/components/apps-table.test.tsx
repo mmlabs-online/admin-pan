@@ -1,10 +1,39 @@
 import { apiError, fakeApi, json } from '@/test-utils/api'
 import { describe, expect, it } from 'vitest'
 import { userEvent } from 'vitest/browser'
+import { type App } from '../data/app-schema'
 import { APPS, appsPage } from './test-data'
 import { isList, renderApps } from './test-fixtures'
 
 const param = (r: Request, k: string) => new URL(r.url).searchParams.get(k)
+
+const settle = () => new Promise((r) => setTimeout(r, 600))
+const withParam = (seen: Request[], k: string) =>
+  seen.filter(isList).filter((r) => param(r, k) !== null)
+const last = (seen: Request[]) => seen.filter(isList).slice(-1)[0]
+
+/** A list endpoint that really filters APPS. */
+const filtering = (req: Request) => {
+  const q = param(req, 'q')?.toLowerCase()
+  const items: App[] = APPS.filter(
+    (a) =>
+      (!param(req, 'status') || a.status === param(req, 'status')) &&
+      (!param(req, 'join_policy') ||
+        a.join_policy === param(req, 'join_policy')) &&
+      (!param(req, 'org_mode') || a.org_mode === param(req, 'org_mode')) &&
+      (!q || a.key.includes(q) || a.name.toLowerCase().includes(q))
+  )
+  return json(appsPage(items))
+}
+
+const choose = async (
+  screen: Awaited<ReturnType<typeof renderApps>>,
+  select: string,
+  option: string
+) => {
+  await userEvent.click(screen.getByRole('combobox', { name: select }))
+  await userEvent.click(screen.getByRole('option', { name: option }))
+}
 
 describe('AppsTable', () => {
   it("loading: a never-resolving fetch shows 'Loading apps…' and aria-busy", async () => {
@@ -140,21 +169,6 @@ describe('AppsTable', () => {
     await expect.element(screen.getByTestId('search')).toHaveTextContent('{}')
   })
 
-  it('no search box, facets or sort buttons', async () => {
-    const { client } = fakeApi(() => json(appsPage()))
-    const screen = await renderApps(client)
-    await expect
-      .element(screen.getByText('Admin console', { exact: true }))
-      .toBeVisible()
-    await expect.element(screen.getByRole('textbox')).not.toBeInTheDocument()
-    await expect
-      .element(screen.getByRole('button', { name: 'Join policy' }))
-      .not.toBeInTheDocument()
-    await expect
-      .element(screen.getByRole('columnheader').getByRole('button'))
-      .not.toBeInTheDocument()
-  })
-
   it('no Members column', async () => {
     const { client } = fakeApi(() => json(appsPage()))
     const screen = await renderApps(client)
@@ -224,5 +238,220 @@ describe('AppsTable', () => {
     expect((item.element() as HTMLElement).className).not.toMatch(
       /text-red-500/
     )
+  })
+
+  it('each filter sends its own param; All removes it', async () => {
+    const { client, seen } = fakeApi(filtering)
+    const screen = await renderApps(client)
+    await expect
+      .element(screen.getByText('Admin console', { exact: true }))
+      .toBeVisible()
+    for (const [select, option, key, value] of [
+      ['Status', 'Disabled', 'status', 'disabled'],
+      ['Join policy', 'Approval', 'join_policy', 'approval'],
+      ['Org mode', 'Required', 'org_mode', 'required'],
+    ] as const) {
+      await choose(screen, select, option)
+      await expect.poll(() => param(last(seen), key)).toBe(value)
+      await expect
+        .element(screen.getByTestId('search'))
+        .toHaveTextContent(`"${key}":"${value}"`)
+    }
+    const url = new URL(last(seen).url).searchParams
+    expect(url.get('status')).toBe('disabled')
+    expect(url.get('join_policy')).toBe('approval')
+    expect(url.get('org_mode')).toBe('required')
+    await choose(screen, 'Join policy', 'All policies')
+    await expect.poll(() => param(last(seen), 'join_policy')).toBeNull()
+    expect(param(last(seen), 'org_mode')).toBe('required')
+  })
+
+  it('search sends trimmed q after one debounce; whitespace sends none', async () => {
+    const { client, seen } = fakeApi(filtering)
+    const screen = await renderApps(client)
+    await expect
+      .element(screen.getByText('Admin console', { exact: true }))
+      .toBeVisible()
+    const box = screen.getByRole('searchbox', { name: 'Search apps' })
+    await userEvent.type(box, '   ')
+    await settle()
+    expect(withParam(seen, 'q')).toHaveLength(0)
+    expect(seen.filter(isList)).toHaveLength(1)
+    await userEvent.fill(box, '  stok  ')
+    await expect
+      .poll(() => withParam(seen, 'q').map((r) => param(r, 'q')))
+      .toEqual(['stok'])
+    await settle()
+    expect(withParam(seen, 'q')).toHaveLength(1)
+    await expect
+      .element(screen.getByRole('status'))
+      .toHaveTextContent('1 apps match these filters, page 1 of 1')
+  })
+
+  it('sort headers: default Key ascending (aria-sort, no URL sort); Key -> -key -> default; Name; Created; others not sortable', async () => {
+    const { client, seen } = fakeApi(filtering)
+    const screen = await renderApps(client)
+    await expect
+      .element(screen.getByText('Admin console', { exact: true }))
+      .toBeVisible()
+    const th = (name: string) => screen.getByRole('columnheader', { name })
+    await expect.element(th('Key')).toHaveAttribute('aria-sort', 'ascending')
+    await expect.element(th('Name')).toHaveAttribute('aria-sort', 'none')
+    await expect.element(th('Created')).toHaveAttribute('aria-sort', 'none')
+    for (const name of ['Status', 'Join policy', 'Org mode', 'Origins'])
+      await expect.element(th(name)).not.toHaveAttribute('aria-sort')
+    expect(param(last(seen), 'sort')).toBeNull()
+
+    const key = screen.getByRole('button', { name: 'Key', exact: true })
+    await userEvent.click(key)
+    await expect.element(th('Key')).toHaveAttribute('aria-sort', 'descending')
+    await expect.poll(() => param(last(seen), 'sort')).toBe('-key')
+    await userEvent.click(key)
+    await expect.element(th('Key')).toHaveAttribute('aria-sort', 'ascending')
+    await expect.poll(() => param(last(seen), 'sort')).toBeNull()
+    await expect
+      .element(screen.getByTestId('search'))
+      .not.toHaveTextContent('"sort"')
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Name', exact: true })
+    )
+    await expect.poll(() => param(last(seen), 'sort')).toBe('name')
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Created', exact: true })
+    )
+    await expect.poll(() => param(last(seen), 'sort')).toBe('created_at')
+    await expect
+      .element(screen.getByRole('cell', { name: 'Jan 5, 2026' }).first())
+      .toBeVisible()
+  })
+
+  it('URL round-trip and back/forward; every control resets the page', async () => {
+    const { client, seen } = fakeApi(filtering)
+    const screen = await renderApps(client, {
+      search: {
+        q: 'o',
+        status: 'active',
+        join_policy: 'open',
+        org_mode: 'required',
+        sort: '-name',
+        page: 3,
+      },
+      back: {},
+    })
+    await expect.poll(() => seen.filter(isList).length).toBeGreaterThan(0)
+    const first = new URL(seen.filter(isList)[0].url).searchParams
+    expect(Object.fromEntries(first)).toEqual({
+      q: 'o',
+      status: 'active',
+      join_policy: 'open',
+      org_mode: 'required',
+      sort: '-name',
+      limit: '10',
+      offset: '20',
+    })
+    const input = screen.getByRole('searchbox', { name: 'Search apps' })
+    await expect.element(input).toHaveValue('o')
+    await expect
+      .element(screen.getByRole('combobox', { name: 'Join policy' }))
+      .toHaveTextContent('Open')
+    await userEvent.click(screen.getByRole('button', { name: 'Simulate back' }))
+    await expect.element(input).toHaveValue('')
+    await expect
+      .element(screen.getByRole('combobox', { name: 'Org mode' }))
+      .toHaveTextContent('All modes')
+    await settle()
+    await expect.element(screen.getByTestId('search')).toHaveTextContent('{}')
+    expect(param(last(seen), 'q')).toBeNull()
+  })
+
+  it('page resets on q / each select / sort', async () => {
+    const { client, seen } = fakeApi(() => json(appsPage(APPS, 25)))
+    const screen = await renderApps(client, { search: { page: 2 } })
+    const search = screen.getByTestId('search')
+    await expect.poll(() => param(last(seen), 'offset')).toBe('10')
+    const next = () =>
+      userEvent.click(screen.getByRole('button', { name: 'Go to next page' }))
+    const resetsPage = async () => {
+      await expect.element(search).not.toHaveTextContent('"page"')
+      await expect.poll(() => param(last(seen), 'offset')).toBe('0')
+      await next()
+      await expect.element(search).toHaveTextContent('"page":2')
+    }
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Name', exact: true })
+    )
+    await resetsPage()
+    await choose(screen, 'Status', 'Active')
+    await resetsPage()
+    await choose(screen, 'Join policy', 'Open')
+    await resetsPage()
+    await choose(screen, 'Org mode', 'None')
+    await resetsPage()
+    await userEvent.type(
+      screen.getByRole('searchbox', { name: 'Search apps' }),
+      'x'
+    )
+    await expect.element(search).toHaveTextContent('"q":"x"')
+    await expect.element(search).not.toHaveTextContent('"page"')
+    await expect.poll(() => param(last(seen), 'offset')).toBe('0')
+  })
+
+  it('filtered empty, Reset filters, 422 fixed alert, 403 after a filter change', async () => {
+    const { client } = fakeApi((req) => {
+      if (param(req, 'org_mode') === 'required')
+        return apiError(422, 'validation_error')
+      if (param(req, 'org_mode') === 'none')
+        return apiError(403, 'permission_denied', {
+          required: 'admin:apps:read',
+        })
+      return param(req, 'q') ? json(appsPage([])) : json(appsPage())
+    })
+    const screen = await renderApps(client, { search: { q: 'zzz' } })
+    await expect
+      .element(
+        screen.getByRole('cell', { name: 'No apps match these filters.' })
+      )
+      .toBeVisible()
+    await userEvent.click(screen.getByRole('button', { name: 'Reset filters' }))
+    await expect
+      .element(screen.getByText('Admin console', { exact: true }))
+      .toBeVisible()
+
+    await choose(screen, 'Org mode', 'Required')
+    const alert = screen.getByRole('alert')
+    await expect
+      .element(alert)
+      .toHaveTextContent("The search or filters weren't accepted.")
+    await expect.element(alert).not.toHaveTextContent('server text')
+    await expect
+      .element(screen.getByText('Admin console', { exact: true }))
+      .not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Reset filters' }))
+    await expect
+      .element(screen.getByText('Admin console', { exact: true }))
+      .toBeVisible()
+
+    await choose(screen, 'Org mode', 'None')
+    await expect
+      .element(screen.getByText('admin:apps:read', { exact: true }))
+      .toBeVisible()
+    await expect.element(screen.getByRole('table')).not.toBeInTheDocument()
+  })
+
+  it('controls have accessible names and sit in a search landmark; no Reset when nothing is set', async () => {
+    const { client } = fakeApi(() => json(appsPage()))
+    const screen = await renderApps(client)
+    const landmark = screen.getByRole('search', { name: 'Filter apps' })
+    await expect
+      .element(landmark.getByRole('searchbox', { name: 'Search apps' }))
+      .toBeVisible()
+    for (const name of ['Status', 'Join policy', 'Org mode'])
+      await expect
+        .element(landmark.getByRole('combobox', { name }))
+        .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: 'Reset filters' }))
+      .not.toBeInTheDocument()
   })
 })

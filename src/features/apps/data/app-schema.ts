@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import { type components } from '@/api'
+import { type components, type paths } from '@/api'
+import { searchTermSchema } from '@/lib/list-search'
 
 // Generated from org-admin-api OpenAPI (R2); never hand-copy these shapes.
 export type App = components['schemas']['AppRead']
@@ -99,9 +100,49 @@ export const permissionFormSchema = z.object({
 })
 export type PermissionForm = z.infer<typeof permissionFormSchema>
 
-// URL state of /apps: paging only. The API has no status/join_policy/q/sort
-// on the list, so old ?filter= and ?join_policy= keys are dropped.
+// Used only to validate the filter URL search params. Compile-time guards
+// keep each zod enum equal to the generated type.
+const appStatusSchema = z.enum(['active', 'disabled'])
+const joinPolicySchema = z.enum(['open', 'approval', 'closed'])
+const orgModeSchema = z.enum(['none', 'required'])
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never
+const _enumsMatch: [
+  Same<AppStatus, z.infer<typeof appStatusSchema>>,
+  Same<JoinPolicy, z.infer<typeof joinPolicySchema>>,
+  Same<OrgMode, z.infer<typeof orgModeSchema>>,
+] = [true, true, true]
+void _enumsMatch
+
+// API `sort` values (leading '-' = descending); the default is not kept in
+// the URL.
+type AppSort = NonNullable<
+  NonNullable<paths['/api/v1/apps']['get']['parameters']['query']>['sort']
+>
+export const APP_SORTS = [
+  'key',
+  '-key',
+  'name',
+  '-name',
+  'created_at',
+  '-created_at',
+] as const
+export const APP_DEFAULT_SORT = 'key'
+const _sortsMatch: Same<AppSort, (typeof APP_SORTS)[number]> = true
+void _sortsMatch
+
+// URL state of /apps. `q` is an app key or name, which is not PII, so it may
+// sit in the URL (R5, ADR 0005 amendment). Unknown values fall back to the
+// defaults.
 export const appsSearchSchema = z.object({
   page: z.number().optional().catch(1),
   pageSize: z.number().optional().catch(10),
+  q: searchTermSchema,
+  status: appStatusSchema.optional().catch(undefined),
+  join_policy: joinPolicySchema.optional().catch(undefined),
+  org_mode: orgModeSchema.optional().catch(undefined),
+  sort: z
+    .enum(APP_SORTS)
+    .optional()
+    .catch(undefined)
+    .transform((v) => (v === APP_DEFAULT_SORT ? undefined : v)),
 })

@@ -14,9 +14,14 @@ import {
   type components,
   type paths,
 } from '@/api'
+import { toSearchTerm } from '@/lib/list-search'
 import { mePermissionsKeys } from '@/lib/permissions/me-permissions'
 import { usersKeys } from '@/features/users/api/queries'
-import { ADMIN_APP_KEY, type AppCredential } from '../data/app-schema'
+import {
+  ADMIN_APP_KEY,
+  APP_DEFAULT_SORT,
+  type AppCredential,
+} from '../data/app-schema'
 import { isUnknownOutcome, joinRequestRefusal } from '../data/errors'
 
 type AppCreate = components['schemas']['AppCreate']
@@ -28,9 +33,19 @@ export const PERMISSIONS_PAGE_SIZE = 50
 export const CREDENTIALS_PAGE_SIZE = 20
 export const JOIN_REQUESTS_PAGE_SIZE = 20
 
-// `GET /api/v1/apps` takes only limit/offset (order is fixed: by key). Add
-// status/join_policy/q/sort here when the API ships them.
-export type AppsListParams = { limit: number; offset: number }
+type AppsQuery = NonNullable<
+  paths['/api/v1/apps']['get']['parameters']['query']
+>
+// Optional filters are left out when unset; the default order is not sent.
+export type AppsListParams = {
+  limit: number
+  offset: number
+  status?: NonNullable<AppsQuery['status']>
+  join_policy?: NonNullable<AppsQuery['join_policy']>
+  org_mode?: NonNullable<AppsQuery['org_mode']>
+  q?: string
+  sort?: AppsQuery['sort']
+}
 export type PermissionsParams = { limit: number; offset: number }
 export type CredentialsParams = { limit: number; offset: number }
 export type JoinRequestStatus = NonNullable<
@@ -46,7 +61,18 @@ export const appsKeys = {
   all: ['apps'] as const,
   lists: () => [...appsKeys.all, 'list'] as const,
   list: (p: AppsListParams) =>
-    [...appsKeys.lists(), { limit: p.limit, offset: p.offset }] as const,
+    [
+      ...appsKeys.lists(),
+      {
+        limit: p.limit,
+        offset: p.offset,
+        ...(p.status && { status: p.status }),
+        ...(p.join_policy && { join_policy: p.join_policy }),
+        ...(p.org_mode && { org_mode: p.org_mode }),
+        ...(p.q && { q: p.q }),
+        ...(p.sort && { sort: p.sort }),
+      },
+    ] as const,
   detail: (key: string) => [...appsKeys.all, 'detail', key] as const,
   permissions: (key: string, p: PermissionsParams) =>
     [
@@ -71,13 +97,31 @@ export const appsKeys = {
     ] as const,
 }
 
-/** Table state -> `GET /api/v1/apps` params: paging only. */
+/** Table state -> `GET /api/v1/apps` params. */
 export function toAppsListParams({
   pagination,
+  q,
+  status,
+  join_policy,
+  org_mode,
+  sort,
 }: {
   pagination: { pageIndex: number; pageSize: number }
+  q?: string
+  status?: AppsListParams['status']
+  join_policy?: AppsListParams['join_policy']
+  org_mode?: AppsListParams['org_mode']
+  sort?: AppsListParams['sort']
 }): AppsListParams {
-  return toPageParams(pagination)
+  const term = toSearchTerm(q)
+  return {
+    ...toPageParams(pagination),
+    ...(status && { status }),
+    ...(join_policy && { join_policy }),
+    ...(org_mode && { org_mode }),
+    ...(term && { q: term }),
+    ...(sort && sort !== APP_DEFAULT_SORT && { sort }),
+  }
 }
 
 // The injected client is a dependency, not cache data (tests only).

@@ -19,3 +19,9 @@ Spec §6: lists use server-side pagination (`limit` ≤ 100) and stay responsive
 ## Consequences
 - The email filter is not shareable by link and is lost on reload; `status`, `page` and `pageSize` survive.
 - The email travels in the API query string (substring match); org-admin-api should confirm its request logs drop query strings, or offer a `POST` search (follow-up).
+
+## Amendment (PAN-029)
+
+- Non-PII free text may live in the URL as `q`: an organization name or slug, an app key or name. Emails and other personal values still may not (R5). `q` is trimmed, 1..100 characters, debounced (300 ms, history `replace`), and never sent empty (the API answers 422).
+- When the API offers `sort`, tables use `manualSorting` with a three-state header cycle (ascending, descending, back to the default). The default sort is omitted from the URL and from the request, and `aria-sort` is set on the `<th>` of sortable columns. Only columns the API can sort by are sortable.
+- Enum filters are single-value selects with an "All" option, sent as plain params; any change resets to page 1.

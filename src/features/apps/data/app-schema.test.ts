@@ -111,14 +111,41 @@ describe('drift against openapi.json', () => {
 })
 
 describe('appsSearchSchema', () => {
-  it('keeps page/pageSize and drops filter/join_policy', () => {
+  it('keeps valid values and drops unknown keys', () => {
     expect(
       appsSearchSchema.parse({
         page: 2,
         pageSize: 20,
         filter: 'stok',
-        join_policy: ['open'],
+        q: ' stok ',
+        status: 'disabled',
+        join_policy: 'closed',
+        org_mode: 'required',
+        sort: '-created_at',
       })
-    ).toEqual({ page: 2, pageSize: 20 })
+    ).toEqual({
+      page: 2,
+      pageSize: 20,
+      q: 'stok',
+      status: 'disabled',
+      join_policy: 'closed',
+      org_mode: 'required',
+      sort: '-created_at',
+    })
+  })
+
+  it("bogus status/join_policy/org_mode/sort -> undefined; 'key' (the default) -> undefined; blank q -> undefined; bad page -> 1", () => {
+    expect(
+      appsSearchSchema.parse({
+        status: 'gone',
+        join_policy: ['open'],
+        org_mode: 'maybe',
+        sort: 'member_count',
+        q: '',
+        page: 'x',
+      })
+    ).toEqual({ page: 1 })
+    expect(appsSearchSchema.parse({ sort: 'key' }).sort).toBeUndefined()
+    expect(appsSearchSchema.parse({ sort: '-key' }).sort).toBe('-key')
   })
 })

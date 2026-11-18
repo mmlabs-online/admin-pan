@@ -291,6 +291,61 @@ function page<T>(items: T[], q: URLSearchParams) {
   }
 }
 
+const invalid = () =>
+  json(422, {
+    error: {
+      code: 'validation_error',
+      message: 'validation_error',
+      details: null,
+    },
+  })
+
+/**
+ * Like the API's list filters: one value per enum filter (an unknown value is
+ * 422), `q` is a trimmed, case-insensitive substring of `haystack` (empty or
+ * over 100 chars is 422), `sort` takes one allowed key with a leading '-' for
+ * descending and `id` ascending as the tie-break. Without `sort` the fixture
+ * order is kept.
+ */
+function listWhere<T extends { id: string }>(
+  items: T[],
+  query: URLSearchParams,
+  opts: {
+    enums: Record<string, string[]>
+    haystack: (item: T) => string[]
+    sorts: string[]
+  }
+): T[] | null {
+  let out = items
+  for (const [key, allowed] of Object.entries(opts.enums)) {
+    const value = query.get(key)
+    if (value === null) continue
+    if (!allowed.includes(value)) return null
+    out = out.filter((i) => (i as Record<string, unknown>)[key] === value)
+  }
+  const raw = query.get('q')
+  if (raw !== null) {
+    const q = raw.normalize('NFC').trim()
+    if (q.length < 1 || q.length > 100) return null
+    out = out.filter((i) =>
+      opts.haystack(i).some((h) => h.toLowerCase().includes(q.toLowerCase()))
+    )
+  }
+  const sort = query.get('sort')
+  if (sort !== null) {
+    const desc = sort.startsWith('-')
+    const field = desc ? sort.slice(1) : sort
+    if (!opts.sorts.includes(field)) return null
+    const get = (i: T) => String((i as Record<string, unknown>)[field])
+    out = [...out].sort(
+      (a, b) =>
+        (get(a) < get(b) ? -1 : get(a) > get(b) ? 1 : 0) * (desc ? -1 : 1) ||
+        (a.id < b.id ? -1 : 1)
+    )
+  }
+  return out
+}
+
 /**
  * Answers every request to API_ORIGIN at the network layer (the app has no
  * test hooks). `state.signedIn` stands in for the HttpOnly mm_device cookie.
@@ -356,9 +411,27 @@ export async function installFakeApi(context: BrowserContext) {
         )
       )
     },
-    'GET /api/v1/organizations': ({ query }) => json(200, page(ORGS, query)),
+    'GET /api/v1/organizations': ({ query }) => {
+      const items = listWhere(ORGS, query, {
+        enums: { status: ['active', 'suspended'] },
+        haystack: (o) => [o.name, o.slug],
+        sorts: ['created_at', 'name', 'slug'],
+      })
+      return items ? json(200, page(items, query)) : invalid()
+    },
     'GET /api/v1/audit-logs': ({ query }) => json(200, page(AUDIT_LOGS, query)),
-    'GET /api/v1/apps': ({ query }) => json(200, page(APPS, query)),
+    'GET /api/v1/apps': ({ query }) => {
+      const items = listWhere(APPS, query, {
+        enums: {
+          status: ['active', 'disabled'],
+          join_policy: ['open', 'approval', 'closed'],
+          org_mode: ['none', 'required'],
+        },
+        haystack: (a) => [a.key, a.name],
+        sorts: ['key', 'name', 'created_at'],
+      })
+      return items ? json(200, page(items, query)) : invalid()
+    },
     'GET /api/v1/stats/dashboard': () => json(200, STATS),
   }
   // User detail and role assignments. Per-install: empty at start; POST adds a

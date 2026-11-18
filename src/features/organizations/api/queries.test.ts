@@ -52,6 +52,48 @@ describe('organizations queries', () => {
     ).toEqual({ limit: 100, offset: 0 })
   })
 
+  it('toOrganizationsListParams sends q (trimmed), status, sort; omits blank q and the default sort', () => {
+    const pagination = { pageIndex: 0, pageSize: 10 }
+    expect(
+      toOrganizationsListParams({
+        pagination,
+        q: '  acme ',
+        status: 'suspended',
+        sort: '-name',
+      })
+    ).toEqual({
+      limit: 10,
+      offset: 0,
+      q: 'acme',
+      status: 'suspended',
+      sort: '-name',
+    })
+    expect(
+      toOrganizationsListParams({ pagination, q: '   ', sort: '-created_at' })
+    ).toEqual({ limit: 10, offset: 0 })
+  })
+
+  it('list key includes only set filters; paging-only key unchanged', () => {
+    expect(organizationsKeys.list({ limit: 10, offset: 0 })).toEqual([
+      'organizations',
+      'list',
+      { limit: 10, offset: 0 },
+    ])
+    expect(
+      organizationsKeys.list({
+        limit: 10,
+        offset: 0,
+        q: 'a',
+        status: 'active',
+        sort: 'name',
+      })
+    ).toEqual([
+      'organizations',
+      'list',
+      { limit: 10, offset: 0, q: 'a', status: 'active', sort: 'name' },
+    ])
+  })
+
   it('list options GET /api/v1/organizations?limit=10&offset=20', async () => {
     const body = orgsPage(ORGS, 23, 10, 20)
     const { client, seen } = fakeApi(() => json(body))

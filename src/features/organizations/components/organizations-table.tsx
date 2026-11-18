@@ -2,9 +2,12 @@ import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   flexRender,
+  functionalUpdate,
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table'
+import { isApiError } from '@/api'
+import { nextApiSort, toSortingState } from '@/lib/list-sort'
 import { queryView } from '@/lib/query-view'
 import { type NavigateFn, useTableUrlState } from '@/hooks/use-table-url-state'
 import { Button } from '@/components/ui/button'
@@ -22,16 +25,19 @@ import {
   organizationsListQueryOptions,
   toOrganizationsListParams,
 } from '../api/queries'
+import { organizationsSearchSchema, ORG_DEFAULT_SORT } from '../data/schema'
 import { organizationsColumns as columns } from './organizations-columns'
 import { useOrganizations } from './organizations-provider'
+import { OrganizationsToolbar } from './organizations-toolbar'
 
 type OrganizationsTableProps = {
   search: Record<string, unknown>
   navigate: NavigateFn
 }
 
-// Server-side paging only (ADR 0005): the list endpoint has no search, status
-// or sort parameters, so none are offered (R1).
+// Server-side paging, search, filter and sort (ADR 0005): every control only
+// changes URL search params and the request; the table never filters or sorts
+// a page itself (R1).
 export function OrganizationsTable({
   search,
   navigate,
@@ -45,9 +51,30 @@ export function OrganizationsTable({
       globalFilter: { enabled: false },
     })
 
+  const {
+    q: term,
+    status: statusFilter,
+    sort,
+  } = organizationsSearchSchema.parse(search)
+  // Every change goes through here, so the page always resets.
+  const setListSearch = (
+    patch: Record<string, unknown>,
+    opts?: { replace?: boolean }
+  ) =>
+    navigate({
+      replace: opts?.replace,
+      search: (prev) => ({ ...prev, ...patch, page: undefined }),
+    })
+  const sorting = toSortingState(sort, ORG_DEFAULT_SORT)
+
   const q = useQuery(
     organizationsListQueryOptions(
-      toOrganizationsListParams({ pagination }),
+      toOrganizationsListParams({
+        pagination,
+        q: term,
+        status: statusFilter,
+        sort,
+      }),
       api
     )
   )
@@ -60,9 +87,19 @@ export function OrganizationsTable({
     rowCount: q.data?.total ?? 0,
     manualPagination: true,
     manualFiltering: true,
-    enableSorting: false,
+    manualSorting: true,
+    sortDescFirst: false,
+    enableMultiSort: false,
     enableRowSelection: false,
-    state: { pagination },
+    state: { pagination, sorting },
+    onSortingChange: (updater) =>
+      setListSearch({
+        sort: nextApiSort(
+          sorting,
+          functionalUpdate(updater, sorting),
+          ORG_DEFAULT_SORT
+        ),
+      }),
     getRowId: (row) => row.id,
     onPaginationChange,
     getCoreRowModel: getCoreRowModel(),
@@ -84,27 +121,48 @@ export function OrganizationsTable({
     )
 
   const rows = table.getRowModel().rows
+  const filtered = Boolean(term || statusFilter)
   const status =
-    view.status === 'pending'
+    view.status === 'pending' || q.isPlaceholderData
       ? 'Loading organizations…'
       : view.status === 'success'
         ? rows.length
-          ? `${q.data?.total ?? 0} organizations, page ${pagination.pageIndex + 1} of ${Math.max(pageCount, 1)}`
-          : 'No organizations yet.'
+          ? `${q.data?.total ?? 0} organizations${filtered ? ' match these filters' : ''}, page ${pagination.pageIndex + 1} of ${Math.max(pageCount, 1)}`
+          : filtered
+            ? 'No organizations match these filters.'
+            : 'No organizations yet.'
         : ''
 
   return (
     <div className='flex flex-1 flex-col gap-4'>
+      <OrganizationsToolbar
+        q={term}
+        status={statusFilter}
+        canReset={filtered || sort !== undefined}
+        onQ={(value) => setListSearch({ q: value }, { replace: true })}
+        onStatus={(value) => setListSearch({ status: value })}
+        onReset={() =>
+          setListSearch({ q: undefined, status: undefined, sort: undefined })
+        }
+      />
       <p role='status' aria-live='polite' className='sr-only'>
         {status}
       </p>
       <div className='overflow-x-auto rounded-md border'>
-        <Table aria-label='Organizations' aria-busy={view.status === 'pending'}>
+        <Table aria-label='Organizations' aria-busy={q.isFetching}>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} colSpan={header.colSpan}>
+                  <TableHead
+                    key={header.id}
+                    colSpan={header.colSpan}
+                    aria-sort={
+                      header.column.getCanSort()
+                        ? ariaSort(header.column.getIsSorted())
+                        : undefined
+                    }
+                  >
                     {header.isPlaceholder
                       ? null
                       : flexRender(
@@ -120,6 +178,10 @@ export function OrganizationsTable({
             {view.status === 'pending' ? (
               <MessageRow span={columns.length}>
                 Loading organizations…
+              </MessageRow>
+            ) : view.status === 'error' && isApiError(view.error, 422) ? (
+              <MessageRow span={columns.length}>
+                <p role='alert'>The search or filters weren&apos;t accepted.</p>
               </MessageRow>
             ) : view.status === 'error' ? (
               <MessageRow span={columns.length}>
@@ -145,7 +207,9 @@ export function OrganizationsTable({
               ))
             ) : (
               <MessageRow span={columns.length}>
-                No organizations yet.
+                {filtered
+                  ? 'No organizations match these filters.'
+                  : 'No organizations yet.'}
               </MessageRow>
             )}
           </TableBody>
@@ -155,6 +219,9 @@ export function OrganizationsTable({
     </div>
   )
 }
+
+const ariaSort = (s: false | 'asc' | 'desc') =>
+  s === 'asc' ? 'ascending' : s === 'desc' ? 'descending' : 'none'
 
 function MessageRow({
   span,

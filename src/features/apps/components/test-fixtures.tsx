@@ -29,7 +29,13 @@ import {
   permissionsPage,
 } from './test-data'
 
-function TableWithUrlState({ initial }: { initial: Record<string, unknown> }) {
+function TableWithUrlState({
+  initial,
+  back,
+}: {
+  initial: Record<string, unknown>
+  back?: Record<string, unknown>
+}) {
   const [search, setSearch] = useState<Record<string, unknown>>(initial)
   const navigate: NavigateFn = ({ search: next }) => {
     if (next === true) return
@@ -38,6 +44,11 @@ function TableWithUrlState({ initial }: { initial: Record<string, unknown> }) {
   return (
     <>
       <code data-testid='search'>{JSON.stringify(search)}</code>
+      {back && (
+        <button type='button' onClick={() => setSearch(back)}>
+          Simulate back
+        </button>
+      )}
       <AppsTable search={search} navigate={navigate} />
     </>
   )
@@ -53,6 +64,8 @@ export function renderApps(
     granted?: Parameters<typeof WithPermissions>[0]['granted']
     userId?: string
     search?: Record<string, unknown>
+    /** Adds a "Simulate back" button that replaces the URL state. */
+    back?: Record<string, unknown>
     queryClient?: QueryClient
   } = {}
 ) {
@@ -60,7 +73,7 @@ export function renderApps(
   const Page = () => (
     <AppsProvider api={client}>
       <RegisterAppButton />
-      <TableWithUrlState initial={opts.search ?? {}} />
+      <TableWithUrlState initial={opts.search ?? {}} back={opts.back} />
       <AppsDialogs />
     </AppsProvider>
   )

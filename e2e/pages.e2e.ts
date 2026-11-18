@@ -151,6 +151,32 @@ test('organizations: list from the API; suspend and delete dialogs cancel withou
   await expect(heading(page, 'Organizations')).toBeVisible()
   await expect(page.getByRole('row')).toHaveCount(4)
 
+  await page.getByLabel('Search organizations').fill('glob')
+  await expect(page.getByRole('row')).toHaveCount(2)
+  await expect(
+    page.getByRole('cell', { name: 'Globex', exact: true })
+  ).toBeVisible()
+  expect(
+    api.calls.filter(
+      (c) => c.path === '/api/v1/organizations' && c.query.get('q') === 'glob'
+    )
+  ).toHaveLength(1)
+  await page.getByLabel('Search organizations').fill('')
+  await expect(page.getByRole('row')).toHaveCount(4)
+  await page.getByRole('combobox', { name: 'Status' }).click()
+  await page.getByRole('option', { name: 'Suspended' }).click()
+  await expect(page.getByRole('row')).toHaveCount(2)
+  expect(
+    api.calls.some(
+      (c) =>
+        c.path === '/api/v1/organizations' &&
+        c.query.get('status') === 'suspended'
+    )
+  ).toBe(true)
+  await expectNoSeriousA11y(page, 'organizations-list-toolbar')
+  await page.getByRole('button', { name: 'Reset filters' }).click()
+  await expect(page.getByRole('row')).toHaveCount(4)
+
   await page.getByRole('button', { name: 'Actions for Acme Corp' }).click()
   await page.getByRole('menuitem', { name: 'Suspend' }).click()
   const suspend = page.getByRole('alertdialog')
@@ -188,6 +214,31 @@ test('apps: list from the API; detail sheet and permissions pass axe; disable di
 }) => {
   await signIn('/apps')
   await expect(heading(page, 'Apps')).toBeVisible()
+  await expect(page.getByRole('row')).toHaveCount(4)
+
+  await page.getByLabel('Search apps').fill('stok')
+  await expect(page.getByRole('row')).toHaveCount(2)
+  expect(
+    api.calls.some(
+      (c) => c.path === '/api/v1/apps' && c.query.get('q') === 'stok'
+    )
+  ).toBe(true)
+  await page.getByLabel('Search apps').fill('')
+  await expect(page.getByRole('row')).toHaveCount(4)
+  await page.getByRole('combobox', { name: 'Join policy' }).click()
+  await page.getByRole('option', { name: 'Closed' }).click()
+  // The seeded admin app is always listed.
+  await expect(
+    page.getByRole('cell', { name: 'Admin console', exact: true })
+  ).toBeVisible()
+  expect(
+    api.calls.some(
+      (c) =>
+        c.path === '/api/v1/apps' && c.query.get('join_policy') === 'closed'
+    )
+  ).toBe(true)
+  await expectNoSeriousA11y(page, 'apps-list-toolbar')
+  await page.getByRole('button', { name: 'Reset filters' }).click()
   await expect(page.getByRole('row')).toHaveCount(4)
 
   await page.getByRole('button', { name: 'View stoktok' }).click()

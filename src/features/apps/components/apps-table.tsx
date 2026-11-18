@@ -2,9 +2,12 @@ import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   flexRender,
+  functionalUpdate,
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table'
+import { isApiError } from '@/api'
+import { nextApiSort, toSortingState } from '@/lib/list-sort'
 import { queryView } from '@/lib/query-view'
 import { type NavigateFn, useTableUrlState } from '@/hooks/use-table-url-state'
 import { Button } from '@/components/ui/button'
@@ -19,16 +22,19 @@ import {
 import { DataTablePagination } from '@/components/data-table'
 import { ForbiddenPanel } from '@/components/forbidden-panel'
 import { appsListQueryOptions, toAppsListParams } from '../api/queries'
+import { APP_DEFAULT_SORT, appsSearchSchema } from '../data/app-schema'
 import { appsColumns as columns } from './apps-columns'
 import { useApps } from './apps-provider'
+import { AppsToolbar } from './apps-toolbar'
 
 type AppsTableProps = {
   search: Record<string, unknown>
   navigate: NavigateFn
 }
 
-// Server-side paging only (ADR 0005): the list endpoint has no search, status
-// or sort parameters, so none are offered (R1).
+// Server-side paging, search, filters and sort (ADR 0005): every control only
+// changes URL search params and the request; the table never filters or sorts
+// a page itself (R1).
 export function AppsTable({ search, navigate }: AppsTableProps) {
   const { api } = useApps()
   const { pagination, onPaginationChange, ensurePageInRange } =
@@ -39,8 +45,36 @@ export function AppsTable({ search, navigate }: AppsTableProps) {
       globalFilter: { enabled: false },
     })
 
+  const {
+    q: term,
+    status: statusFilter,
+    join_policy: joinPolicy,
+    org_mode: orgMode,
+    sort,
+  } = appsSearchSchema.parse(search)
+  // Every change goes through here, so the page always resets.
+  const setListSearch = (
+    patch: Record<string, unknown>,
+    opts?: { replace?: boolean }
+  ) =>
+    navigate({
+      replace: opts?.replace,
+      search: (prev) => ({ ...prev, ...patch, page: undefined }),
+    })
+  const sorting = toSortingState(sort, APP_DEFAULT_SORT)
+
   const q = useQuery(
-    appsListQueryOptions(toAppsListParams({ pagination }), api)
+    appsListQueryOptions(
+      toAppsListParams({
+        pagination,
+        q: term,
+        status: statusFilter,
+        join_policy: joinPolicy,
+        org_mode: orgMode,
+        sort,
+      }),
+      api
+    )
   )
   const view = queryView(q)
 
@@ -51,9 +85,19 @@ export function AppsTable({ search, navigate }: AppsTableProps) {
     rowCount: q.data?.total ?? 0,
     manualPagination: true,
     manualFiltering: true,
-    enableSorting: false,
+    manualSorting: true,
+    sortDescFirst: false,
+    enableMultiSort: false,
     enableRowSelection: false,
-    state: { pagination },
+    state: { pagination, sorting },
+    onSortingChange: (updater) =>
+      setListSearch({
+        sort: nextApiSort(
+          sorting,
+          functionalUpdate(updater, sorting),
+          APP_DEFAULT_SORT
+        ),
+      }),
     getRowId: (row) => row.key,
     onPaginationChange,
     getCoreRowModel: getCoreRowModel(),
@@ -75,27 +119,58 @@ export function AppsTable({ search, navigate }: AppsTableProps) {
     )
 
   const rows = table.getRowModel().rows
+  const filtered = Boolean(term || statusFilter || joinPolicy || orgMode)
   const status =
-    view.status === 'pending'
+    view.status === 'pending' || q.isPlaceholderData
       ? 'Loading apps…'
       : view.status === 'success'
         ? rows.length
-          ? `${q.data?.total ?? 0} apps, page ${pagination.pageIndex + 1} of ${Math.max(pageCount, 1)}`
-          : 'No apps registered yet.'
+          ? `${q.data?.total ?? 0} apps${filtered ? ' match these filters' : ''}, page ${pagination.pageIndex + 1} of ${Math.max(pageCount, 1)}`
+          : filtered
+            ? 'No apps match these filters.'
+            : 'No apps registered yet.'
         : ''
 
   return (
     <div className='flex flex-1 flex-col gap-4'>
+      <AppsToolbar
+        q={term}
+        status={statusFilter}
+        join_policy={joinPolicy}
+        org_mode={orgMode}
+        canReset={filtered || sort !== undefined}
+        onQ={(value) => setListSearch({ q: value }, { replace: true })}
+        onStatus={(value) => setListSearch({ status: value })}
+        onJoinPolicy={(value) => setListSearch({ join_policy: value })}
+        onOrgMode={(value) => setListSearch({ org_mode: value })}
+        onReset={() =>
+          setListSearch({
+            q: undefined,
+            status: undefined,
+            join_policy: undefined,
+            org_mode: undefined,
+            sort: undefined,
+          })
+        }
+      />
       <p role='status' aria-live='polite' className='sr-only'>
         {status}
       </p>
       <div className='overflow-x-auto rounded-md border'>
-        <Table aria-label='Apps' aria-busy={view.status === 'pending'}>
+        <Table aria-label='Apps' aria-busy={q.isFetching}>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} colSpan={header.colSpan}>
+                  <TableHead
+                    key={header.id}
+                    colSpan={header.colSpan}
+                    aria-sort={
+                      header.column.getCanSort()
+                        ? ariaSort(header.column.getIsSorted())
+                        : undefined
+                    }
+                  >
                     {header.isPlaceholder
                       ? null
                       : flexRender(
@@ -110,6 +185,10 @@ export function AppsTable({ search, navigate }: AppsTableProps) {
           <TableBody>
             {view.status === 'pending' ? (
               <MessageRow span={columns.length}>Loading apps…</MessageRow>
+            ) : view.status === 'error' && isApiError(view.error, 422) ? (
+              <MessageRow span={columns.length}>
+                <p role='alert'>The search or filters weren&apos;t accepted.</p>
+              </MessageRow>
             ) : view.status === 'error' ? (
               <MessageRow span={columns.length}>
                 <div role='alert' className='space-y-2'>
@@ -134,7 +213,9 @@ export function AppsTable({ search, navigate }: AppsTableProps) {
               ))
             ) : (
               <MessageRow span={columns.length}>
-                No apps registered yet.
+                {filtered
+                  ? 'No apps match these filters.'
+                  : 'No apps registered yet.'}
               </MessageRow>
             )}
           </TableBody>
@@ -144,6 +225,9 @@ export function AppsTable({ search, navigate }: AppsTableProps) {
     </div>
   )
 }
+
+const ariaSort = (s: false | 'asc' | 'desc') =>
+  s === 'asc' ? 'ascending' : s === 'desc' ? 'descending' : 'none'
 
 function MessageRow({
   span,
