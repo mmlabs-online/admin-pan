@@ -122,21 +122,3 @@ describe('appsSearchSchema', () => {
     ).toEqual({ page: 2, pageSize: 20 })
   })
 })
-
-describe('the apps feature', () => {
-  it('imports no mock store', () => {
-    const files = import.meta.glob('../**/*.{ts,tsx}', {
-      query: '?raw',
-      import: 'default',
-      eager: true,
-    }) as Record<string, string>
-    const allowed = /(^|\/)(access-store|mock-data|schema)\.ts$/
-    const mock =
-      /from '(\.\/|\.\.\/data\/|\.\.\/)?(access-store|mock-data|schema)'/
-    const offenders = Object.entries(files)
-      .filter(([f]) => !allowed.test(f) && !/app-schema\.test\.ts$/.test(f))
-      .filter(([, src]) => mock.test(src))
-      .map(([f]) => f)
-    expect(offenders).toEqual([])
-  })
-})

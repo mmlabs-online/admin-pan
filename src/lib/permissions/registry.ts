@@ -65,8 +65,12 @@ export const ROUTE_PERMISSIONS = {
     'GET /api/v1/organizations'
   ),
   '/_authenticated/apps/': perm('admin:apps:read', 'GET /api/v1/apps'),
-  // The screen lists apps; the role catalog is public (D17).
-  '/_authenticated/roles/': perm('admin:apps:read', 'GET /api/v1/apps'),
+  '/_authenticated/roles/': perm(
+    'admin:apps:read',
+    'GET /api/v1/apps',
+    'GET /api/v1/apps/{key}/role-definitions',
+    'GET /api/v1/apps/{key}/role-definitions/{role_id}'
+  ),
   '/_authenticated/audit-log/': perm(
     'admin:audit:read',
     'GET /api/v1/audit-logs'
@@ -152,12 +156,20 @@ export const ACTIONS = {
     'admin:roles:manage',
     'PATCH /api/v1/apps/{key}/permissions/{permission_id}'
   ),
-  'roles.create': perm('admin:roles:manage', 'POST /api/v1/apps/{key}/roles'),
-  'roles.update': perm(
+  'roles.create': perm(
     'admin:roles:manage',
-    'PATCH /api/v1/apps/{key}/roles/{role_id}',
+    'POST /api/v1/apps/{key}/roles',
     'PUT /api/v1/apps/{key}/roles/{role_id}/permissions'
   ),
+  'roles.rename': perm(
+    'admin:roles:manage',
+    'PATCH /api/v1/apps/{key}/roles/{role_id}'
+  ),
+  'roles.setPermissions': perm(
+    'admin:roles:manage',
+    'PUT /api/v1/apps/{key}/roles/{role_id}/permissions'
+  ),
+  'roles.setDefault': perm('admin:apps:write', 'PATCH /api/v1/apps/{key}'),
   'roles.delete': perm(
     'admin:roles:manage',
     'DELETE /api/v1/apps/{key}/roles/{role_id}'

@@ -11,6 +11,7 @@ type AuditLogRead = components['schemas']['AuditLogRead']
 type AppRead = components['schemas']['AppRead']
 type EntitlementRead = components['schemas']['EntitlementRead']
 type PermissionRead = components['schemas']['PermissionRead']
+type RoleDefinitionRead = components['schemas']['RoleDefinitionRead']
 type AppCredentialRead = components['schemas']['AppCredentialRead']
 type JoinRequestRead = components['schemas']['JoinRequestRead']
 type UserSessionRead = components['schemas']['UserSessionRead']
@@ -68,6 +69,9 @@ const ORGS: OrganizationRead[] = [
   org(3, 'initech', 'Initech', 'active', 'TPS reports'),
 ]
 
+const CALECHIP_MEMBER_ID = 'c1000001-0000-4000-8000-000000000001'
+const CALECHIP_OWNER_ID = 'c1000002-0000-4000-8000-000000000002'
+
 const app = (
   n: number,
   key: string,
@@ -94,7 +98,12 @@ const APPS: AppRead[] = [
     join_policy: 'closed',
     origins: ['https://admin-portal.mmlabs.online'],
   }),
-  app(2, 'calechip', 'Calechip', { join_policy: 'open', org_mode: 'required' }),
+  app(2, 'calechip', 'Calechip', {
+    join_policy: 'open',
+    org_mode: 'required',
+    default_role_id: CALECHIP_MEMBER_ID,
+    org_owner_role_id: CALECHIP_OWNER_ID,
+  }),
   app(3, 'stoktok', 'Stoktok', {
     origins: ['https://stoktok.mmlabs.online', 'http://localhost:5173'],
   }),
@@ -152,6 +161,65 @@ const PERMISSIONS: Record<string, PermissionRead[]> = {
   stoktok: [
     permission(2, 'stoktok:orders:read', { description: 'View orders' }),
     permission(3, 'stoktok:orders:write', { is_admin: true }),
+  ],
+}
+
+const roleDef = (
+  appKey: string,
+  id: string,
+  seg: string,
+  name: string,
+  over: Partial<RoleDefinitionRead> = {}
+): RoleDefinitionRead => ({
+  id,
+  app: appKey,
+  key: `${appKey}:${seg}`,
+  name,
+  is_system: false,
+  is_default: false,
+  privileged: false,
+  permissions: [],
+  created_at: stamp,
+  updated_at: stamp,
+  ...over,
+})
+// Ordered by key, like the API.
+const ROLES: Record<string, RoleDefinitionRead[]> = {
+  admin: [
+    roleDef(
+      'admin',
+      'b1000001-0000-4000-8000-000000000001',
+      'super-admin',
+      'Super admin',
+      { is_system: true, privileged: true, permissions: ['admin:*'] }
+    ),
+  ],
+  calechip: [
+    roleDef('calechip', CALECHIP_MEMBER_ID, 'member', 'Member', {
+      is_default: true,
+    }),
+    roleDef('calechip', CALECHIP_OWNER_ID, 'owner', 'Owner', {
+      is_system: true,
+    }),
+  ],
+  stoktok: [
+    roleDef(
+      'stoktok',
+      'd1000002-0000-4000-8000-000000000002',
+      'operator',
+      'Operator',
+      {
+        privileged: true,
+        permissions: ['stoktok:orders:read', 'stoktok:orders:write'],
+      }
+    ),
+    roleDef(
+      'stoktok',
+      'd1000001-0000-4000-8000-000000000001',
+      'viewer',
+      'Viewer',
+      { permissions: ['stoktok:orders:read'] }
+    ),
   ],
 }
 
@@ -418,6 +486,11 @@ export async function installFakeApi(context: BrowserContext) {
     routes[`GET /api/v1/apps/${a.key}`] = () => json(200, a)
     routes[`GET /api/v1/apps/${a.key}/permissions`] = ({ query }) =>
       json(200, page(PERMISSIONS[a.key] ?? [], query))
+    routes[`GET /api/v1/apps/${a.key}/role-definitions`] = ({ query }) =>
+      json(200, page(ROLES[a.key] ?? [], query))
+    for (const r of ROLES[a.key] ?? [])
+      routes[`GET /api/v1/apps/${a.key}/role-definitions/${r.id}`] = () =>
+        json(200, r)
     routes[`GET /api/v1/apps/${a.key}/credentials`] = ({ query }) =>
       json(200, page(creds[a.key], query))
     for (const c of creds[a.key]) addRevokeRoute(a.key, c)

@@ -17,6 +17,20 @@ async function view(
 }
 
 describe('AppDetailSheet', () => {
+  it("Overview has a 'Manage roles' link to /roles?app={key}; the stale role-management line is gone", async () => {
+    const { client } = fakeApi(appsServer(() => json({})))
+    const screen = await renderApps(client)
+    const sheet = await view(screen, 'stoktok')
+    const link = sheet.getByRole('link', { name: 'Manage roles' })
+    await expect.element(link).toBeVisible()
+    expect(new URL((link.element() as HTMLAnchorElement).href).search).toBe(
+      '?app=stoktok'
+    )
+    await expect
+      .element(sheet.getByText(/arrive with role management/))
+      .not.toBeInTheDocument()
+  })
+
   it('fetches GET /apps/{key} when opened; shows the list row while loading; then the fetched values', async () => {
     let release: (r: Response) => void = () => {}
     const { client, seen } = fakeApi((req) =>
@@ -50,7 +64,8 @@ describe('AppDetailSheet', () => {
       .element(sheet.getByText('https://stoktok.mmlabs.online'))
       .toBeVisible()
     await expect.element(sheet.getByText('http://localhost:5173')).toBeVisible()
-    expect(sheet.getByRole('link').elements()).toHaveLength(0)
+    // The origins are plain text: the only link is 'Manage roles'.
+    expect(sheet.getByRole('link').elements()).toHaveLength(1)
     expect(
       (sheet.element() as HTMLElement).querySelectorAll('time')
     ).toHaveLength(2)

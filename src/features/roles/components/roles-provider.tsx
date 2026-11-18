@@ -1,24 +1,51 @@
 import React, { useState } from 'react'
+import { getApi, type ApiClient } from '@/api'
 import useDialogState from '@/hooks/use-dialog-state'
+import { type App } from '@/features/apps/data/app-schema'
+import { type RoleDefinition } from '../data/role-schema'
 
-type RolesDialogType = 'create' | 'edit' | 'delete' | 'assignments'
+type RolesDialogType =
+  | 'create'
+  | 'rename'
+  | 'permissions'
+  | 'delete'
+  | 'default'
 
 type RolesContextType = {
+  api: ApiClient
+  /** The app whose roles are shown; null until the apps list resolves. */
+  app: App | null
   open: RolesDialogType | null
   setOpen: (str: RolesDialogType | null) => void
-  // Id rather than row: dialogs read the latest row from the store.
-  currentId: string | null
-  setCurrentId: React.Dispatch<React.SetStateAction<string | null>>
+  /** List-row snapshot: names the target; never the source of truth. */
+  currentRow: RoleDefinition | null
+  setCurrentRow: React.Dispatch<React.SetStateAction<RoleDefinition | null>>
 }
 
 const RolesContext = React.createContext<RolesContextType | null>(null)
 
-export function RolesProvider({ children }: { children: React.ReactNode }) {
+type RolesProviderProps = {
+  children: React.ReactNode
+  app: App | null
+  /** Injected in tests; production uses the shared client. */
+  api?: ApiClient
+}
+
+export function RolesProvider({ children, app, api }: RolesProviderProps) {
   const [open, setOpen] = useDialogState<RolesDialogType>(null)
-  const [currentId, setCurrentId] = useState<string | null>(null)
+  const [currentRow, setCurrentRow] = useState<RoleDefinition | null>(null)
 
   return (
-    <RolesContext value={{ open, setOpen, currentId, setCurrentId }}>
+    <RolesContext
+      value={{
+        api: api ?? getApi(),
+        app,
+        open,
+        setOpen,
+        currentRow,
+        setCurrentRow,
+      }}
+    >
       {children}
     </RolesContext>
   )

@@ -1,6 +1,13 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useState } from 'react'
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query'
+import {
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from '@tanstack/react-router'
 import { type ApiClient } from '@/api'
 import { apiError, json, testQueryClient } from '@/test-utils/api'
 import { WithPermissions } from '@/test-utils/permissions'
@@ -49,13 +56,29 @@ export function renderApps(
     queryClient?: QueryClient
   } = {}
 ) {
+  // The detail sheet renders a router <Link>, so the page sits in a router.
+  const Page = () => (
+    <AppsProvider api={client}>
+      <RegisterAppButton />
+      <TableWithUrlState initial={opts.search ?? {}} />
+      <AppsDialogs />
+    </AppsProvider>
+  )
+  const root = createRootRoute()
+  const router = createRouter({
+    routeTree: root.addChildren([
+      createRoute({ getParentRoute: () => root, path: '/', component: Page }),
+      createRoute({
+        getParentRoute: () => root,
+        path: '/roles',
+        component: () => null,
+      }),
+    ]),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
   const tree = (
     <QueryClientProvider client={opts.queryClient ?? testQueryClient()}>
-      <AppsProvider api={client}>
-        <RegisterAppButton />
-        <TableWithUrlState initial={opts.search ?? {}} />
-        <AppsDialogs />
-      </AppsProvider>
+      <RouterProvider router={router} />
     </QueryClientProvider>
   )
   return render(

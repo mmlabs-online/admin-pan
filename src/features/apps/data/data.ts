@@ -54,9 +54,6 @@ export const requesterLabel = (r: {
   email: string
 }): string => r.display_name?.trim() || r.email
 
-// Key segments of apps, roles and permissions: lowercase, digits, hyphens.
-export const KEY_SEGMENT_PATTERN = /^[a-z][a-z0-9-]*$/
-
 export const permissionScopeLabels: Record<PermissionScope, string> = {
   app: 'App',
   org: 'Org',

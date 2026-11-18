@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import { isApiError } from '@/api'
 import { queryView } from '@/lib/query-view'
 import { Badge } from '@/components/ui/badge'
@@ -158,8 +159,14 @@ function AppOverview({ app }: { app: App }) {
           </div>
         ))}
       </dl>
-      <p className='text-sm text-muted-foreground'>
-        Role names and the role list arrive with role management.
+      <p className='text-sm'>
+        <Link
+          to='/roles'
+          search={{ app: app.key }}
+          className='underline underline-offset-4'
+        >
+          Manage roles
+        </Link>
       </p>
       <section aria-labelledby='app-origins-heading' className='space-y-2'>
         <h3 id='app-origins-heading' className='text-sm font-medium'>

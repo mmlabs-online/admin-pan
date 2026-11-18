@@ -2,8 +2,6 @@ import { z } from 'zod'
 import { type components } from '@/api'
 
 // Generated from org-admin-api OpenAPI (R2); never hand-copy these shapes.
-// `schema.ts` is the Roles mock shape (until PAN-015b); the Apps screen uses
-// this file.
 export type App = components['schemas']['AppRead']
 export type AppStatus = components['schemas']['AppStatus']
 export type JoinPolicy = components['schemas']['JoinPolicy']
