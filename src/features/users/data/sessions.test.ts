@@ -40,13 +40,18 @@ describe('sanitizeUserAgent', () => {
 })
 
 describe('revoke copy', () => {
-  it("states up to 12 hours and not a password change, never 'signed out' or 'immediately'", () => {
-    for (const text of [REVOKE_ONE_EFFECT, REVOKE_ALL_EFFECT]) {
+  it("admin-app access ends on the next admin request; only other apps' tokens last up to 12 hours; not a password change; disable to lock; never 'signed out' or 'immediately'", () => {
+    for (const text of [SESSIONS_NOTE, REVOKE_ONE_EFFECT, REVOKE_ALL_EFFECT]) {
+      expect(text).toContain('next admin request')
+      expect(text).toContain('other apps')
       expect(text).toContain('up to 12 hours')
       expect(text).toContain('not a password change')
+      expect(text).toMatch(/disable it/i)
+      expect(text).toContain('new access tokens')
+      expect(text).not.toMatch(
+        /including this admin app|open apps can keep working|new access tokens only/i
+      )
       expect(text).not.toMatch(/signed out|immediately|logged out/i)
     }
-    expect(SESSIONS_NOTE).toContain('up to 12 hours')
-    expect(SESSIONS_NOTE).not.toMatch(/signed out|immediately|logged out/i)
   })
 })
