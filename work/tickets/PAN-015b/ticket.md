@@ -7,7 +7,7 @@
 | Areas | api, ui, auth |
 | Attempts | 0 |
 | Created | 2026-11-17 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/27 |
 
 ## Goal
 Replace the mock Roles screen with the real API, per app:
