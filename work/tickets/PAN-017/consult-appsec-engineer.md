@@ -50,7 +50,7 @@ The API side is sound. All three routes need `admin:*`, refuse the caller's own 
    - Anyone can set it at first sign-in, up to 512 chars (`/home/user/org-admin-api/app/modules/sessions/models.py:53`).
    - Rules for the plan:
      - Render it only as a React text node. No `dangerouslySetInnerHTML`, never auto-link anything, no markdown.
-     - Wrap it in `<bdi>` (or `dir='ltr'` with `unicode-bidi: isolate`) and strip C0/C1 controls and bidi overrides (U+202A–202E, U+2066–2069) before display, so "‮" tricks can't reorder neighbouring cells or fake a browser name.
+     - Wrap it in `<bdi>` (or `dir='ltr'` with `unicode-bidi: isolate`) and strip C0/C1 controls and bidi overrides (U+202A–202E, U+2066–2069) before display, so "\u202E" tricks can't reorder neighbouring cells or fake a browser name.
      - Truncate visually with CSS and show the full value on demand as text (expander or tooltip). Using `title` is safe.
      - Label it "User agent (reported by the browser)", in muted monospace, so staff don't treat it as verified.
      - Don't add a UA-parsing dependency in this ticket. If the plan wants friendly names, a small local function with tests is enough. Spoofed input gives spoofed output either way.

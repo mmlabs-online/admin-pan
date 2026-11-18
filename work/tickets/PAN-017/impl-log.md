@@ -72,7 +72,7 @@ Scope: the two yellow items in security-review.md "Attempt 1". Nothing else chan
 ### Changes
 - `src/features/users/data/sessions.ts`: the sanitizer's bidi class is now written with `\u` escapes only. It also strips U+200B-U+200F (zero-width and marks), U+2060, U+FEFF, U+FFF9-U+FFFB and tag characters U+E0000-U+E007F (regex uses the `u` flag). U+2028/U+2029 are mapped to a space (added to the control-character replace).
 - `src/features/users/data/sessions.test.ts`: literal characters replaced by escapes; four new tests (zero-width, interlinear annotation, tag characters, line/paragraph separators), inputs built with escapes.
-- `src/features/users/components/user-sessions-tab.test.tsx`: the two literal U+202E replaced by `‮`.
+- `src/features/users/components/user-sessions-tab.test.tsx`: the two literal U+202E replaced by `\u202E`.
 
 ### Literal-character scan
 `grep -P` rejects code points above 0xFF in this environment ("character code point value in \x{} or \o{} is too large"), so I used a Python scan (`python3 -I scan.py`, all of src/ and e2e/, every line, all listed ranges including U+E0000-U+E007F).
@@ -80,7 +80,7 @@ Scope: the two yellow items in security-review.md "Attempt 1". Nothing else chan
 - After: `hits 0`.
 
 ### Out-of-plan files
-- `src/features/reports/lib/csv.ts:143`: the literal U+FEFF BOM written as `'﻿'` (same runtime value). Needed to meet the "no literal character anywhere in src/ or e2e/" requirement.
+- `src/features/reports/lib/csv.ts:143`: the literal U+FEFF BOM written as `'\uFEFF'` (same runtime value). Needed to meet the "no literal character anywhere in src/ or e2e/" requirement.
 
 ### Checks (`PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium`)
 - pnpm typecheck: clean.

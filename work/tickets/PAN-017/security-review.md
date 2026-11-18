@@ -20,7 +20,7 @@ Scope: `git diff origin/main...HEAD` (commits ee5e43f..c4e0365), checked against
 **`ADMIN_PERMISSIONS` as "grant everything" in production? No.** Production uses it only to derive the `AdminPermission` type (`registry.ts:23`, `source.ts:6`, `forbidden.ts:7`); `permits()` (`permits.ts:6-13`) unchanged; adding `'admin:*'` changes nothing at runtime.
 
 ### Findings
-1. 🟡 **Invisible bidi control characters committed in source and tests ("Trojan Source" hygiene, CWE-1007 class)** — `src/features/users/data/sessions.ts:22` (regex class written with literal U+061C, U+200E, U+200F, U+202A–202E, U+2066–2069), `sessions.test.ts:11,14`, `user-sessions-tab.test.tsx:205,211`. Works, but invisible to reviewers; GitHub warns on the PR. Fix: use `\uXXXX` escapes only (e.g. a class of `؜‎‏‪-‮⁦-⁩`) and build test inputs with escapes; optionally a lint/CI grep for literal U+202A–202E / U+2066–2069 in `src/`.
+1. 🟡 **Invisible bidi control characters committed in source and tests ("Trojan Source" hygiene, CWE-1007 class)** — `src/features/users/data/sessions.ts:22` (regex class written with literal U+061C, U+200E, U+200F, U+202A–202E, U+2066–2069), `sessions.test.ts:11,14`, `user-sessions-tab.test.tsx:205,211`. Works, but invisible to reviewers; GitHub warns on the PR. Fix: use `\uXXXX` escapes only (e.g. a class of `\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069`) and build test inputs with escapes; optionally a lint/CI grep for literal U+202A–202E / U+2066–2069 in `src/`.
 2. 🟡 **Sanitizer misses other invisible format characters** — `sessions.ts:18-24` keeps U+200B–U+200D, U+2060, U+FEFF (zero-width), U+2028/U+2029 (separators), U+FFF9–U+FFFB (interlinear annotation), U+E0000–U+E007F (tags). Low impact (`<bdi>` stops reordering), but enables lookalike/hidden-text spoofing. Fix: extend the strip set (with the `u` flag for the tag range), map U+2028/U+2029 to a space, one test per group.
 3. 💭 Apps test fixture default grant now includes `admin:*` (`src/features/apps/components/test-fixtures.tsx:64`); suggest defaulting to `ADMIN_PERMISSIONS` without `'admin:*'`.
 4. 💭 `keepPreviousData` placeholder (`queries.ts:154`) is safe only because the tab unmounts between users; if the sheet ever switches users without closing, add `key={user.id}` or restrict the placeholder to the same user.
@@ -32,3 +32,19 @@ Scope: `git diff origin/main...HEAD` (commits ee5e43f..c4e0365), checked against
 - Shared `sanitizeDisplayText()` + `<bdi>` for all API free text.
 - Owner decision on full IP/UA display (org-admin-api spec Q6) not yet recorded on the ticket.
 - Spec §5.4 reference update for USR-10 and the self-forbid.
+
+## Attempt 2 (security follow-up, commit f2fb556)
+
+**Verdict: PASS (security).** Both attempt-1 🟡 findings are resolved and covered by tests. No 🔴, no 🟡.
+
+- **Hidden Unicode scan:** a `python3 -I` scan of every file in `src/` and `e2e/` (UTF-8) for U+061C, U+200B–U+200F, U+2028–U+202E, U+2060–U+2069, U+FEFF, U+FFF9–U+FFFB, U+E0000–U+E007F found 0 hits (only untracked `.png` screenshots were unreadable).
+- **Sanitizer** (`src/features/users/data/sessions.ts:21-25`): line 21 maps C0/C1 controls and U+2028/U+2029 to a space; line 23 strips U+061C, U+200B–U+200F, U+202A–U+202E, U+2060, U+2066–U+2069, U+FEFF, U+FFF9–U+FFFB and U+E0000–U+E007F with the `u` flag (needed for the astral range). Called once (`user-sessions-tab.tsx:190`), result still rendered in `<bdi>`.
+- **Tests** (`sessions.test.ts:10-34`) cover bidi (now escapes), C0/C1, zero-width, interlinear annotation, tag characters (both ends + middle) and separators → space; `user-sessions-tab.test.tsx:205,211` use escapes.
+- **`csv.ts:143`:** the old literal was exactly U+FEFF; the escaped string is identical (Blob bytes EF BB BF). Acceptable under R7 as part of the finding.
+
+### 💭 Notes
+- `sessions.ts:23` keeps U+2061–U+2064 (invisible math operators; no reordering, low risk). Optionally widen to U+2060–U+2069.
+- Ticket docs (not shipped) contained literal hidden characters (plan.md, security-review.md, consult-appsec-engineer.md, impl-log.md); the orchestrator replaced them with `\uXXXX` text in the same follow-up.
+
+### Follow-ups (out of scope)
+- CI/lint guard that fails on literal bidi, zero-width or tag characters in tracked source and docs.
