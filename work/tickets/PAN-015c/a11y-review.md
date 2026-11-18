@@ -93,3 +93,34 @@ Files reviewed (absolute):
 - /home/user/admin-pan/src/features/users/components/role-assignment-revoke-dialog.tsx
 - /home/user/admin-pan/src/features/roles/components/role-holders-sheet.tsx
 - /home/user/admin-pan/src/components/confirm-dialog.tsx
+
+## Attempt 2
+
+## PAN-015c a11y re-review, attempt 2 (commit b3310b7)
+
+This was a static read of the diff and the code. I did not run axe, a screen reader or the tests.
+
+**Verdict: no 🔴 blockers and no 🟡 should-fix items remain. All seven Attempt 1 findings are fixed. Passes R10 for this diff.**
+
+### Attempt 1 findings
+
+| # | Status | Evidence |
+|---|---|---|
+| 🔴 1 Picker arrow-key selection | Fixed | `assign-pickers.tsx:200-215`. Radios are replaced by one `<Button type='button'>` per row inside `<ul aria-label='Matching users'>`. Each has a unique `aria-label='Choose <email>'`. Arrow keys no longer change anything, and a selection needs an explicit activation. The tests in `role-holders-sheet.test.tsx` now click the button. |
+| 🔴 2 Silent Grant with no user or org | Fixed | `role-assign-dialog.tsx:238-245`. `onSubmit` sets "Choose a user." or "Choose an organization." and moves focus to the matching picker input. `assign-pickers.tsx:72-80, 119-123` links the error to the input with `aria-invalid`, `aria-describedby` and `role='alert'`. The errors clear on select. |
+| 🟡 3 Focus on phase change and picker select/Change | Fixed | `assign-pickers.tsx:64-68`. After Choose, focus goes to the Change button. After Change, focus goes to the search input. `role-assign-dialog.tsx:166-174` focuses `confirmRef` (a `tabIndex=-1` summary) when entering confirm. Back to the form focuses the submit button. If the confirm step fails on an expiry error, it focuses the expiry field. |
+| 🟡 4 Live summary | Fixed | `aria-live` is removed from the summary. It is plain visible text, and the confirm step now receives focus. |
+| 🟡 5 Linked disabled reasons | Fixed | The picker input and Search button use `aria-describedby={reasonId}`. The Grant button links the wildcard and self-change reasons (`role-assign-dialog.tsx:643-652`). The pager is left as is, which is acceptable. |
+| 🟡 6 Column header | Fixed | The second header is now "Status" in `user-role-assignments.tsx:169` and `role-holders-sheet.tsx:175`. |
+| 🟡 7 Org error association | Fixed | `OrgPicker` receives `error`, which links through `aria-invalid` and `aria-describedby`. The standalone alert at `role-assign-dialog.tsx:548` is shown only when `orgScope !== 'org'`, so the error is not announced twice. |
+
+### New issues
+None at 🔴 or 🟡.
+
+### 💭 Notes (no action needed)
+- `role-assign-dialog.tsx:241`: if the user picker is `unavailable` (the input is `disabled`), `.focus()` on it does nothing. The `role='alert'` still announces the error, and the reason text is linked, so this is acceptable.
+- `assign-pickers.tsx:155-160`: the "Searching…", "No … match" and "More than N" `role='status'` elements are mounted together with their text. Some screen readers may not announce them, and this is minor.
+- Please add a keyboard test that ArrowDown on a result does not select (the buttons make this impossible by construction). It is optional.
+
+### Follow-ups
+- Run `@axe-core/playwright` on the users and roles assign flows when PAN-023 lands, plus a manual NVDA or VoiceOver pass on the picker, confirm and back sequence.
