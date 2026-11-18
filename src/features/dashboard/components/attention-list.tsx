@@ -22,7 +22,7 @@ export function AttentionList({ items }: { items: AttentionItem[] }) {
               search={item.search}
               className={`${rowClass} hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none`}
             >
-              <span>{item.label}</span>
+              <span>{item.label}</span>{' '}
               <span className='flex items-center gap-1 font-semibold'>
                 {formatCount(item.count)}
                 <span className='sr-only'>, open in the audit log</span>

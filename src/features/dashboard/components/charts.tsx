@@ -60,7 +60,14 @@ export function SignupsChart({
               className='fill-primary'
             >
               {rows.map((r) => (
-                <Cell key={r.month} fillOpacity={r.partial ? 0.45 : 1} />
+                <Cell
+                  key={r.month}
+                  fillOpacity={r.partial ? 0.6 : 1}
+                  {...(r.partial && {
+                    stroke: 'currentColor',
+                    strokeDasharray: '4',
+                  })}
+                />
               ))}
             </Bar>
           </BarChart>

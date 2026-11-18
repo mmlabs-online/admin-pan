@@ -9,7 +9,6 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ForbiddenPanel } from '@/components/forbidden-panel'
@@ -96,7 +95,12 @@ export function DashboardContent({ api = getApi() }: { api?: ApiClient }) {
             <div className='grid grid-cols-1 gap-4 lg:grid-cols-7'>
               <Card className='lg:col-span-4'>
                 <CardHeader>
-                  <CardTitle>New sign-ups</CardTitle>
+                  <h2
+                    data-slot='card-title'
+                    className='leading-none font-semibold'
+                  >
+                    New sign-ups
+                  </h2>
                   <CardDescription>
                     mmlabs accounts created per month, last 12 months (
                     {view.data.sign_ups.time_zone}). Includes CLI-created
@@ -114,7 +118,12 @@ export function DashboardContent({ api = getApi() }: { api?: ApiClient }) {
               </Card>
               <Card className='lg:col-span-3'>
                 <CardHeader>
-                  <CardTitle>Needs attention</CardTitle>
+                  <h2
+                    data-slot='card-title'
+                    className='leading-none font-semibold'
+                  >
+                    Needs attention
+                  </h2>
                   <CardDescription>
                     Items staff usually follow up on
                   </CardDescription>
@@ -126,7 +135,12 @@ export function DashboardContent({ api = getApi() }: { api?: ApiClient }) {
             </div>
             <Card>
               <CardHeader>
-                <CardTitle>Members per app</CardTitle>
+                <h2
+                  data-slot='card-title'
+                  className='leading-none font-semibold'
+                >
+                  Members per app
+                </h2>
                 <CardDescription>{MEMBERS_NOTE}</CardDescription>
               </CardHeader>
               <CardContent className='ps-2'>

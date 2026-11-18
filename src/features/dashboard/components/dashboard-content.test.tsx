@@ -195,7 +195,7 @@ describe('DashboardContent states', () => {
     ).toEqual([
       'Users with unverified email (includes disabled users)0',
       'Suspended organizations0',
-      'Failed sign-ins (last 24 h)0, open in the audit log',
+      'Failed sign-ins (last 24 h) 0, open in the audit log',
     ])
     expect(rowsOf('New accounts per month')).toHaveLength(12)
     expect(rowsOf('Distinct active users')[0]).toBe('Adminadmin0')
@@ -279,6 +279,8 @@ describe('DashboardContent states', () => {
     const busy = screen.getByRole('button', { name: 'Refreshing…' })
     await expect.element(busy).toBeInTheDocument()
     ;(busy.element() as HTMLElement).click()
+    // Give a (wrongly) triggered refetch time to reach the fetch layer.
+    await new Promise((r) => setTimeout(r, 200))
     expect(seen).toHaveLength(2)
   })
 })

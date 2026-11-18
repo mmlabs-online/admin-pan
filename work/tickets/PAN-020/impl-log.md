@@ -61,3 +61,32 @@ None beyond the audit-log drift edits above (required to typecheck against the r
 ### Scope self-check
 - Could the diff be smaller? No.
 - Diff size (excluding src/api): +272 / -436 plus new files.
+
+## Attempt 2 (REWORK)
+
+### Changes
+- `dashboard-content.test.tsx`: Refresh double-click test waits 200 ms after the second click before `expect(seen).toHaveLength(2)`. The zero-filled attention expectation now has the space ("… (last 24 h) 0, open in the audit log") from item 4.
+- `dashboard-content.tsx`: the three section titles are real `<h2 data-slot='card-title' className='leading-none font-semibold'>` (the repo's `CardTitle` has no `asChild`; `components/ui` is not edited). `CardTitle` import removed. KPI labels untouched.
+- `charts.tsx`: partial-month `Cell` has `fillOpacity` 0.6 plus `stroke='currentColor' strokeDasharray='4'` (non-colour cue).
+- `attention-list.tsx`: `{' '}` between label and count spans.
+
+### Mutation run (review Issue 1)
+- Removed the guard (`if (!q.isFetching) void q.refetch()` -> `void q.refetch()`): FAIL, "expected [ Request{}, Request{}, Request{} ] to have a length of 2 but got 3".
+- Restored exactly: PASS (22/22, three runs).
+
+### Contrast values (a11y 1 / reviewer nit)
+- Dark: muted-foreground oklch(0.704 0.04 256.8) on card oklch(0.14 0.04 259.2) = about 7.6:1; primary bar vs card about 16.2:1; partial bar at 0.6 about 10.1:1.
+- Light: muted-foreground on white about 4.77:1. Partial bar at 0.6 blended on white is only about 2.3:1 on its own, so the contrast and the cue rely on the dashed `currentColor` stroke (muted-foreground, 4.77:1). Computed, not measured in a browser.
+
+### Diff stat
+- Attempt 2 only (git diff, working tree): 4 files, +30 / -7 (attempt-1 work is already in HEAD; its figure stays in Attempt 1: +272 / -436 excluding src/api, plus new files).
+
+### Checks
+- typecheck, lint, format:check: pass
+- `pnpm test src/features/dashboard` x3: 22/22 each
+- `pnpm test` full: 740/740 passed on two runs; one earlier full run showed 1 failed / 739 passed (failing test not captured; the immediate reruns were green) - possible flake, not identified
+- pnpm build: pass
+- pnpm e2e: 28 passed
+
+### Follow-ups
+- Unchanged. PAN-017 session copy and join-request status options deliberately not touched.
