@@ -80,3 +80,58 @@ The reviewer's PASS is turned into **REWORK** by two 🔴 findings in `a11y-revi
 - 🔴 2: "Grant role" is a silent no-op when no user or organization is chosen (`role-assign-dialog.tsx:217-218, 600`).
 
 Final verdict for attempt 1: REWORK.
+
+## Attempt 2 — 2026-11-18
+Verdict: PASS
+
+Reviewed commit b3310b7 (rework of attempt 1) against origin/main. Scope of this review: the orchestrator's blockers (a11y 🔴 1, 🔴 2), appsec S1 and S2, and a11y 🟡 3–7, plus a regression check of the attempt-1 evidence.
+
+### Checks (run by reviewer)
+- pnpm typecheck: pass (no output)
+- pnpm lint: pass (no findings)
+- pnpm format:check: "All matched files use Prettier code style!"
+- pnpm test (`PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium`): run 1 Test Files 109 passed (109), Tests 901 passed (901); run 2 identical. Matches impl-log (897 + 4 new tests).
+- pnpm build: pass ("built in 1.19s")
+- pnpm e2e: 30 passed (1.5m)
+- `git status --porcelain` empty after every mutation proof (restored with `git checkout --`); only this file is changed by the review.
+
+### Rework items
+- [x] a11y 🔴 1 / appsec S1 (arrow keys select a row). The radios are gone: results are a `<ul>` of `<Button type='button' aria-label="Choose <email|org name>">` (`assign-pickers.tsx` PickList). Choose focuses "Change", and Change focuses the search input (`focusNext` effect). The accessible name starts with the visible text "Choose" (2.5.3). Test: "ArrowDown and Tab through the result rows never select one; Enter on a row does and focuses Change".
+- [x] a11y 🔴 2 (silent no-op with no user/org). `onSubmit` (`role-assign-dialog.tsx:237-244`) sets "Choose a user." / "Choose an organization." and focuses that picker's input. The picker renders the error as `role='alert'` with an id, and the input gets `aria-invalid` and `aria-describedby`. Tests: "Grant with no user chosen…" and "Grant with "One organization" and none chosen…" (both assert focus, the accessible description, and no POST).
+- [x] appsec S2 (stale expiry in confirm). The confirm-phase Grant recomputes `toExpiresAt` at click time. If the time has passed, it sets the field error, returns to the form and focuses the expiry field. Test: the "confirm step…" test advances the fake clock past the expiry and asserts "Pick a time in the future.", focus on the field and no POST.
+- [x] a11y 🟡 3 (focus on phase change and picker change). Confirm focuses the summary (`tabIndex=-1`), Back focuses "Review grant", and an expiry error returns focus to the field. Covered by the "confirm step…" test and the arrow-key test.
+- [x] a11y 🟡 4: the `aria-live` on the summary is removed (no per-keystroke announcement). The confirm phase moves focus to the summary instead.
+- [x] a11y 🟡 5: the picker's unavailable reason is linked to the input and the Search button. "Needs admin:*" and the self reason are linked to the Grant button with `aria-describedby`.
+- [x] a11y 🟡 6: the second header is now "Status" in `user-role-assignments.tsx` and `role-holders-sheet.tsx`.
+- [x] a11y 🟡 7: org errors render inside `OrgPicker`, linked to its input when "One organization" is selected. Otherwise they render as the old alert (`orgError && orgScope !== 'org'`), so the alert is not duplicated.
+- [x] Nit 1 from attempt 1: PickList treats `isPlaceholderData` as pending.
+
+### Acceptance criteria
+AC1–AC6 evidence from attempt 1 still holds. The tests that pinned it now use the "Choose" buttons instead of the radios (`role-assign-dialog.test.tsx`, `role-holders-sheet.test.tsx`). The rest pass unchanged in both full runs and in e2e.
+
+### Mutation proofs (run by reviewer, each restored)
+| Guard broken | Result |
+|---|---|
+| Choose button selects its row on ArrowDown (`onKeyDown`) | the arrow-key test failed |
+| Removed the `focusNext.current = 'change'` focus move on Choose | the arrow-key test failed |
+| Removed `setUserError('Choose a user.')` | the no-user test failed |
+| Removed `setOrgError('Choose an organization.')` | the no-org test failed |
+| Restored the silent no-op (missing-input branch disabled) | both missing-input tests failed |
+| Confirm Grant used the render-time `expiry` again (`if (!expiry.ok) return`) | the "confirm step…" test failed |
+
+### Issues
+None.
+
+### Rules R1–R11
+No violations found. The diff touches only the picker, the assign dialog, two table headers and their tests. There are no new HTTP calls, storage or HTML sinks (R2, R3, R6). R9: the confirm step still names the target and is not optimistic, and the stale-expiry path sends nothing. R10: the a11y blockers above are fixed.
+
+### Security / a11y blockers
+None remain. a11y 🔴 1 and 🔴 2 and appsec S1 are fixed (see Rework items).
+
+### Nits (do not block)
+- 💭 If both the role and the user are missing on the user-target flow, zod's role error shows first, and "Choose a user." only appears on the next submit. This is acceptable because both are visible errors.
+- 💭 `selfId_` (`role-assign-dialog.tsx:111`) sits next to `selfId`. A name like `selfReasonId` would read better.
+- 💭 The a11y notes (focus ring on the `tabIndex=-1` headings; alerts that can be off-screen in a tall dialog) are unchanged and remain notes.
+
+### Follow-ups (out of scope)
+- Unchanged from attempt 1 (plan F1–F9), plus appsec N1–N3 (email in the picker's query URL, DST-aware zone label, org names instead of UUIDs) and the a11y follow-up for keyboard and axe e2e checks (PAN-023).
