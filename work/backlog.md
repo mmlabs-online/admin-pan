@@ -45,7 +45,7 @@ Phases: **1. UI with mock data** (PAN-001…008, done) → **2. Foundations** (P
 | PAN-028 | App join requests (list, approve, reject) | DONE | P2 | api, ui, auth | 2 | 2026-11-17 |
 | PAN-029 | Filters and sort for the Organizations and Apps lists | DONE | P1 | api, ui, a11y | 0 | 2026-11-18 |
 | BUG-002 | Row dialogs close themselves when re-opened within 500 ms (flaky dialog/toast tests) | DONE | P1 | ui, a11y | 0 | 2026-11-18 |
-| PAN-030 | Accessibility and safety follow-ups (Roles, Assignments, list filters) | REVIEW | P2 | ui, a11y, security | 0 | 2026-11-18 |
+| PAN-030 | Accessibility and safety follow-ups (Roles, Assignments, list filters) | REWORK | P2 | ui, a11y, security | 1 | 2026-11-18 |
 | PAN-031 | Success toasts in mutation hooks; dialog-host and test robustness | BACKLOG | P2 | ui | 0 | 2026-11-18 |
 | BUG-001 | Session revoke copy says admin tokens stay valid up to 12 h | DONE | P1 | ui, auth | 1 | 2026-11-18 |
 
