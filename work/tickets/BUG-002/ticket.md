@@ -11,8 +11,8 @@
 | Introduced in | PAN-014 / PAN-015 (`closeWithRow` with a 500 ms `setTimeout` in the `*-dialogs.tsx` hosts) |
 | Attempts | 0 |
 | Created | 2026-11-18 |
-| Record PR | — |
-| PR | — |
+| Record PR | https://github.com/mmlabs-online/admin-pan/pull/30 (record and fix in one PR) |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/30 |
 
 ## Report
 Owner, 2026-11-18: "sửa bug test chập chờn". Component tests fail CI at random and pass on rerun:
