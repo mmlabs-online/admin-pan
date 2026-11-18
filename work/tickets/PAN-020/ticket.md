@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| State | BACKLOG |
+| State | PLANNING |
 | Priority | P3 |
 | Areas | api, ui |
 | Attempts | 0 |
@@ -16,7 +16,7 @@ Replace dashboard mock stats with an org-admin-api stats endpoint.
 `docs/spec-v1.md` §5.7
 
 ## Depends on
-PAN-002, PAN-011; org-admin-api stats endpoint (gap)
+PAN-002, PAN-011; org-admin-api ADM-015 (DONE, merged; `GET /api/v1/stats/dashboard`, `admin:stats:read`)
 
 ## Acceptance criteria
 - [ ] KPIs, charts and attention counts come from the API
