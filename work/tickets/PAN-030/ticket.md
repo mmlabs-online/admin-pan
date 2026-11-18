@@ -7,7 +7,7 @@
 | Areas | ui, a11y, security |
 | Attempts | 1 |
 | Created | 2026-11-18 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/31 |
 
 ## Goal
 Fix the 🟡/💭 findings left open by the PAN-015b, PAN-015c, PAN-029 and PAN-017 reviews, so the new screens meet WCAG 2.2 AA (R10) and the copy does not overclaim (R9). No new features.
