@@ -1,3 +1,4 @@
+import { useDelayedRowClear } from '@/hooks/use-delayed-row-clear'
 import { OrganizationDetailSheet } from './organization-detail-sheet'
 import { OrganizationsActionDialog } from './organizations-action-dialog'
 import { OrganizationsDeleteDialog } from './organizations-delete-dialog'
@@ -8,10 +9,11 @@ export function OrganizationsDialogs() {
   const { open, setOpen, currentRow, setCurrentRow, viewButtons } =
     useOrganizations()
 
+  const scheduleClear = useDelayedRowClear(open, () => setCurrentRow(null))
   const close = () => setOpen(null)
   const closeWithRow = () => {
     setOpen(null)
-    setTimeout(() => setCurrentRow(null), 500)
+    scheduleClear()
   }
 
   return (

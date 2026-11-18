@@ -1,3 +1,4 @@
+import { useDelayedRowClear } from '@/hooks/use-delayed-row-clear'
 import { ReportsActionDialog } from './reports-action-dialog'
 import { ReportsDeleteDialog } from './reports-delete-dialog'
 import { useReports } from './reports-provider'
@@ -13,9 +14,10 @@ export function ReportsDialogs() {
     deleteReport,
   } = useReports()
 
+  const scheduleClear = useDelayedRowClear(open, () => setCurrentRow(null))
   const closeWithRow = (type: 'edit' | 'delete') => () => {
     setOpen(type)
-    setTimeout(() => setCurrentRow(null), 500)
+    scheduleClear()
   }
 
   return (

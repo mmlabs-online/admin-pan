@@ -154,4 +154,35 @@ describe('RoleDefaultDialog', () => {
       .element(dialog.getByText("You don't have permission to do this"))
       .toBeVisible()
   })
+
+  it('re-opening within 500 ms of Cancel keeps the dialog and its row; confirm still PATCHes and toasts', async () => {
+    const { client, seen } = fakeApi(
+      rolesServer((req) =>
+        req.method === 'PATCH'
+          ? json({ ...APPS[3], default_role_id: VIEWER_ID })
+          : json({})
+      )
+    )
+    const screen = await renderRoles(client, stoktok)
+    let dialog = await open(screen)
+    await userEvent.click(dialog.getByRole('button', { name: 'Cancel' }))
+    await expect.element(dialog).not.toBeInTheDocument()
+    dialog = await open(screen)
+    // Outlast the stale 500 ms row-clear timer from the Cancel (BUG-002).
+    await new Promise((r) => setTimeout(r, 600))
+    await expect.element(dialog).toBeVisible()
+    await expect
+      .element(dialog.getByText('Viewer', { exact: true }))
+      .toBeVisible()
+    await userEvent.click(dialog.getByRole('button', { name: 'Make default' }))
+    await expect.poll(() => writes(seen)).toHaveLength(1)
+    expect(await writes(seen)[0].json()).toEqual({
+      default_role_id: VIEWER_ID,
+    })
+    await expect
+      .poll(() => vi.mocked(toast.success))
+      .toHaveBeenCalledWith(
+        'stoktok:viewer is now the default role of Stoktok.'
+      )
+  })
 })

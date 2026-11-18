@@ -134,4 +134,25 @@ describe('OrganizationsStatusDialog', () => {
       await screen.unmount()
     }
   })
+
+  it('re-opening within 500 ms of Cancel keeps the dialog and its row; confirm still PATCHes and toasts', async () => {
+    const { client, seen } = server(() =>
+      json({ ...ORGS[0], status: 'suspended' })
+    )
+    const screen = await renderOrganizations(client)
+    let dialog = await open(screen, 'Acme Corp', /Suspend/)
+    await userEvent.click(dialog.getByRole('button', { name: 'Cancel' }))
+    await expect.element(dialog).not.toBeInTheDocument()
+    dialog = await open(screen, 'Acme Corp', /Suspend/)
+    // Outlast the stale 500 ms row-clear timer from the Cancel (BUG-002).
+    await new Promise((r) => setTimeout(r, 600))
+    await expect.element(dialog).toBeVisible()
+    await expect.element(dialog.getByText('Acme Corp')).toBeVisible()
+    await userEvent.click(dialog.getByRole('button', { name: 'Suspend' }))
+    await expect.poll(() => patches(seen)).toHaveLength(1)
+    expect(await patches(seen)[0].json()).toEqual({ status: 'suspended' })
+    await expect
+      .poll(() => vi.mocked(toast.success))
+      .toHaveBeenCalledWith('Organization "Acme Corp" suspended.')
+  })
 })
