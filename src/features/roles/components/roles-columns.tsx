@@ -1,70 +1,43 @@
 import { type ColumnDef } from '@tanstack/react-table'
-import { Badge } from '@/components/ui/badge'
-import { DataTableColumnHeader } from '@/components/data-table'
-import { type Role } from '@/features/apps/data/schema'
+import { type RoleDefinition } from '../data/role-schema'
+import { RoleNameCell } from './role-name-cell'
 import { RolesRowActions } from './roles-row-actions'
 
-export type RoleRow = Role & {
-  app_key: string
-  is_default: boolean
-  permission_count: number
-  assignment_count: number
-}
-
-export const rolesColumns: ColumnDef<RoleRow>[] = [
-  {
-    id: 'app',
-    accessorKey: 'app_key',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='App' />
-    ),
-    cell: ({ row }) => (
-      <span className='font-mono text-sm'>{row.original.app_key}</span>
-    ),
-    filterFn: (row, id, value: string[]) => value.includes(row.getValue(id)),
-    enableHiding: false,
-  },
+// No Assignments column: the API has no assignment count (R1). No sorting:
+// the list endpoint has no `sort` (order is fixed by key).
+export const rolesColumns: ColumnDef<RoleDefinition>[] = [
   {
     accessorKey: 'key',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Key' />
-    ),
+    header: 'Key',
     cell: ({ row }) => (
       <span className='font-mono text-sm'>{row.original.key}</span>
     ),
-    enableHiding: false,
   },
   {
     accessorKey: 'name',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Name' />
-    ),
-    cell: ({ row }) => (
-      <div className='flex flex-wrap items-center gap-1'>
-        {row.original.name}
-        {row.original.is_system && <Badge variant='secondary'>System</Badge>}
-        {row.original.is_default && <Badge>Default</Badge>}
-      </div>
-    ),
+    header: 'Name',
+    cell: ({ row }) => <RoleNameCell role={row.original} />,
   },
   {
-    accessorKey: 'permission_count',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Permissions' />
-    ),
-    meta: { className: 'text-end' },
+    id: 'permissions',
+    header: 'Permissions',
+    cell: ({ row }) => `${row.original.permissions.length} permissions`,
   },
   {
-    accessorKey: 'assignment_count',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Assignments' />
-    ),
-    meta: { className: 'text-end' },
+    id: 'privileged',
+    header: 'Privileged',
+    cell: ({ row }) =>
+      row.original.privileged ? (
+        <>
+          Yes<span className='sr-only'>, granting it needs admin:*</span>
+        </>
+      ) : (
+        '—'
+      ),
   },
   {
     id: 'actions',
     header: () => <span className='sr-only'>Actions</span>,
     cell: ({ row }) => <RolesRowActions role={row.original} />,
-    enableHiding: false,
   },
 ]

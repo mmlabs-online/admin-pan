@@ -2503,6 +2503,37 @@
         "title": "Page[RoleDefinitionRead]",
         "type": "object"
       },
+      "Page_RoleHolderRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RoleHolderRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[RoleHolderRead]",
+        "type": "object"
+      },
       "Page_UserRead_": {
         "properties": {
           "items": {
@@ -2885,6 +2916,116 @@
           "updated_at"
         ],
         "title": "RoleDefinitionRead",
+        "type": "object"
+      },
+      "RoleHolderRead": {
+        "description": "One assignment of a role with its holder (USR-17). `total` of the list counts\nassignments, not distinct users: a user can appear once per org and once at app scope.",
+        "properties": {
+          "active": {
+            "description": "Not expired (database clock); ignores user, org and app status, so not 'effective in tokens'.",
+            "title": "Active",
+            "type": "boolean"
+          },
+          "app": {
+            "title": "App",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "granted_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Granted By"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "org_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Org Id"
+          },
+          "role_id": {
+            "format": "uuid",
+            "title": "Role Id",
+            "type": "string"
+          },
+          "role_key": {
+            "title": "Role Key",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "user_status": {
+            "$ref": "#/components/schemas/UserStatus",
+            "description": "Account status; disabled users are listed."
+          }
+        },
+        "required": [
+          "id",
+          "app",
+          "role_id",
+          "role_key",
+          "org_id",
+          "granted_by",
+          "expires_at",
+          "active",
+          "created_at",
+          "user_id",
+          "email",
+          "display_name",
+          "user_status"
+        ],
+        "title": "RoleHolderRead",
         "type": "object"
       },
       "RolePermissionsReplace": {
@@ -3430,6 +3571,100 @@
       "get": {
         "operationId": "list_apps_api_v1_apps_get",
         "parameters": [
+          {
+            "description": "Only apps with this status.",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/AppStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only apps with this status.",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "Only apps with this join policy.",
+            "in": "query",
+            "name": "join_policy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/JoinPolicy"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only apps with this join policy.",
+              "title": "Join Policy"
+            }
+          },
+          {
+            "description": "Only apps with this org mode.",
+            "in": "query",
+            "name": "org_mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/OrgMode"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only apps with this org mode.",
+              "title": "Org Mode"
+            }
+          },
+          {
+            "description": "Case-insensitive substring of key or name; trimmed, 1..100 chars after trimming; empty or whitespace-only is 422 (omit the parameter instead).",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Case-insensitive substring of key or name; trimmed, 1..100 chars after trimming; empty or whitespace-only is 422 (omit the parameter instead).",
+              "title": "Q"
+            }
+          },
+          {
+            "description": "One of key, -key, name, -name, created_at, -created_at ('-' = descending); id ascending breaks ties. name follows the database collation.",
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "key",
+              "description": "One of key, -key, name, -name, created_at, -created_at ('-' = descending); id ascending breaks ties. name follows the database collation.",
+              "enum": [
+                "key",
+                "-key",
+                "name",
+                "-name",
+                "created_at",
+                "-created_at"
+              ],
+              "title": "Sort",
+              "type": "string"
+            }
+          },
           {
             "in": "query",
             "name": "limit",
@@ -5636,6 +5871,200 @@
           "apps"
         ],
         "x-permission": "admin:apps:read"
+      }
+    },
+    "/api/v1/apps/{key}/role-definitions/{role_id}/assignments": {
+      "get": {
+        "description": "Assignments of one role with their holders. `total` counts assignments, not distinct users: a user can appear once per org and once at app scope.",
+        "operationId": "list_role_holders_api_v1_apps__key__role_definitions__role_id__assignments_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Role Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "true: not expired; false: expired; omitted: all rows.",
+            "in": "query",
+            "name": "active",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "true: not expired; false: expired; omitted: all rows.",
+              "title": "Active"
+            }
+          },
+          {
+            "description": "Only assignments in this organization.",
+            "in": "query",
+            "name": "org_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only assignments in this organization.",
+              "title": "Org Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_RoleHolderRead_"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unknown app, or role not of that app",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List Role Holders",
+        "tags": [
+          "apps"
+        ],
+        "x-permission": "admin:users:read"
       }
     },
     "/api/v1/apps/{key}/roles": {
@@ -8446,6 +8875,64 @@
         "operationId": "list_organizations_api_v1_organizations_get",
         "parameters": [
           {
+            "description": "Only orgs with this status.",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/OrganizationStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only orgs with this status.",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "Case-insensitive substring of name or slug; trimmed, 1..100 chars after trimming; empty or whitespace-only is 422 (omit the parameter instead).",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Case-insensitive substring of name or slug; trimmed, 1..100 chars after trimming; empty or whitespace-only is 422 (omit the parameter instead).",
+              "title": "Q"
+            }
+          },
+          {
+            "description": "One of created_at, -created_at, name, -name, slug, -slug ('-' = descending); id ascending breaks ties. name follows the database collation.",
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "-created_at",
+              "description": "One of created_at, -created_at, name, -name, slug, -slug ('-' = descending); id ascending breaks ties. name follows the database collation.",
+              "enum": [
+                "created_at",
+                "-created_at",
+                "name",
+                "-name",
+                "slug",
+                "-slug"
+              ],
+              "title": "Sort",
+              "type": "string"
+            }
+          },
+          {
             "in": "query",
             "name": "limit",
             "required": false,
@@ -8628,6 +9115,25 @@
               }
             }
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Slug already taken (code conflict)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/json": {
@@ -8716,6 +9222,44 @@
               }
             },
             "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Organization not found",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Organization still has role assignments (code org_has_assignments) or entitlements (code org_has_entitlements)",
             "headers": {
               "X-Request-ID": {
                 "description": "Server-generated request id (UUID4); quote it to support.",
@@ -8829,6 +9373,25 @@
               }
             }
           },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Organization not found",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/json": {
@@ -8932,6 +9495,25 @@
               }
             },
             "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Organization not found",
             "headers": {
               "X-Request-ID": {
                 "description": "Server-generated request id (UUID4); quote it to support.",

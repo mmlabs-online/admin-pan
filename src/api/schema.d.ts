@@ -234,6 +234,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/apps/{key}/role-definitions/{role_id}/assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Role Holders
+         * @description Assignments of one role with their holders. `total` counts assignments, not distinct users: a user can appear once per org and once at app scope.
+         */
+        get: operations["list_role_holders_api_v1_apps__key__role_definitions__role_id__assignments_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/apps/{key}/roles": {
         parameters: {
             query?: never;
@@ -1835,6 +1855,17 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** Page[RoleHolderRead] */
+        Page_RoleHolderRead_: {
+            /** Items */
+            items: components["schemas"]["RoleHolderRead"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
         /** Page[UserRead] */
         Page_UserRead_: {
             /** Items */
@@ -1993,6 +2024,54 @@ export interface components {
              * @description Last change to the role row (e.g. name); permission changes do not bump it.
              */
             updated_at: string;
+        };
+        /**
+         * RoleHolderRead
+         * @description One assignment of a role with its holder (USR-17). `total` of the list counts
+         *     assignments, not distinct users: a user can appear once per org and once at app scope.
+         */
+        RoleHolderRead: {
+            /**
+             * Active
+             * @description Not expired (database clock); ignores user, org and app status, so not 'effective in tokens'.
+             */
+            active: boolean;
+            /** App */
+            app: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Display Name */
+            display_name: string | null;
+            /** Email */
+            email: string;
+            /** Expires At */
+            expires_at: string | null;
+            /** Granted By */
+            granted_by: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Org Id */
+            org_id: string | null;
+            /**
+             * Role Id
+             * Format: uuid
+             */
+            role_id: string;
+            /** Role Key */
+            role_key: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** @description Account status; disabled users are listed. */
+            user_status: components["schemas"]["UserStatus"];
         };
         /**
          * RolePermissionsReplace
@@ -2265,6 +2344,16 @@ export interface operations {
     list_apps_api_v1_apps_get: {
         parameters: {
             query?: {
+                /** @description Only apps with this status. */
+                status?: components["schemas"]["AppStatus"] | null;
+                /** @description Only apps with this join policy. */
+                join_policy?: components["schemas"]["JoinPolicy"] | null;
+                /** @description Only apps with this org mode. */
+                org_mode?: components["schemas"]["OrgMode"] | null;
+                /** @description Case-insensitive substring of key or name; trimmed, 1..100 chars after trimming; empty or whitespace-only is 422 (omit the parameter instead). */
+                q?: string | null;
+                /** @description One of key, -key, name, -name, created_at, -created_at ('-' = descending); id ascending breaks ties. name follows the database collation. */
+                sort?: "key" | "-key" | "name" | "-name" | "created_at" | "-created_at";
                 limit?: number;
                 offset?: number;
             };
@@ -3386,6 +3475,82 @@ export interface operations {
             };
             /** @description Missing permission */
             403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    list_role_holders_api_v1_apps__key__role_definitions__role_id__assignments_get: {
+        parameters: {
+            query?: {
+                /** @description true: not expired; false: expired; omitted: all rows. */
+                active?: boolean | null;
+                /** @description Only assignments in this organization. */
+                org_id?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                key: string;
+                role_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_RoleHolderRead_"];
+                };
+            };
+            /** @description Missing or invalid Bearer token */
+            401: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Missing permission */
+            403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unknown app, or role not of that app */
+            404: {
                 headers: {
                     /** @description Server-generated request id (UUID4); quote it to support. */
                     "X-Request-ID"?: string;
@@ -4812,6 +4977,12 @@ export interface operations {
     list_organizations_api_v1_organizations_get: {
         parameters: {
             query?: {
+                /** @description Only orgs with this status. */
+                status?: components["schemas"]["OrganizationStatus"] | null;
+                /** @description Case-insensitive substring of name or slug; trimmed, 1..100 chars after trimming; empty or whitespace-only is 422 (omit the parameter instead). */
+                q?: string | null;
+                /** @description One of created_at, -created_at, name, -name, slug, -slug ('-' = descending); id ascending breaks ties. name follows the database collation. */
+                sort?: "created_at" | "-created_at" | "name" | "-name" | "slug" | "-slug";
                 limit?: number;
                 offset?: number;
             };
@@ -4913,6 +5084,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
+            /** @description Slug already taken (code conflict) */
+            409: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
             /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
             422: {
                 headers: {
@@ -4961,6 +5143,17 @@ export interface operations {
             };
             /** @description Missing permission */
             403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Organization not found */
+            404: {
                 headers: {
                     /** @description Server-generated request id (UUID4); quote it to support. */
                     "X-Request-ID"?: string;
@@ -5025,6 +5218,28 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
+            /** @description Organization not found */
+            404: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Organization still has role assignments (code org_has_assignments) or entitlements (code org_has_entitlements) */
+            409: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
             /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
             422: {
                 headers: {
@@ -5077,6 +5292,17 @@ export interface operations {
             };
             /** @description Missing permission */
             403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Organization not found */
+            404: {
                 headers: {
                     /** @description Server-generated request id (UUID4); quote it to support. */
                     "X-Request-ID"?: string;

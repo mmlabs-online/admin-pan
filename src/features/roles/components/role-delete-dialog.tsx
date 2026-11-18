@@ -1,49 +1,79 @@
+import { useRef } from 'react'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/confirm-dialog'
-import { deleteRole, useAccessData } from '@/features/apps/data/access-store'
-import { type Role } from '@/features/apps/data/schema'
+import { type App } from '@/features/apps/data/app-schema'
+import { useDeleteRoleMutation } from '../api/queries'
+import { roleDeleteError } from '../data/errors'
+import { type RoleDefinition } from '../data/role-schema'
+import { RoleAlertView } from './role-alert-view'
+import { useRoles } from './roles-provider'
 
 type RoleDeleteDialogProps = {
-  currentRow: Role
+  app: App
+  currentRow: RoleDefinition
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** The role is gone: its row can't take focus back. */
+  onDeleted: () => void
 }
 
-// admin:apps:write (planned name). System roles cannot be deleted.
+// DELETE /api/v1/apps/{key}/roles/{role_id} — admin:roles:manage. The API
+// refuses system, default and org owner roles and roles that users hold (409
+// `conflict`, shown inline). Never optimistic (R9).
 export function RoleDeleteDialog({
+  app,
   currentRow,
   open,
   onOpenChange,
+  onDeleted,
 }: RoleDeleteDialogProps) {
-  const { role_assignments } = useAccessData()
-  const assignmentCount = role_assignments.filter(
-    (ra) => ra.role_id === currentRow.id
-  ).length
+  const { api } = useRoles()
+  const mutation = useDeleteRoleMutation(app.key, api)
+  const inFlight = useRef(false)
 
   const handleConfirm = () => {
-    if (currentRow.is_system) return
-    deleteRole(currentRow.id)
-    toast.success(`Role ${currentRow.key} deleted.`)
-    onOpenChange(false)
+    if (inFlight.current) return
+    inFlight.current = true
+    mutation.mutate(currentRow.id, {
+      onSuccess: () => {
+        onDeleted()
+        toast.success(`Role ${currentRow.key} deleted.`)
+      },
+      onSettled: () => {
+        inFlight.current = false
+      },
+    })
+  }
+
+  const handleOpenChange = (next: boolean) => {
+    if (!next && mutation.isPending) return
+    if (!next) mutation.reset()
+    onOpenChange(next)
   }
 
   return (
     <ConfirmDialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={handleOpenChange}
       handleConfirm={handleConfirm}
-      disabled={currentRow.is_system}
+      isLoading={mutation.isPending}
+      pendingText='Deleting…'
       destructive
       title={`Delete role ${currentRow.key}?`}
       desc={
-        currentRow.is_system
-          ? `${currentRow.key} is a system role and cannot be deleted.`
-          : `This permanently deletes ${currentRow.name} (${currentRow.key})` +
-            (assignmentCount
-              ? ` and revokes it from ${assignmentCount} assignment${assignmentCount === 1 ? '' : 's'}.`
-              : '.')
+        <p>
+          Delete <span className='font-bold'>{currentRow.name}</span> (
+          {currentRow.key}) from {app.name}? This can&apos;t be undone. The API
+          refuses if it is a system, default or org owner role, or if users hold
+          it.
+        </p>
       }
       confirmText='Delete'
+      error={
+        mutation.isError ? (
+          <RoleAlertView alert={roleDeleteError(mutation.error)} />
+        ) : undefined
+      }
     />
   )
 }

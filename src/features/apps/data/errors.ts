@@ -30,9 +30,9 @@ const REJECTED = 'The API rejected these values.'
 const CHANGED =
   'This app was changed by someone else. Close the dialog and try again.'
 
-const message = (text: string): AppAlert => ({ kind: 'message', text })
+export const message = (text: string): AppAlert => ({ kind: 'message', text })
 
-function fallback(error: unknown): AppAlert {
+export function fallback(error: unknown): AppAlert {
   if (isForbidden(error))
     return { kind: 'forbidden', copy: forbiddenCopy(error) }
   if (isApiError(error, 404)) return message(NO_LONGER_EXISTS)
@@ -41,7 +41,7 @@ function fallback(error: unknown): AppAlert {
 }
 
 /** `details` entries as objects; anything else is ignored. */
-function detailObjects(error: unknown): Record<string, unknown>[] {
+export function detailObjects(error: unknown): Record<string, unknown>[] {
   if (!isApiError(error) || !Array.isArray(error.details)) return []
   return error.details.filter(
     (d): d is Record<string, unknown> => typeof d === 'object' && d !== null
@@ -54,7 +54,7 @@ export const firstReason = (error: unknown): string | undefined => {
 }
 
 /** `loc` of a FastAPI validation entry as `[body, field, ...]`. */
-function bodyFields(error: unknown): { field: string; msg: string }[] {
+export function bodyFields(error: unknown): { field: string; msg: string }[] {
   const out: { field: string; msg: string }[] = []
   for (const d of detailObjects(error)) {
     const loc = Array.isArray(d.loc) ? d.loc : []

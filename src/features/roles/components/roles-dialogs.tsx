@@ -1,45 +1,96 @@
-import { useAccessData } from '@/features/apps/data/access-store'
-import { RoleAssignmentsSheet } from './role-assignments-sheet'
+import { useEffect, useRef } from 'react'
+import { RoleCreateDialog } from './role-create-dialog'
+import { RoleDefaultDialog } from './role-default-dialog'
 import { RoleDeleteDialog } from './role-delete-dialog'
-import { RoleFormDialog } from './role-form-dialog'
+import { RolePermissionsDialog } from './role-permissions-dialog'
+import { RoleRenameDialog } from './role-rename-dialog'
 import { useRoles } from './roles-provider'
 
-export function RolesDialogs() {
-  const { open, setOpen, currentId, setCurrentId } = useRoles()
-  const { roles } = useAccessData()
-  const currentRow = roles.find((r) => r.id === currentId)
+// Radix returns focus only to a `Trigger`, and the menu item or button that
+// opened these dialogs is not one (or has unmounted), so the browser would
+// leave focus on <body>. Put it back on the row's actions button, or on
+// New role when there is no row or the row is gone (R10).
+function focusOpener(key?: string) {
+  const target =
+    (key &&
+      document.querySelector<HTMLElement>(
+        `[aria-label="Actions for ${key}"]`
+      )) ||
+    document.querySelector<HTMLElement>('[data-new-role]')
+  target?.focus()
+}
 
-  const close = (type: 'edit' | 'delete' | 'assignments') => () => {
-    setOpen(type)
-    setTimeout(() => setCurrentId(null), 500)
+export function RolesDialogs() {
+  const { app, open, setOpen, currentRow, setCurrentRow } = useRoles()
+
+  const close = () => setOpen(null)
+  const closeWithRow = () => {
+    setOpen(null)
+    setTimeout(() => setCurrentRow(null), 500)
+  }
+  // ConfirmDialog is an AlertDialog without a close-focus hook: focus the
+  // opener in an effect, a frame later, once the dialog's focus scope has
+  // released focus (it would otherwise move it to <body>). After a delete the
+  // row is gone, so focus goes to New role.
+  const restoreFor = useRef<{ key?: string } | null>(null)
+  useEffect(() => {
+    if (open === null && restoreFor.current) {
+      const { key } = restoreFor.current
+      restoreFor.current = null
+      requestAnimationFrame(() => focusOpener(key))
+    }
+  }, [open])
+  const closeConfirm = () => {
+    restoreFor.current = { key: currentRow?.key }
+    closeWithRow()
+  }
+  const closeDeleted = () => {
+    restoreFor.current = {}
+    closeWithRow()
   }
 
+  if (!app) return null
   return (
     <>
-      <RoleFormDialog
-        key='role-create'
+      <RoleCreateDialog
+        key={`role-create-${app.key}`}
+        app={app}
         open={open === 'create'}
-        onOpenChange={() => setOpen('create')}
+        onOpenChange={close}
+        returnFocus={() => focusOpener()}
       />
       {currentRow && (
         <>
-          <RoleFormDialog
-            key={`role-edit-${currentRow.id}`}
-            open={open === 'edit'}
-            onOpenChange={close('edit')}
+          <RoleRenameDialog
+            key={`role-rename-${currentRow.id}`}
+            app={app}
             currentRow={currentRow}
+            open={open === 'rename'}
+            onOpenChange={closeWithRow}
+            returnFocus={() => focusOpener(currentRow.key)}
+          />
+          <RolePermissionsDialog
+            key={`role-permissions-${currentRow.id}`}
+            app={app}
+            currentRow={currentRow}
+            open={open === 'permissions'}
+            onOpenChange={closeWithRow}
+            returnFocus={() => focusOpener(currentRow.key)}
           />
           <RoleDeleteDialog
             key={`role-delete-${currentRow.id}`}
-            open={open === 'delete'}
-            onOpenChange={close('delete')}
+            app={app}
             currentRow={currentRow}
+            open={open === 'delete'}
+            onOpenChange={closeConfirm}
+            onDeleted={closeDeleted}
           />
-          <RoleAssignmentsSheet
-            key={`role-assignments-${currentRow.id}`}
-            open={open === 'assignments'}
-            onOpenChange={close('assignments')}
-            role={currentRow}
+          <RoleDefaultDialog
+            key={`role-default-${currentRow.id}`}
+            app={app}
+            currentRow={currentRow}
+            open={open === 'default'}
+            onOpenChange={closeConfirm}
           />
         </>
       )}

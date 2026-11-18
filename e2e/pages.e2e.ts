@@ -216,6 +216,51 @@ test('apps: list from the API; detail sheet and permissions pass axe; disable di
   ).toHaveLength(0)
 })
 
+test('roles: calechip by default; switch to stoktok; permissions dialog and delete confirm pass axe; Cancel sends no writes', async ({
+  page,
+  api,
+  signIn,
+}) => {
+  await signIn('/roles')
+  await expect(heading(page, 'Roles')).toBeVisible()
+  await expect(page.getByText('calechip:member')).toBeVisible()
+
+  await page.getByRole('combobox', { name: 'App' }).click()
+  await page.getByRole('option', { name: 'Stoktok (stoktok)' }).click()
+  await expect(page).toHaveURL(/app=stoktok/)
+  await expect(page.getByText('stoktok:operator')).toBeVisible()
+
+  await page
+    .getByRole('button', { name: 'Actions for stoktok:operator' })
+    .click()
+  await page.getByRole('menuitem', { name: 'Permissions' }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(
+    dialog.getByRole('checkbox', { name: 'stoktok:orders:write' })
+  ).toBeChecked()
+  await expectNoSeriousA11y(page, 'roles-permissions')
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+
+  await page
+    .getByRole('button', { name: 'Actions for stoktok:operator' })
+    .click()
+  await page.getByRole('menuitem', { name: /Delete/ }).click()
+  const confirm = page.getByRole('alertdialog')
+  await expect(confirm).toContainText('stoktok:operator')
+  await expectNoSeriousA11y(page, 'roles-delete-confirm')
+  await confirm.getByRole('button', { name: 'Cancel' }).click()
+  await expect(confirm).toBeHidden()
+
+  expect(
+    api.calls.filter(
+      (c) =>
+        c.path.startsWith('/api/v1/apps') &&
+        ['POST', 'PATCH', 'PUT', 'DELETE'].includes(c.method)
+    )
+  ).toHaveLength(0)
+})
+
 test('apps credentials: list, issue shows the value once (masked, Show), close; second issue hits the limit inline; revoke confirm names the key id; no value in storage or URL; axe on tab and dialogs', async ({
   page,
   api,
