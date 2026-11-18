@@ -28,6 +28,9 @@ type AppsToolbarProps = {
   onJoinPolicy: (value: JoinPolicy | undefined) => void
   onOrgMode: (value: OrgMode | undefined) => void
   onReset: () => void
+  searchRef?: React.Ref<HTMLInputElement>
+  searchInvalid?: boolean
+  searchDescribedBy?: string
 }
 
 export function AppsToolbar({
@@ -41,6 +44,9 @@ export function AppsToolbar({
   onJoinPolicy,
   onOrgMode,
   onReset,
+  searchRef,
+  searchInvalid,
+  searchDescribedBy,
 }: AppsToolbarProps) {
   return (
     <div
@@ -53,6 +59,9 @@ export function AppsToolbar({
         placeholder='Key or name'
         value={q}
         onCommit={onQ}
+        inputRef={searchRef}
+        invalid={searchInvalid}
+        describedBy={searchDescribedBy}
       />
       <FilterSelect
         label='Status'

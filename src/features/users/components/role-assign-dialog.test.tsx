@@ -818,6 +818,56 @@ describe('RoleAssignDialog, keyboard and missing input', () => {
     expect(posts(seen)).toHaveLength(0)
   })
 
+  it('Choose button name has no bidi controls and is never empty', async () => {
+    const { client } = fakeApi(
+      assignmentsServer({
+        orgs: [
+          { ...ACME, name: 'Acme\u202Eevil' },
+          {
+            ...ACME,
+            id: 'c0000002-0000-4000-8000-000000000002',
+            name: '\u202E\u2066',
+          },
+        ],
+      })
+    )
+    const { screen } = await renderDialog(client, userTarget())
+    await choose(screen, 'App', /Calechip/)
+    await choose(screen, 'Role', /Member/)
+    await userEvent.click(
+      screen.getByRole('radio', { name: 'One organization' })
+    )
+    await userEvent.fill(screen.getByLabelText('Find an organization'), 'ac')
+    await userEvent.click(screen.getByRole('button', { name: 'Search' }))
+    const first = screen.getByRole('button', { name: 'Choose Acmeevil' })
+    await expect.element(first).toBeVisible()
+    const labels = screen
+      .getByRole('list', { name: 'Matching organizations' })
+      .getByRole('button')
+      .elements()
+      .map((b) => b.getAttribute('aria-label') ?? '')
+    expect(labels).toHaveLength(2)
+    for (const label of labels) {
+      expect(label).not.toMatch(
+        /[\u202A-\u202E\u2066-\u2069\u200E\u200F\u061C]/
+      )
+      expect(label.replace('Choose', '').trim()).not.toBe('')
+    }
+  })
+
+  it('no org error when the org field is hidden', async () => {
+    // Latent before the fix: the stale orgError was never rendered while the
+    // field was hidden, so this guards the behaviour, not a visible symptom.
+    const { client, seen } = fakeApi(assignmentsServer())
+    const { screen } = await renderDialog(client, roleTarget('stoktok'))
+    domClick(submit(screen))
+    await expect.element(screen.getByText('Choose a user.')).toBeVisible()
+    await expect
+      .element(screen.getByText('Choose an organization.'))
+      .not.toBeInTheDocument()
+    expect(posts(seen)).toHaveLength(0)
+  })
+
   it('confirm step: focus moves to the summary, Back focuses Review, and an expiry that passed meanwhile returns to the form with the error focused', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2030-01-01T00:00:00'))

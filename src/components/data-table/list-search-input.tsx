@@ -10,6 +10,10 @@ type ListSearchInputProps = {
   /** The committed term (from the URL). */
   value?: string
   onCommit: (value: string | undefined) => void
+  inputRef?: React.Ref<HTMLInputElement>
+  /** Marks the input invalid (the server rejected the search). */
+  invalid?: boolean
+  describedBy?: string
 }
 
 /**
@@ -21,6 +25,9 @@ export function ListSearchInput({
   placeholder,
   value,
   onCommit,
+  inputRef,
+  invalid,
+  describedBy,
 }: ListSearchInputProps) {
   const id = useId()
   const [draft, setDraft] = useState(value ?? '')
@@ -51,6 +58,9 @@ export function ListSearchInput({
       <Label htmlFor={id}>{label}</Label>
       <Input
         id={id}
+        ref={inputRef}
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
         type='search'
         className='w-full sm:w-64'
         maxLength={SEARCH_MAX}

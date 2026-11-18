@@ -238,7 +238,7 @@ export function RoleAssignDialog({ api, target, onDone }: Props) {
     if (assign.isPending) return
     if (!user || (!orgChosen && showOrg)) {
       if (!user) setUserError('Choose a user.')
-      if (!orgChosen) setOrgError('Choose an organization.')
+      if (showOrg && !orgChosen) setOrgError('Choose an organization.')
       ;(!user ? userInputRef : orgInputRef).current?.focus()
       return
     }

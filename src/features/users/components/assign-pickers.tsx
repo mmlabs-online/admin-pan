@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { type ApiClient, type components } from '@/api'
+import { toPlainLabel } from '@/lib/plain-label'
 import { queryView } from '@/lib/query-view'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -179,13 +180,13 @@ function PickList<T extends { id: string }>({
               aria-label={`Matching ${noun}`}
               className='max-h-48 divide-y overflow-y-auto rounded-md border'
             >
-              {view.data.items.map((row) => (
+              {view.data.items.map((row, index) => (
                 <li key={row.id} className='flex items-start gap-2 px-3 py-2'>
                   <Button
                     type='button'
                     variant='outline'
                     size='sm'
-                    aria-label={`Choose ${rowName(row)}`}
+                    aria-label={`Choose ${toPlainLabel(rowName(row)) || `${noun} result ${index + 1}`}`}
                     onClick={() => {
                       focusNext.current = 'change'
                       onSelect(row)

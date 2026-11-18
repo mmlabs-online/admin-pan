@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   flexRender,
@@ -65,6 +65,8 @@ export function OrganizationsTable({
       replace: opts?.replace,
       search: (prev) => ({ ...prev, ...patch, page: undefined }),
     })
+  const searchRef = useRef<HTMLInputElement>(null)
+  const invalidId = useId()
   const sorting = toSortingState(sort, ORG_DEFAULT_SORT)
 
   const q = useQuery(
@@ -121,6 +123,7 @@ export function OrganizationsTable({
     )
 
   const rows = table.getRowModel().rows
+  const rejected = view.status === 'error' && isApiError(view.error, 422)
   const filtered = Boolean(term || statusFilter)
   const status =
     view.status === 'pending' || q.isPlaceholderData
@@ -139,17 +142,24 @@ export function OrganizationsTable({
         q={term}
         status={statusFilter}
         canReset={filtered || sort !== undefined}
+        searchRef={searchRef}
+        searchInvalid={rejected}
+        searchDescribedBy={rejected ? invalidId : undefined}
         onQ={(value) => setListSearch({ q: value }, { replace: true })}
         onStatus={(value) => setListSearch({ status: value })}
-        onReset={() =>
+        onReset={() => {
           setListSearch({ q: undefined, status: undefined, sort: undefined })
-        }
+          searchRef.current?.focus()
+        }}
       />
       <p role='status' aria-live='polite' className='sr-only'>
         {status}
       </p>
       <div className='overflow-x-auto rounded-md border'>
-        <Table aria-label='Organizations' aria-busy={q.isFetching}>
+        <Table
+          aria-label='Organizations'
+          aria-busy={view.status === 'pending' || q.isPlaceholderData}
+        >
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
@@ -181,7 +191,10 @@ export function OrganizationsTable({
               </MessageRow>
             ) : view.status === 'error' && isApiError(view.error, 422) ? (
               <MessageRow span={columns.length}>
-                <p role='alert'>The search or filters weren&apos;t accepted.</p>
+                <p role='alert' id={invalidId}>
+                  The search or filters weren&apos;t accepted. Shorten or change
+                  the search, or reset the filters.
+                </p>
               </MessageRow>
             ) : view.status === 'error' ? (
               <MessageRow span={columns.length}>

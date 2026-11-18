@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { isApiError } from '@/api'
 import { toast } from 'sonner'
@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { ForbiddenPanel } from '@/components/forbidden-panel'
 import { ADMIN_APP_KEY, type App } from '@/features/apps/data/app-schema'
-import { type AppAlert } from '@/features/apps/data/errors'
+import { message, type AppAlert } from '@/features/apps/data/errors'
 import {
   appAllPermissionsQueryOptions,
   roleDefinitionQueryOptions,
@@ -62,6 +62,13 @@ export function RolePermissionsDialog({
   })
   const replace = useReplaceRolePermissionsMutation(app.key, api)
   const inFlight = useRef(false)
+  const reasonId = useId()
+  const saveRef = useRef<HTMLButtonElement>(null)
+  const confirmHeadingRef = useRef<HTMLHeadingElement>(null)
+  const alertBox = useRef<HTMLDivElement>(null)
+  // The role's permissions when the confirm step was shown (sorted).
+  const confirmBase = useRef<string[] | null>(null)
+  const prevPhase = useRef<'edit' | 'confirm'>('edit')
   // The user's edits; null while untouched, so the selection follows the
   // fetched detail until the first change.
   const [edit, setEdit] = useState<Set<string> | null>(null)
@@ -79,7 +86,16 @@ export function RolePermissionsDialog({
   const removed = [...held].filter((k) => !selected.has(k)).sort()
   const isAdminApp = app.key === ADMIN_APP_KEY
 
+  const loadError =
+    view.status === 'error'
+      ? isApiError(view.error, 404)
+        ? 'This role no longer exists.'
+        : "Couldn't load this role."
+      : permsQ.isError
+        ? "Couldn't load the app's permission list."
+        : null
   const reset = () => {
+    confirmBase.current = null
     setEdit(null)
     setPhase('edit')
     setAlert(null)
@@ -87,7 +103,19 @@ export function RolePermissionsDialog({
   }
 
   const send = async () => {
-    if (inFlight.current) return
+    if (inFlight.current || !ready || loadError) return
+    if (
+      phase === 'confirm' &&
+      [...(base ?? [])].sort().join('\n') !== confirmBase.current?.join('\n')
+    ) {
+      setPhase('edit')
+      setAlert(
+        message(
+          'This role changed while you were reviewing. Check the selection and save again.'
+        )
+      )
+      return
+    }
     inFlight.current = true
     setAlert(null)
     try {
@@ -114,18 +142,12 @@ export function RolePermissionsDialog({
       onOpenChange(false)
       return
     }
-    if (removed.length) setPhase('confirm')
-    else void send()
+    if (removed.length) {
+      confirmBase.current = [...(base ?? [])].sort()
+      setPhase('confirm')
+    } else void send()
   }
 
-  const loadError =
-    view.status === 'error'
-      ? isApiError(view.error, 404)
-        ? 'This role no longer exists.'
-        : "Couldn't load this role."
-      : permsQ.isError
-        ? "Couldn't load the app's permission list."
-        : null
   const waiting = !loadError && !ready && !overLimit
   const reason = overLimit
     ? `A role can hold at most ${PERMISSION_KEYS_MAX} permissions.`
@@ -133,6 +155,21 @@ export function RolePermissionsDialog({
       ? 'Loading…'
       : null
   const pending = replace.isPending
+  const confirmBlocked = pending || !ready || Boolean(loadError)
+  const confirmReason = pending
+    ? 'Saving…'
+    : (loadError ?? (waiting ? 'Loading…' : null))
+
+  // Announce a step change by moving focus (the heading names the step).
+  useEffect(() => {
+    if (prevPhase.current === phase) return
+    prevPhase.current = phase
+    if (phase === 'confirm') confirmHeadingRef.current?.focus()
+    else if (alert) alertBox.current?.focus()
+    else saveRef.current?.focus()
+    // Only a phase change moves focus.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase])
 
   return (
     <Dialog
@@ -188,7 +225,13 @@ export function RolePermissionsDialog({
           </div>
         ) : phase === 'confirm' ? (
           <div className='space-y-2 text-sm'>
-            <p>Remove these permissions from {currentRow.key}?</p>
+            <h3
+              ref={confirmHeadingRef}
+              tabIndex={-1}
+              className='font-medium outline-none'
+            >
+              Remove these permissions from {currentRow.key}?
+            </h3>
             <ul className='list-disc ps-5 font-mono'>
               {removed.map((k) => (
                 <li key={k}>{k}</li>
@@ -210,10 +253,22 @@ export function RolePermissionsDialog({
             disabled={readOnly || !ready || pending}
           />
         )}
-        <RoleAlertView alert={alert} />
+        <div ref={alertBox} tabIndex={-1} className='outline-none'>
+          <RoleAlertView alert={alert} />
+        </div>
         <p role='status' aria-live='polite' className='sr-only'>
-          {pending ? 'Saving permissions…' : ''}
+          {pending
+            ? 'Saving permissions…'
+            : waiting
+              ? 'Loading permissions…'
+              : ''}
         </p>
+        {readOnly && (
+          <p className='text-sm text-muted-foreground'>
+            You can view these permissions but not change them. Changing them
+            needs admin:roles:manage.
+          </p>
+        )}
         {!readOnly && (
           <DialogFooter>
             {phase === 'confirm' ? (
@@ -228,11 +283,22 @@ export function RolePermissionsDialog({
                 >
                   Back
                 </Button>
+                {confirmBlocked && confirmReason && (
+                  <span
+                    id={reasonId}
+                    className='me-auto self-center text-sm text-muted-foreground'
+                  >
+                    {confirmReason}
+                  </span>
+                )}
                 <Button
                   type='button'
                   variant='destructive'
-                  aria-disabled={pending || undefined}
-                  className={pending ? 'opacity-50' : undefined}
+                  aria-disabled={confirmBlocked || undefined}
+                  aria-describedby={
+                    confirmBlocked && confirmReason ? reasonId : undefined
+                  }
+                  className={confirmBlocked ? 'opacity-50' : undefined}
                   onClick={() => void send()}
                 >
                   {pending ? 'Saving…' : 'Remove and save'}
@@ -241,13 +307,18 @@ export function RolePermissionsDialog({
             ) : (
               <>
                 {reason && (
-                  <span className='me-auto self-center text-sm text-muted-foreground'>
+                  <span
+                    id={reasonId}
+                    className='me-auto self-center text-sm text-muted-foreground'
+                  >
                     {reason}
                   </span>
                 )}
                 <Button
+                  ref={saveRef}
                   type='button'
                   aria-disabled={!ready || undefined}
+                  aria-describedby={reason ? reasonId : undefined}
                   className={!ready ? 'opacity-50' : undefined}
                   onClick={save}
                 >

@@ -424,4 +424,81 @@ describe('RolesTable', () => {
       .element(denied.getByRole('menuitem', { name: /Assignments/ }))
       .not.toBeInTheDocument()
   })
+
+  it('disabled Delete is keyboard reachable, aria-disabled, carries its reason, and Enter opens nothing', async () => {
+    const { client } = fakeApi(rolesServer(noWrite))
+    const screen = await renderRoles(client)
+    await expect.element(screen.getByText('calechip:member')).toBeVisible()
+    screen
+      .getByRole('button', { name: 'Actions for calechip:member' })
+      .element()
+      .focus()
+    await userEvent.keyboard('{Enter}')
+    await userEvent.keyboard('{End}')
+    const del = screen.getByRole('menuitem', { name: /Delete/ })
+    await expect.element(del).toHaveFocus()
+    await expect.element(del).toHaveAttribute('aria-disabled', 'true')
+    await expect
+      .element(del)
+      .toHaveAccessibleName(/Default role: choose another default first/)
+    await userEvent.keyboard('{Enter}')
+    await expect.element(screen.getByRole('dialog')).not.toBeInTheDocument()
+    await expect.element(del).toBeVisible()
+  })
+
+  it('Set as default on the admin app is keyboard reachable, aria-disabled, carries its reason, and Enter opens nothing', async () => {
+    const { client } = fakeApi(rolesServer(noWrite))
+    const screen = await renderRoles(client, { search: { app: 'admin' } })
+    await expect.element(screen.getByText('admin:super-admin')).toBeVisible()
+    screen
+      .getByRole('button', { name: 'Actions for admin:super-admin' })
+      .element()
+      .focus()
+    await userEvent.keyboard('{Enter}')
+    for (let i = 0; i < 3; i++) await userEvent.keyboard('{ArrowDown}')
+    const item = screen.getByRole('menuitem', { name: /Set as default/ })
+    await expect.element(item).toHaveFocus()
+    await expect.element(item).toHaveAttribute('aria-disabled', 'true')
+    await expect
+      .element(item)
+      .toHaveAccessibleName(/The admin app has no default role/)
+    await userEvent.keyboard('{Enter}')
+    await expect.element(screen.getByRole('dialog')).not.toBeInTheDocument()
+    await expect.element(item).toBeVisible()
+  })
+
+  it('focus returns to the row actions of a key with quotes and backslashes', async () => {
+    const odd = 'x"]b\\'
+    const { client } = fakeApi(
+      rolesServer(noWrite, {
+        roles: () => [role('stoktok', VIEWER_ID, odd)],
+      })
+    )
+    const screen = await renderRoles(client, { search: { app: 'stoktok' } })
+    const name = `Actions for stoktok:${odd}`
+    await userEvent.click(screen.getByRole('button', { name }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Rename' }))
+    await expect.element(screen.getByRole('dialog')).toBeVisible()
+    await userEvent.keyboard('{Escape}')
+    await expect.element(screen.getByRole('button', { name })).toHaveFocus()
+  })
+
+  it('apps loading status is the same node before and after load', async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((r) => (release = r))
+    const base = rolesServer(noWrite)
+    const { client } = fakeApi(async (req) => {
+      if (path(req) === '/api/v1/apps') await gate
+      return base(req)
+    })
+    const screen = await renderRoles(client)
+    const status = screen.getByRole('status')
+    await expect.element(status).toHaveTextContent('Loading apps…')
+    const node = status.element()
+    release()
+    await expect
+      .element(screen.getByRole('table', { name: 'Roles of Calechip' }))
+      .toBeVisible()
+    expect(node.isConnected).toBe(true)
+  })
 })

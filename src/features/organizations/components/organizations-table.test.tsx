@@ -1,5 +1,5 @@
 import { apiError, fakeApi, json } from '@/test-utils/api'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { type Organization } from '../data/schema'
 import { ORGS, orgsPage } from './test-data'
@@ -481,6 +481,63 @@ describe('OrganizationsTable', () => {
     await expect
       .element(screen.getByRole('table', { name: 'Organizations' }))
       .toHaveAttribute('aria-busy', 'false')
+  })
+
+  it('Reset filters moves focus to the search input', async () => {
+    const { client } = fakeApi(() => json(orgsPage()))
+    const screen = await renderOrganizations(client, {
+      search: { q: 'ac', status: 'active' },
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Reset filters' }))
+    await expect
+      .element(screen.getByLabelText('Search organizations'))
+      .toHaveFocus()
+  })
+
+  it('422 marks the search input invalid and links the message', async () => {
+    const { client } = fakeApi((req) =>
+      param(req, 'status')
+        ? apiError(422, 'validation_error')
+        : json(orgsPage())
+    )
+    const screen = await renderOrganizations(client)
+    const input = screen.getByLabelText('Search organizations')
+    await expect
+      .element(screen.getByText('Acme Corp', { exact: true }))
+      .toBeVisible()
+    await expect.element(input).not.toHaveAttribute('aria-invalid')
+    await expect.element(input).not.toHaveAttribute('aria-describedby')
+    await userEvent.click(screen.getByRole('combobox', { name: 'Status' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Active' }))
+    const alert = screen.getByRole('alert')
+    await expect
+      .element(alert)
+      .toHaveTextContent(/Shorten or change the search/)
+    await expect.element(input).toHaveAttribute('aria-invalid', 'true')
+    await expect
+      .element(input)
+      .toHaveAttribute('aria-describedby', alert.element().id)
+  })
+
+  it('aria-busy only on initial and placeholder loads, not on background refetch', async () => {
+    let calls = 0
+    let release: () => void = () => {}
+    const gate = new Promise<void>((r) => (release = r))
+    const { client } = fakeApi(async () => {
+      calls += 1
+      if (calls === 2) await gate
+      return json(orgsPage())
+    })
+    const screen = await renderOrganizations(client)
+    const table = screen.getByRole('table', { name: 'Organizations' })
+    await expect
+      .element(screen.getByText('Acme Corp', { exact: true }))
+      .toBeVisible()
+    await expect.element(table).toHaveAttribute('aria-busy', 'false')
+    window.dispatchEvent(new Event('visibilitychange'))
+    await vi.waitFor(() => expect(calls).toBe(2))
+    await expect.element(table).toHaveAttribute('aria-busy', 'false')
+    release()
   })
 
   it('controls have accessible names and sit in a search landmark', async () => {
