@@ -465,6 +465,38 @@ describe('RolePermissionsDialog', () => {
     press(confirm)
     await new Promise((r) => setTimeout(r, 100))
     expect(writes(seen)).toHaveLength(0)
+    await expect
+      .element(dialog.getByText(/This role changed while you were reviewing/))
+      .not.toBeInTheDocument()
+    await expect
+      .element(dialog.getByRole('button', { name: 'Remove and save' }))
+      .toBeInTheDocument()
+  })
+
+  it('403 on the role refetch during confirm does not say Loading', async () => {
+    let deny = false
+    const base = rolesServer(ok)
+    const { client, seen } = fakeApi((req) =>
+      deny &&
+      path(req) === `/api/v1/apps/stoktok/role-definitions/${OPERATOR_ID}`
+        ? apiError(403, 'forbidden')
+        : base(req)
+    )
+    const screen = await renderRoles(client, stoktok)
+    const dialog = await open(screen, 'stoktok:operator')
+    await expect.element(box(dialog, 'stoktok:orders:write')).toBeChecked()
+    await expect.element(save(dialog)).not.toHaveAttribute('aria-disabled')
+    await userEvent.click(box(dialog, 'stoktok:orders:write'))
+    await userEvent.click(save(dialog))
+    const confirm = dialog.getByRole('button', { name: 'Remove and save' })
+    await expect.element(confirm).toBeVisible()
+    deny = true
+    window.dispatchEvent(new Event('visibilitychange'))
+    await expect.element(confirm).toHaveAttribute('aria-disabled', 'true')
+    await expect
+      .element(confirm)
+      .toHaveAccessibleDescription('You no longer have access to this role.')
+    expect(writes(seen)).toHaveLength(0)
   })
 
   it('role changed during confirm returns to edit with an alert and sends nothing', async () => {

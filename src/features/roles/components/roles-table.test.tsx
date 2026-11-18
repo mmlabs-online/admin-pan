@@ -1,5 +1,5 @@
 import { apiError, fakeApi, json } from '@/test-utils/api'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { OPERATOR_ID, ROLES, VIEWER_ID, pageOf, role } from './test-data'
 import { renderRoles, rolesServer } from './test-fixtures'
@@ -469,6 +469,10 @@ describe('RolesTable', () => {
 
   it('focus returns to the row actions of a key with quotes and backslashes', async () => {
     const odd = 'x"]b\\'
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const windowErrors: Event[] = []
+    const onError = (e: Event) => windowErrors.push(e)
+    window.addEventListener('error', onError)
     const { client } = fakeApi(
       rolesServer(noWrite, {
         roles: () => [role('stoktok', VIEWER_ID, odd)],
@@ -481,6 +485,10 @@ describe('RolesTable', () => {
     await expect.element(screen.getByRole('dialog')).toBeVisible()
     await userEvent.keyboard('{Escape}')
     await expect.element(screen.getByRole('button', { name })).toHaveFocus()
+    expect(consoleError).not.toHaveBeenCalled()
+    expect(windowErrors).toHaveLength(0)
+    window.removeEventListener('error', onError)
+    consoleError.mockRestore()
   })
 
   it('apps loading status is the same node before and after load', async () => {

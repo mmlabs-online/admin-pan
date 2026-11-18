@@ -148,7 +148,8 @@ export function RolePermissionsDialog({
     } else void send()
   }
 
-  const waiting = !loadError && !ready && !overLimit
+  const forbidden = view.status === 'forbidden'
+  const waiting = !loadError && !forbidden && !ready && !overLimit
   const reason = overLimit
     ? `A role can hold at most ${PERMISSION_KEYS_MAX} permissions.`
     : waiting
@@ -158,7 +159,12 @@ export function RolePermissionsDialog({
   const confirmBlocked = pending || !ready || Boolean(loadError)
   const confirmReason = pending
     ? 'Saving…'
-    : (loadError ?? (waiting ? 'Loading…' : null))
+    : (loadError ??
+      (forbidden
+        ? 'You no longer have access to this role.'
+        : waiting
+          ? 'Loading…'
+          : null))
 
   // Announce a step change by moving focus (the heading names the step).
   useEffect(() => {

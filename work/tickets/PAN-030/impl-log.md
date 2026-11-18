@@ -61,3 +61,28 @@ None.
 ### Scope self-check
 - Could the diff be smaller? No; each change maps to an AC.
 - Diff size: not measured (no git repository in the workspace); roughly +230 production / +600 tests.
+
+## Attempt 2 (REWORK)
+
+### Changes
+- `src/styles/theme-contrast.test.ts`: alpha is composited in gamma-encoded sRGB (as browsers do); new pinned case: `oklch(1 0 0 / 15%)` over dark `--background` must be < 3:1; new class assertion that `button.tsx` uses `focus-visible:ring-ring` (not `/50`).
+- `role-permissions-dialog.test.tsx`: "no PUT when the role refetch fails during confirm" now also asserts no "role changed" alert and the "Remove and save" button still present; new test "403 on the role refetch during confirm does not say Loading".
+- `role-permissions-dialog.tsx`: `forbidden` (view.status) excluded from `waiting`; `confirmReason` says "You no longer have access to this role." on 403.
+- `organizations-table.tsx`, `apps-table.tsx`: `searchInvalid={rejected && Boolean(term)}`; both 422 tests now assert the input is not invalid with an empty search, then invalid after typing a term.
+- `src/components/ui/button.tsx`: `focus-visible:ring-ring/50` -> `focus-visible:ring-ring` (shadcn primitive bug fix, a11y 1.4.11).
+- `roles-table.test.tsx`: CSS.escape focus test spies `console.error` and window `error`, asserts none.
+- `assign-pickers.tsx`: Choose fallback label is now singular ("Choose organization 2").
+
+### Before-fix evidence (run)
+- Dark `--input` restored to the original `oklch(1 0 0 / 15%)`: theme test FAILS, "expected 1.4420265630548335 to be greater than or equal to 3" (the 1.44:1 defect).
+- Original dark `--ring` `oklch(0.551 0.027 264.364)` restored: theme test PASSES (about 4.17:1). CORRECTION of Attempt 1: the claim "dark ring 2.63:1" failing before the fix was wrong. The dark `--ring` change is a design choice, not required by the test; the real before-fix failures are the light `--input` and the dark alpha `--input`.
+- `send()` guard reduced to `if (inFlight.current) return`: "no PUT when the role refetch fails during confirm" FAILS (1 failed, 18 passed); guard restored.
+
+### Checks
+- pnpm typecheck / lint: clean; pnpm format then format:check: "All matched files use Prettier code style!"
+- pnpm test (twice): Test Files 115 passed, Tests 973 passed, both runs
+- pnpm build: built in 1.41s
+- pnpm e2e: 30 passed (1.6m)
+
+### Out-of-plan files
+`src/components/ui/button.tsx` (a11y reviewer 🟡 1, reviewer-requested bug fix to a primitive).

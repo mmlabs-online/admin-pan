@@ -18,6 +18,11 @@ function oklchToLinear(l: number, c: number, h: number): Rgb {
   ]
 }
 
+const encode = (v: number) =>
+  v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055
+const decode = (v: number) =>
+  v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+
 const luminance = ([r, g, b]: Rgb) => 0.2126 * r + 0.7152 * g + 0.0722 * b
 const contrast = (x: Rgb, y: Rgb) => {
   const [hi, lo] = [luminance(x), luminance(y)].sort((p, q) => q - p)
@@ -37,8 +42,17 @@ function token(css: string, name: string, over?: Rgb): Rgb {
   const rgb = oklchToLinear(+m[1], +m[2], +m[3])
   const alpha = m[4] === undefined ? 1 : +m[4] / 100
   if (alpha === 1 || !over) return rgb
-  return rgb.map((v, i) => v * alpha + over[i] * (1 - alpha)) as Rgb
+  // Browsers blend in gamma-encoded sRGB, not in linear light.
+  return rgb.map((v, i) =>
+    decode(encode(v) * alpha + encode(over[i]) * (1 - alpha))
+  ) as Rgb
 }
+
+it('composites alpha like a browser: the old dark --input fails', () => {
+  const background = token(block('.dark'), '--background')
+  const old = token('--x: oklch(1 0 0 / 15%)', '--x', background)
+  expect(contrast(old, background)).toBeLessThan(3)
+})
 
 describe.each([
   ['light', ':root'],
@@ -59,4 +73,10 @@ describe.each([
       contrast(input, background)
     )
   })
+})
+
+it('buttons use a full-opacity focus ring', async () => {
+  const src = (await import('@/components/ui/button.tsx?raw')).default
+  expect(src).toContain('focus-visible:ring-ring ')
+  expect(src).not.toContain('focus-visible:ring-ring/50')
 })

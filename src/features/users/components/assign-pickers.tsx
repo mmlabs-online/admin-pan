@@ -186,7 +186,7 @@ function PickList<T extends { id: string }>({
                     type='button'
                     variant='outline'
                     size='sm'
-                    aria-label={`Choose ${toPlainLabel(rowName(row)) || `${noun} result ${index + 1}`}`}
+                    aria-label={`Choose ${toPlainLabel(rowName(row)) || `${noun.replace(/s$/, '')} ${index + 1}`}`}
                     onClick={() => {
                       focusNext.current = 'change'
                       onSelect(row)

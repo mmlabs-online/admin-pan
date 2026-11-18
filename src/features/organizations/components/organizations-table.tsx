@@ -143,7 +143,7 @@ export function OrganizationsTable({
         status={statusFilter}
         canReset={filtered || sort !== undefined}
         searchRef={searchRef}
-        searchInvalid={rejected}
+        searchInvalid={rejected && Boolean(term)}
         searchDescribedBy={rejected ? invalidId : undefined}
         onQ={(value) => setListSearch({ q: value }, { replace: true })}
         onStatus={(value) => setListSearch({ status: value })}

@@ -466,6 +466,9 @@ describe('AppsTable', () => {
     await expect
       .element(alert)
       .toHaveTextContent(/Shorten or change the search/)
+    // A rejected filter with an empty search does not blame the search box.
+    await expect.element(input).not.toHaveAttribute('aria-invalid')
+    await userEvent.type(input, 'acme')
     await expect.element(input).toHaveAttribute('aria-invalid', 'true')
     await expect
       .element(input)
