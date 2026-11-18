@@ -1,6 +1,6 @@
 import { ApiError } from '@/api'
 import { describe, expect, it } from 'vitest'
-import { statusChangeError } from './errors'
+import { sessionRevokeError, statusChangeError } from './errors'
 
 const err = (status: number, code: string, message = 'server text') =>
   new ApiError({ kind: 'http', status, code, message })
@@ -33,5 +33,56 @@ describe('statusChangeError', () => {
       kind: 'message',
       text: 'Something went wrong.',
     })
+  })
+})
+
+describe('sessionRevokeError', () => {
+  it('404 -> gone; 403 -> forbidden copy (self code mapped); unknown outcomes and other errors -> fixed copy, never the server message', () => {
+    expect(sessionRevokeError(err(404, 'not_found'))).toEqual({ kind: 'gone' })
+    for (const code of [
+      'permission_denied',
+      'admin_wildcard_required',
+      'self_session_change_forbidden',
+    ]) {
+      const r = sessionRevokeError(err(403, code))
+      expect(r.kind).toBe('forbidden')
+      expect(JSON.stringify(r)).not.toContain('server text')
+    }
+    expect(
+      sessionRevokeError(err(403, 'self_session_change_forbidden'))
+    ).toMatchObject({
+      copy: { title: "You can't manage your own sessions" },
+    })
+    const unknown = {
+      kind: 'message',
+      text: "We couldn't confirm the revoke. Check the list; revoking again is safe.",
+    }
+    expect(sessionRevokeError(err(500, 'internal_error'))).toEqual(unknown)
+    expect(
+      sessionRevokeError(
+        new ApiError({ kind: 'network', status: 0, code: '', message: 'x' })
+      )
+    ).toEqual(unknown)
+    expect(
+      sessionRevokeError(
+        new ApiError({ kind: 'timeout', status: 0, code: '', message: 'x' })
+      )
+    ).toEqual(unknown)
+    expect(
+      sessionRevokeError(
+        new ApiError({
+          kind: 'invalid_response',
+          status: 200,
+          code: '',
+          message: 'x',
+        })
+      )
+    ).toEqual(unknown)
+    const other = sessionRevokeError(err(422, 'validation_error'))
+    expect(other).toEqual({
+      kind: 'message',
+      text: 'The API refused this revoke. Refresh the list and try again.',
+    })
+    expect(sessionRevokeError(new Error('boom'))).toEqual(other)
   })
 })

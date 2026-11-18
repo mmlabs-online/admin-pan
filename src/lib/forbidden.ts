@@ -55,6 +55,12 @@ export function forbiddenCopy(e: unknown): ForbiddenCopy {
         title: "You can't change your own account status",
         description: 'Ask another administrator to do this.',
       }
+    case 'self_session_change_forbidden':
+      return {
+        title: "You can't manage your own sessions",
+        description:
+          'Ask another administrator, or use Sign out to end your own session.',
+      }
     default:
       return {
         title: GENERIC_TITLE,

@@ -1,5 +1,6 @@
 import { isApiError } from '@/api'
 import { forbiddenCopy, isForbidden, type ForbiddenCopy } from '@/lib/forbidden'
+import { isUnknownOutcome } from '@/features/apps/data/errors'
 
 type StatusChangeError =
   | { kind: 'forbidden'; copy: ForbiddenCopy }
@@ -19,4 +20,25 @@ export function statusChangeError(error: unknown): StatusChangeError {
   if (isApiError(error))
     return { kind: 'message', text: error.message.slice(0, 200) }
   return { kind: 'message', text: 'Something went wrong.' }
+}
+
+type SessionRevokeError =
+  | { kind: 'gone' }
+  | { kind: 'forbidden'; copy: ForbiddenCopy }
+  | { kind: 'message'; text: string }
+
+/** Maps a failed session revoke to what the dialog shows. Never the server message. */
+export function sessionRevokeError(error: unknown): SessionRevokeError {
+  if (isApiError(error, 404)) return { kind: 'gone' }
+  if (isForbidden(error))
+    return { kind: 'forbidden', copy: forbiddenCopy(error) }
+  if (isUnknownOutcome(error))
+    return {
+      kind: 'message',
+      text: "We couldn't confirm the revoke. Check the list; revoking again is safe.",
+    }
+  return {
+    kind: 'message',
+    text: 'The API refused this revoke. Refresh the list and try again.',
+  }
 }

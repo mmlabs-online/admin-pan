@@ -257,6 +257,29 @@
         "title": "AppCredentialRead",
         "type": "object"
       },
+      "AppMembers": {
+        "properties": {
+          "app_key": {
+            "title": "App Key",
+            "type": "string"
+          },
+          "member_count": {
+            "title": "Member Count",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_key",
+          "name",
+          "member_count"
+        ],
+        "title": "AppMembers",
+        "type": "object"
+      },
       "AppRead": {
         "properties": {
           "created_at": {
@@ -287,6 +310,12 @@
           "key": {
             "title": "Key",
             "type": "string"
+          },
+          "member_count": {
+            "description": "Distinct active users with at least one non-expired role assignment on the app (app scope or any org); unverified email counts; `admin` = staff (OQ5).",
+            "minimum": 0.0,
+            "title": "Member Count",
+            "type": "integer"
           },
           "name": {
             "title": "Name",
@@ -333,9 +362,27 @@
           "origins",
           "default_role_id",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "member_count"
         ],
         "title": "AppRead",
+        "type": "object"
+      },
+      "AppStats": {
+        "properties": {
+          "by_status": {
+            "$ref": "#/components/schemas/AppStatusCounts"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "by_status"
+        ],
+        "title": "AppStats",
         "type": "object"
       },
       "AppStatus": {
@@ -345,6 +392,24 @@
         ],
         "title": "AppStatus",
         "type": "string"
+      },
+      "AppStatusCounts": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "integer"
+          },
+          "disabled": {
+            "title": "Disabled",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "active",
+          "disabled"
+        ],
+        "title": "AppStatusCounts",
+        "type": "object"
       },
       "AppUpdate": {
         "additionalProperties": false,
@@ -567,6 +632,8 @@
           "user.created",
           "user.disabled",
           "user.enabled",
+          "user.session_revoked",
+          "user.sessions_revoked",
           "app.created",
           "app.updated",
           "app.deleted",
@@ -888,6 +955,48 @@
           "roles"
         ],
         "title": "AuthOrgRead",
+        "type": "object"
+      },
+      "DashboardStats": {
+        "properties": {
+          "apps": {
+            "$ref": "#/components/schemas/AppStats"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "members_per_app": {
+            "items": {
+              "$ref": "#/components/schemas/AppMembers"
+            },
+            "title": "Members Per App",
+            "type": "array"
+          },
+          "organizations": {
+            "$ref": "#/components/schemas/OrganizationStats"
+          },
+          "sign_ins_24h": {
+            "$ref": "#/components/schemas/SignIns24h"
+          },
+          "sign_ups": {
+            "$ref": "#/components/schemas/SignUps"
+          },
+          "users": {
+            "$ref": "#/components/schemas/UserStats"
+          }
+        },
+        "required": [
+          "generated_at",
+          "users",
+          "organizations",
+          "apps",
+          "sign_ins_24h",
+          "sign_ups",
+          "members_per_app"
+        ],
+        "title": "DashboardStats",
         "type": "object"
       },
       "EntitlementCreate": {
@@ -1838,6 +1947,24 @@
         "title": "MePermissions",
         "type": "object"
       },
+      "MonthCount": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "month": {
+            "title": "Month",
+            "type": "string"
+          }
+        },
+        "required": [
+          "month",
+          "count"
+        ],
+        "title": "MonthCount",
+        "type": "object"
+      },
       "MyOrgRead": {
         "properties": {
           "id": {
@@ -1980,6 +2107,23 @@
         "title": "OrganizationRead",
         "type": "object"
       },
+      "OrganizationStats": {
+        "properties": {
+          "by_status": {
+            "$ref": "#/components/schemas/OrganizationStatusCounts"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "by_status"
+        ],
+        "title": "OrganizationStats",
+        "type": "object"
+      },
       "OrganizationStatus": {
         "enum": [
           "active",
@@ -1987,6 +2131,24 @@
         ],
         "title": "OrganizationStatus",
         "type": "string"
+      },
+      "OrganizationStatusCounts": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "integer"
+          },
+          "suspended": {
+            "title": "Suspended",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "active",
+          "suspended"
+        ],
+        "title": "OrganizationStatusCounts",
+        "type": "object"
       },
       "OrganizationUpdate": {
         "properties": {
@@ -2339,6 +2501,37 @@
         "title": "Page[UserRead]",
         "type": "object"
       },
+      "Page_UserSessionRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UserSessionRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[UserSessionRead]",
+        "type": "object"
+      },
       "PermissionCreate": {
         "additionalProperties": false,
         "description": "`is_admin` absent or null: false, except `<app>:*` and admin-app permissions, which are\nalways stored `true`. `scope` absent or null: the reserved key decides, else `org` on\n`org_mode = required` apps and `app` otherwise (ADR-0015).",
@@ -2672,6 +2865,57 @@
         "title": "RoleUpdate",
         "type": "object"
       },
+      "SignIns24h": {
+        "properties": {
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "succeeded": {
+            "title": "Succeeded",
+            "type": "integer"
+          },
+          "window_end": {
+            "format": "date-time",
+            "title": "Window End",
+            "type": "string"
+          },
+          "window_start": {
+            "format": "date-time",
+            "title": "Window Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "window_start",
+          "window_end",
+          "succeeded",
+          "failed"
+        ],
+        "title": "SignIns24h",
+        "type": "object"
+      },
+      "SignUps": {
+        "properties": {
+          "by_month": {
+            "items": {
+              "$ref": "#/components/schemas/MonthCount"
+            },
+            "title": "By Month",
+            "type": "array"
+          },
+          "time_zone": {
+            "title": "Time Zone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "time_zone",
+          "by_month"
+        ],
+        "title": "SignUps",
+        "type": "object"
+      },
       "SignupRequest": {
         "additionalProperties": false,
         "properties": {
@@ -2855,6 +3099,90 @@
         "title": "UserRead",
         "type": "object"
       },
+      "UserSessionRead": {
+        "description": "An active account session of a user, for staff (explicit fields only; USR-10).",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "device_last_seen_at": {
+            "description": "Browser last seen; refreshed at most hourly.",
+            "format": "date-time",
+            "title": "Device Last Seen At",
+            "type": "string"
+          },
+          "id": {
+            "description": "Account session id; the `account_id` apps send to /auth/token.",
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Recorded when this browser first signed in; shared by every account on it.",
+            "title": "Ip"
+          },
+          "last_used_at": {
+            "description": "Last sign-in of this account on this device.",
+            "format": "date-time",
+            "title": "Last Used At",
+            "type": "string"
+          },
+          "user_agent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Recorded when this browser first signed in; shared by every account on it.",
+            "title": "User Agent"
+          }
+        },
+        "required": [
+          "id",
+          "created_at",
+          "last_used_at",
+          "device_last_seen_at",
+          "ip",
+          "user_agent"
+        ],
+        "title": "UserSessionRead",
+        "type": "object"
+      },
+      "UserStats": {
+        "properties": {
+          "by_status": {
+            "$ref": "#/components/schemas/UserStatusCounts"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "unverified": {
+            "title": "Unverified",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "by_status",
+          "unverified"
+        ],
+        "title": "UserStats",
+        "type": "object"
+      },
       "UserStatus": {
         "enum": [
           "active",
@@ -2862,6 +3190,24 @@
         ],
         "title": "UserStatus",
         "type": "string"
+      },
+      "UserStatusCounts": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "integer"
+          },
+          "disabled": {
+            "title": "Disabled",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "active",
+          "disabled"
+        ],
+        "title": "UserStatusCounts",
+        "type": "object"
       },
       "UserStatusUpdate": {
         "additionalProperties": false,
@@ -8792,6 +9138,81 @@
         "x-permission": "admin:entitlements:write"
       }
     },
+    "/api/v1/stats/dashboard": {
+      "get": {
+        "description": "One read-only document for the dashboard (counts only, no audit rows).\n\n`members_per_app` also reveals every app's key and name, including disabled apps and\nthe `admin` app, so `admin:stats:read` exposes that app list without `admin:apps:read`.\n\nCaveats: failed sign-ins include unknown emails (anonymous actor) but not requests refused with\n429 or by Turnstile. Sign-ups include self sign-ups and CLI-created accounts and do not depend on\nthe audit log or its retention. Sign-ins are event counts over a rolling 24 h window, not distinct\nusers. Sign-ups cover the last 12 months in the `Asia/Ho_Chi_Minh` time zone; the last month is\npartial. Members per app: distinct `active` users with a non-expired role assignment on the app\n(app scope or any org). The counts are approximate (not one snapshot). Clients ignore unknown keys.",
+        "operationId": "get_dashboard_api_v1_stats_dashboard_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardStats"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Dashboard statistics",
+        "tags": [
+          "stats"
+        ],
+        "x-permission": "admin:stats:read"
+      }
+    },
     "/api/v1/users": {
       "get": {
         "operationId": "list_users_api_v1_users_get",
@@ -9564,6 +9985,398 @@
           "role-assignments"
         ],
         "x-permission": "admin:roles:assign"
+      }
+    },
+    "/api/v1/users/{user_id}/sessions": {
+      "delete": {
+        "description": "Revoke all account sessions of a user, on every device. Revoking sessions stops the user from getting **new** access tokens (`/auth/token` -> 401 `session_invalid`). It does **not** end tokens already issued, including admin (`aud=admin`) tokens: they stay valid until `exp`, at most `ACCESS_TOKEN_TTL_SECONDS` (12 h in production) plus 30 s leeway. It also does not stop a new sign-in with the password. IP and user agent are recorded when the browser first signed in and are shared by every account on that browser.",
+        "operationId": "revoke_all_user_sessions_api_v1_users__user_id__sessions_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "User or session not found",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Revoke all account sessions of a user, on every device",
+        "tags": [
+          "users"
+        ],
+        "x-permission": "admin:*"
+      },
+      "get": {
+        "description": "List a user's active account sessions. Revoking sessions stops the user from getting **new** access tokens (`/auth/token` -> 401 `session_invalid`). It does **not** end tokens already issued, including admin (`aud=admin`) tokens: they stay valid until `exp`, at most `ACCESS_TOKEN_TTL_SECONDS` (12 h in production) plus 30 s leeway. It also does not stop a new sign-in with the password. IP and user agent are recorded when the browser first signed in and are shared by every account on that browser.",
+        "operationId": "list_user_sessions_api_v1_users__user_id__sessions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_UserSessionRead_"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "User or session not found",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List a user's active account sessions",
+        "tags": [
+          "users"
+        ],
+        "x-permission": "admin:*"
+      }
+    },
+    "/api/v1/users/{user_id}/sessions/{session_id}": {
+      "delete": {
+        "description": "Revoke one account session of a user. Revoking sessions stops the user from getting **new** access tokens (`/auth/token` -> 401 `session_invalid`). It does **not** end tokens already issued, including admin (`aud=admin`) tokens: they stay valid until `exp`, at most `ACCESS_TOKEN_TTL_SECONDS` (12 h in production) plus 30 s leeway. It also does not stop a new sign-in with the password. IP and user agent are recorded when the browser first signed in and are shared by every account on that browser.",
+        "operationId": "revoke_user_session_api_v1_users__user_id__sessions__session_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing or invalid Bearer token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Missing permission",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "User or session not found",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Revoke one account session of a user",
+        "tags": [
+          "users"
+        ],
+        "x-permission": "admin:*"
       }
     },
     "/healthz": {

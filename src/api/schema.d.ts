@@ -651,6 +651,36 @@ export interface paths {
         patch: operations["update_entitlement_api_v1_organizations__org_id__entitlements__entitlement_id__patch"];
         trace?: never;
     };
+    "/api/v1/stats/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Dashboard statistics
+         * @description One read-only document for the dashboard (counts only, no audit rows).
+         *
+         *     `members_per_app` also reveals every app's key and name, including disabled apps and
+         *     the `admin` app, so `admin:stats:read` exposes that app list without `admin:apps:read`.
+         *
+         *     Caveats: failed sign-ins include unknown emails (anonymous actor) but not requests refused with
+         *     429 or by Turnstile. Sign-ups include self sign-ups and CLI-created accounts and do not depend on
+         *     the audit log or its retention. Sign-ins are event counts over a rolling 24 h window, not distinct
+         *     users. Sign-ups cover the last 12 months in the `Asia/Ho_Chi_Minh` time zone; the last month is
+         *     partial. Members per app: distinct `active` users with a non-expired role assignment on the app
+         *     (app scope or any org). The counts are approximate (not one snapshot). Clients ignore unknown keys.
+         */
+        get: operations["get_dashboard_api_v1_stats_dashboard_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users": {
         parameters: {
             query?: never;
@@ -716,6 +746,50 @@ export interface paths {
         post?: never;
         /** Revoke Role */
         delete: operations["revoke_role_api_v1_users__user_id__role_assignments__assignment_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a user's active account sessions
+         * @description List a user's active account sessions. Revoking sessions stops the user from getting **new** access tokens (`/auth/token` -> 401 `session_invalid`). It does **not** end tokens already issued, including admin (`aud=admin`) tokens: they stay valid until `exp`, at most `ACCESS_TOKEN_TTL_SECONDS` (12 h in production) plus 30 s leeway. It also does not stop a new sign-in with the password. IP and user agent are recorded when the browser first signed in and are shared by every account on that browser.
+         */
+        get: operations["list_user_sessions_api_v1_users__user_id__sessions_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Revoke all account sessions of a user, on every device
+         * @description Revoke all account sessions of a user, on every device. Revoking sessions stops the user from getting **new** access tokens (`/auth/token` -> 401 `session_invalid`). It does **not** end tokens already issued, including admin (`aud=admin`) tokens: they stay valid until `exp`, at most `ACCESS_TOKEN_TTL_SECONDS` (12 h in production) plus 30 s leeway. It also does not stop a new sign-in with the password. IP and user agent are recorded when the browser first signed in and are shared by every account on that browser.
+         */
+        delete: operations["revoke_all_user_sessions_api_v1_users__user_id__sessions_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke one account session of a user
+         * @description Revoke one account session of a user. Revoking sessions stops the user from getting **new** access tokens (`/auth/token` -> 401 `session_invalid`). It does **not** end tokens already issued, including admin (`aud=admin`) tokens: they stay valid until `exp`, at most `ACCESS_TOKEN_TTL_SECONDS` (12 h in production) plus 30 s leeway. It also does not stop a new sign-in with the password. IP and user agent are recorded when the browser first signed in and are shared by every account on that browser.
+         */
+        delete: operations["revoke_user_session_api_v1_users__user_id__sessions__session_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -857,6 +931,15 @@ export interface components {
             /** Revoked At */
             revoked_at: string | null;
         };
+        /** AppMembers */
+        AppMembers: {
+            /** App Key */
+            app_key: string;
+            /** Member Count */
+            member_count: number;
+            /** Name */
+            name: string;
+        };
         /** AppRead */
         AppRead: {
             /**
@@ -874,6 +957,11 @@ export interface components {
             join_policy: components["schemas"]["JoinPolicy"];
             /** Key */
             key: string;
+            /**
+             * Member Count
+             * @description Distinct active users with at least one non-expired role assignment on the app (app scope or any org); unverified email counts; `admin` = staff (OQ5).
+             */
+            member_count: number;
             /** Name */
             name: string;
             org_mode: components["schemas"]["OrgMode"];
@@ -888,11 +976,24 @@ export interface components {
              */
             updated_at: string;
         };
+        /** AppStats */
+        AppStats: {
+            by_status: components["schemas"]["AppStatusCounts"];
+            /** Total */
+            total: number;
+        };
         /**
          * AppStatus
          * @enum {string}
          */
         AppStatus: "active" | "disabled";
+        /** AppStatusCounts */
+        AppStatusCounts: {
+            /** Active */
+            active: number;
+            /** Disabled */
+            disabled: number;
+        };
         /**
          * AppUpdate
          * @description Partial update; `key` is immutable. Null only for the role ids.
@@ -960,7 +1061,7 @@ export interface components {
          * AuditAction
          * @enum {string}
          */
-        AuditAction: "organization.created" | "organization.updated" | "organization.deleted" | "organization.invitation_created" | "organization.invitation_accepted" | "organization.invitation_revoked" | "user.created" | "user.disabled" | "user.enabled" | "app.created" | "app.updated" | "app.deleted" | "app.registered" | "app.admin_origins_set" | "app.joined" | "app.join_requested" | "app.join_request_approved" | "app.join_request_rejected" | "app_credential.issued" | "app_credential.revoked" | "app.manifest_synced" | "entitlement.granted" | "entitlement.updated" | "entitlement.revoked" | "permission.created" | "permission.updated" | "permission.deleted" | "role.created" | "role.updated" | "role.deleted" | "role.permissions_replaced" | "role_assignment.granted" | "role_assignment.revoked" | "email_retention.purged" | "audit_log.purged" | "auth.login_succeeded" | "auth.login_failed" | "auth.logged_out" | "auth.logged_out_all" | "device_session.reuse_revoked" | "auth.password_reset_completed" | "auth.email_verified";
+        AuditAction: "organization.created" | "organization.updated" | "organization.deleted" | "organization.invitation_created" | "organization.invitation_accepted" | "organization.invitation_revoked" | "user.created" | "user.disabled" | "user.enabled" | "user.session_revoked" | "user.sessions_revoked" | "app.created" | "app.updated" | "app.deleted" | "app.registered" | "app.admin_origins_set" | "app.joined" | "app.join_requested" | "app.join_request_approved" | "app.join_request_rejected" | "app_credential.issued" | "app_credential.revoked" | "app.manifest_synced" | "entitlement.granted" | "entitlement.updated" | "entitlement.revoked" | "permission.created" | "permission.updated" | "permission.deleted" | "role.created" | "role.updated" | "role.deleted" | "role.permissions_replaced" | "role_assignment.granted" | "role_assignment.revoked" | "email_retention.purged" | "audit_log.purged" | "auth.login_succeeded" | "auth.login_failed" | "auth.logged_out" | "auth.logged_out_all" | "device_session.reuse_revoked" | "auth.password_reset_completed" | "auth.email_verified";
         /** AuditLogRead */
         AuditLogRead: {
             /** Action */
@@ -1054,6 +1155,21 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** DashboardStats */
+        DashboardStats: {
+            apps: components["schemas"]["AppStats"];
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Members Per App */
+            members_per_app: components["schemas"]["AppMembers"][];
+            organizations: components["schemas"]["OrganizationStats"];
+            sign_ins_24h: components["schemas"]["SignIns24h"];
+            sign_ups: components["schemas"]["SignUps"];
+            users: components["schemas"]["UserStats"];
         };
         /** EntitlementCreate */
         EntitlementCreate: {
@@ -1485,6 +1601,13 @@ export interface components {
              */
             user_id: string;
         };
+        /** MonthCount */
+        MonthCount: {
+            /** Count */
+            count: number;
+            /** Month */
+            month: string;
+        };
         /** MyOrgRead */
         MyOrgRead: {
             /**
@@ -1541,11 +1664,24 @@ export interface components {
              */
             updated_at: string;
         };
+        /** OrganizationStats */
+        OrganizationStats: {
+            by_status: components["schemas"]["OrganizationStatusCounts"];
+            /** Total */
+            total: number;
+        };
         /**
          * OrganizationStatus
          * @enum {string}
          */
         OrganizationStatus: "active" | "suspended";
+        /** OrganizationStatusCounts */
+        OrganizationStatusCounts: {
+            /** Active */
+            active: number;
+            /** Suspended */
+            suspended: number;
+        };
         /** OrganizationUpdate */
         OrganizationUpdate: {
             /** Description */
@@ -1657,6 +1793,17 @@ export interface components {
         Page_UserRead_: {
             /** Items */
             items: components["schemas"]["UserRead"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[UserSessionRead] */
+        Page_UserSessionRead_: {
+            /** Items */
+            items: components["schemas"]["UserSessionRead"][];
             /** Limit */
             limit: number;
             /** Offset */
@@ -1791,6 +1938,30 @@ export interface components {
             /** Name */
             name?: string | null;
         };
+        /** SignIns24h */
+        SignIns24h: {
+            /** Failed */
+            failed: number;
+            /** Succeeded */
+            succeeded: number;
+            /**
+             * Window End
+             * Format: date-time
+             */
+            window_end: string;
+            /**
+             * Window Start
+             * Format: date-time
+             */
+            window_start: string;
+        };
+        /** SignUps */
+        SignUps: {
+            /** By Month */
+            by_month: components["schemas"]["MonthCount"][];
+            /** Time Zone */
+            time_zone: string;
+        };
         /** SignupRequest */
         SignupRequest: {
             /**
@@ -1879,10 +2050,64 @@ export interface components {
             updated_at: string;
         };
         /**
+         * UserSessionRead
+         * @description An active account session of a user, for staff (explicit fields only; USR-10).
+         */
+        UserSessionRead: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Device Last Seen At
+             * Format: date-time
+             * @description Browser last seen; refreshed at most hourly.
+             */
+            device_last_seen_at: string;
+            /**
+             * Id
+             * Format: uuid
+             * @description Account session id; the `account_id` apps send to /auth/token.
+             */
+            id: string;
+            /**
+             * Ip
+             * @description Recorded when this browser first signed in; shared by every account on it.
+             */
+            ip: string | null;
+            /**
+             * Last Used At
+             * Format: date-time
+             * @description Last sign-in of this account on this device.
+             */
+            last_used_at: string;
+            /**
+             * User Agent
+             * @description Recorded when this browser first signed in; shared by every account on it.
+             */
+            user_agent: string | null;
+        };
+        /** UserStats */
+        UserStats: {
+            by_status: components["schemas"]["UserStatusCounts"];
+            /** Total */
+            total: number;
+            /** Unverified */
+            unverified: number;
+        };
+        /**
          * UserStatus
          * @enum {string}
          */
         UserStatus: "active" | "disabled";
+        /** UserStatusCounts */
+        UserStatusCounts: {
+            /** Active */
+            active: number;
+            /** Disabled */
+            disabled: number;
+        };
         /**
          * UserStatusUpdate
          * @description Unlike `OrganizationUpdate`, explicit null is rejected (422).
@@ -4919,6 +5144,50 @@ export interface operations {
             };
         };
     };
+    get_dashboard_api_v1_stats_dashboard_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardStats"];
+                };
+            };
+            /** @description Missing or invalid Bearer token */
+            401: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Missing permission */
+            403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     list_users_api_v1_users_get: {
         parameters: {
             query?: {
@@ -5275,6 +5544,210 @@ export interface operations {
             };
             /** @description Last active super-admin */
             409: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    list_user_sessions_api_v1_users__user_id__sessions_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_UserSessionRead_"];
+                };
+            };
+            /** @description Missing or invalid Bearer token */
+            401: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Missing permission */
+            403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description User or session not found */
+            404: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    revoke_all_user_sessions_api_v1_users__user_id__sessions_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid Bearer token */
+            401: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Missing permission */
+            403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description User or session not found */
+            404: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    revoke_user_session_api_v1_users__user_id__sessions__session_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid Bearer token */
+            401: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Missing permission */
+            403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description User or session not found */
+            404: {
                 headers: {
                     /** @description Server-generated request id (UUID4); quote it to support. */
                     "X-Request-ID"?: string;

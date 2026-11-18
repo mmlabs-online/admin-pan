@@ -13,6 +13,7 @@ type EntitlementRead = components['schemas']['EntitlementRead']
 type PermissionRead = components['schemas']['PermissionRead']
 type AppCredentialRead = components['schemas']['AppCredentialRead']
 type JoinRequestRead = components['schemas']['JoinRequestRead']
+type UserSessionRead = components['schemas']['UserSessionRead']
 type MePermissions = components['schemas']['MePermissions']
 
 /** The fake API origin baked into the bundle by `.env.e2e`; never resolved. */
@@ -81,6 +82,7 @@ const app = (
   origins: [],
   default_role_id: null,
   org_owner_role_id: null,
+  member_count: 0,
   created_at: stamp,
   updated_at: stamp,
   ...over,
@@ -251,6 +253,50 @@ export async function installFakeApi(context: BrowserContext) {
     'GET /api/v1/organizations': ({ query }) => json(200, page(ORGS, query)),
     'GET /api/v1/audit-logs': ({ query }) => json(200, page(AUDIT_LOGS, query)),
     'GET /api/v1/apps': ({ query }) => json(200, page(APPS, query)),
+  }
+  // User detail and role assignments (empty), so the user sheet opens.
+  for (const u of USERS) {
+    routes[`GET /api/v1/users/${u.id}`] = () => json(200, u)
+    routes[`GET /api/v1/users/${u.id}/role-assignments`] = ({ query }) =>
+      json(200, page([], query))
+  }
+  // Per-install sessions: only ada has any. Revoke removes rows like the API
+  // (revoke-one 404s once the row is gone).
+  const LONG_UA = 'Mozilla/5.0 (E2E) ' + 'Gecko/20100101 '.repeat(8)
+  const sessionRow = (
+    n: number,
+    over: Partial<UserSessionRead> = {}
+  ): UserSessionRead => ({
+    id: `aaaaaaa${n}-aaaa-4aaa-8aaa-aaaaaaaaaaaa`,
+    created_at: `2026-03-0${n}T10:00:00Z`,
+    last_used_at: `2026-04-0${n}T10:00:00Z`,
+    device_last_seen_at: `2026-05-0${n}T10:00:00Z`,
+    ip: null,
+    user_agent: null,
+    ...over,
+  })
+  const sessions: Record<string, UserSessionRead[]> = {
+    [USERS[0].id]: [
+      sessionRow(1, { ip: '203.0.113.7', user_agent: LONG_UA }),
+      sessionRow(2),
+    ],
+    [USERS[1].id]: [],
+    [USERS[2].id]: [],
+  }
+  for (const u of USERS) {
+    routes[`GET /api/v1/users/${u.id}/sessions`] = ({ query }) =>
+      json(200, page(sessions[u.id], query))
+    routes[`DELETE /api/v1/users/${u.id}/sessions`] = () => {
+      sessions[u.id].length = 0
+      return null
+    }
+    for (const row of sessions[u.id])
+      routes[`DELETE /api/v1/users/${u.id}/sessions/${row.id}`] = () => {
+        const i = sessions[u.id].indexOf(row)
+        if (i < 0) return envelope(404, 'not_found')
+        sessions[u.id].splice(i, 1)
+        return null
+      }
   }
   // Per-install credential state: issue adds a row, revoke clears `active`.
   // Only the fake constant is ever served as a credential value.

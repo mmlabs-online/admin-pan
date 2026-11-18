@@ -5,6 +5,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query'
 import { getApi, isApiError, toPageParams, unwrap, type ApiClient } from '@/api'
+import { isUnknownOutcome } from '@/features/apps/data/errors'
 import { type UserStatus } from '../data/schema'
 
 type ListParams = {
@@ -15,6 +16,10 @@ type ListParams = {
 }
 
 const ASSIGNMENTS_PAGE = { limit: 100, offset: 0 }
+
+export const SESSIONS_PAGE_SIZE = 20
+// Sessions hold IP and user agent: drop them from memory soon after the tab closes.
+export const SESSIONS_GC_TIME_MS = 5_000
 
 export const usersKeys = {
   all: ['users'] as const,
@@ -32,6 +37,9 @@ export const usersKeys = {
   detail: (id: string) => [...usersKeys.all, 'detail', id] as const,
   roleAssignments: (id: string, p: { limit: number; offset: number }) =>
     [...usersKeys.detail(id), 'role-assignments', p] as const,
+  sessionsAll: (id: string) => [...usersKeys.detail(id), 'sessions'] as const,
+  sessions: (id: string, p: { limit: number; offset: number }) =>
+    [...usersKeys.sessionsAll(id), p] as const,
 }
 
 /**
@@ -124,5 +132,76 @@ export function useSetUserStatusMutation(api: ApiClient = getApi()) {
         void refetchUsers()
       }
     },
+  })
+}
+
+/** GET /api/v1/users/{id}/sessions — admin:*. Active sessions, newest first. */
+export function userSessionsQueryOptions(
+  id: string,
+  params: { limit: number; offset: number },
+  api: ApiClient = getApi()
+) {
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps
+  return queryOptions({
+    queryKey: usersKeys.sessions(id, params),
+    queryFn: async ({ signal }) =>
+      unwrap(
+        await api.GET('/api/v1/users/{user_id}/sessions', {
+          params: { path: { user_id: id }, query: params },
+          signal,
+        })
+      ),
+    placeholderData: keepPreviousData,
+    gcTime: SESSIONS_GC_TIME_MS,
+  })
+}
+
+// Never optimistic (R9). A 404 means the user (or session) is gone: refetch the
+// whole detail. An unknown outcome may have committed: refetch the sessions.
+function useSessionRevokeOptions(userId: string) {
+  const queryClient = useQueryClient()
+  const invalidate = (queryKey: readonly unknown[]) =>
+    void queryClient.invalidateQueries({ queryKey })
+  return {
+    meta: { handlesOwnErrors: true },
+    retry: false,
+    onSuccess: () => invalidate(usersKeys.sessionsAll(userId)),
+    onError: (error: unknown) => {
+      if (isApiError(error, 404)) invalidate(usersKeys.detail(userId))
+      else if (isUnknownOutcome(error))
+        invalidate(usersKeys.sessionsAll(userId))
+    },
+  }
+}
+
+/** DELETE /api/v1/users/{id}/sessions/{session_id} (204) — admin:*. */
+export function useRevokeUserSessionMutation(
+  userId: string,
+  api: ApiClient = getApi()
+) {
+  return useMutation({
+    mutationFn: async (sessionId: string) =>
+      unwrap(
+        await api.DELETE('/api/v1/users/{user_id}/sessions/{session_id}', {
+          params: { path: { user_id: userId, session_id: sessionId } },
+        })
+      ),
+    ...useSessionRevokeOptions(userId),
+  })
+}
+
+/** DELETE /api/v1/users/{id}/sessions (204) — admin:*. */
+export function useRevokeAllUserSessionsMutation(
+  userId: string,
+  api: ApiClient = getApi()
+) {
+  return useMutation({
+    mutationFn: async () =>
+      unwrap(
+        await api.DELETE('/api/v1/users/{user_id}/sessions', {
+          params: { path: { user_id: userId } },
+        })
+      ),
+    ...useSessionRevokeOptions(userId),
   })
 }

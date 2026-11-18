@@ -102,6 +102,7 @@ const app = (key: string, over: Partial<AppRead> = {}): AppRead => ({
   origins: [],
   default_role_id: null,
   org_owner_role_id: null,
+  member_count: 0,
   created_at: stamp,
   updated_at: stamp,
   ...over,
