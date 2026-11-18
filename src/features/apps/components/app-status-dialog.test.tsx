@@ -161,4 +161,29 @@ describe('AppStatusDialog', () => {
       .element(screen.getByRole('button', { name: 'Actions for calechip' }))
       .toHaveFocus()
   })
+
+  it('re-opening within 500 ms of Cancel keeps the dialog and its row; confirm still PATCHes and toasts', async () => {
+    const { client, seen } = fakeApi(
+      appsServer(() => json({ ...APPS[1], status: 'disabled' }))
+    )
+    const screen = await renderApps(client)
+    let dialog = await open(screen, 'calechip', /Disable/)
+    await userEvent.click(dialog.getByRole('button', { name: 'Cancel' }))
+    await expect.element(dialog).not.toBeInTheDocument()
+    dialog = await open(screen, 'calechip', /Disable/)
+    // Outlast the stale 500 ms row-clear timer from the Cancel (BUG-002).
+    await new Promise((r) => setTimeout(r, 600))
+    await expect.element(dialog).toBeVisible()
+    await expect
+      .element(dialog.getByText('Calechip', { exact: true }))
+      .toBeVisible()
+    await userEvent.click(dialog.getByRole('button', { name: 'Disable' }))
+    await expect.poll(() => writes(seen, 'PATCH')).toHaveLength(1)
+    expect(new URL(writes(seen, 'PATCH')[0].url).pathname).toBe(
+      '/api/v1/apps/calechip'
+    )
+    await expect
+      .poll(() => vi.mocked(toast.success))
+      .toHaveBeenCalledWith('App calechip disabled.')
+  })
 })

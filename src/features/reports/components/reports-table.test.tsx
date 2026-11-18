@@ -173,4 +173,32 @@ describe('ReportsTable', () => {
         .element(screen.getByRole('menuitem', { name }))
         .toBeInTheDocument()
   })
+
+  it('re-opening delete within 500 ms of Cancel keeps the dialog; confirm deletes and toasts', async () => {
+    const screen = await render(<ReportsTestHarness reports={REPORTS} />)
+    const openDelete = async () => {
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Actions for Weekly sign-ups' })
+      )
+      await userEvent.click(screen.getByRole('menuitem', { name: /Delete/ }))
+      return screen.getByRole('alertdialog')
+    }
+    let dialog = await openDelete()
+    await userEvent.click(dialog.getByRole('button', { name: 'Cancel' }))
+    await expect.element(dialog).not.toBeInTheDocument()
+    dialog = await openDelete()
+    // Outlast the stale 500 ms row-clear timer from the Cancel (BUG-002).
+    await new Promise((r) => setTimeout(r, 600))
+    await expect.element(dialog).toBeVisible()
+    await expect
+      .element(dialog.getByText(/delete the report Weekly sign-ups\?/))
+      .toBeVisible()
+    await userEvent.click(dialog.getByRole('button', { name: 'Delete' }))
+    await expect
+      .element(screen.getByText('Weekly sign-ups', { exact: true }))
+      .not.toBeInTheDocument()
+    expect(toast.success).toHaveBeenCalledWith(
+      'Report "Weekly sign-ups" deleted.'
+    )
+  })
 })

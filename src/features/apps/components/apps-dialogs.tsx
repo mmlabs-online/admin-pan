@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useDelayedRowClear } from '@/hooks/use-delayed-row-clear'
 import { AppDetailSheet } from './app-detail-sheet'
 import { AppFormDialog } from './app-form-dialog'
 import { AppStatusDialog } from './app-status-dialog'
@@ -21,10 +22,11 @@ function focusOpener(key?: string) {
 export function AppsDialogs() {
   const { open, setOpen, currentRow, setCurrentRow } = useApps()
 
+  const scheduleClear = useDelayedRowClear(open, () => setCurrentRow(null))
   const close = () => setOpen(null)
   const closeWithRow = () => {
     setOpen(null)
-    setTimeout(() => setCurrentRow(null), 500)
+    scheduleClear()
   }
   // ConfirmDialog is an AlertDialog without a close-focus hook: focus the
   // opener in an effect, once the dialog no longer traps focus.

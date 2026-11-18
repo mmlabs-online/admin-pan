@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useDelayedRowClear } from '@/hooks/use-delayed-row-clear'
 import { RoleCreateDialog } from './role-create-dialog'
 import { RoleDefaultDialog } from './role-default-dialog'
 import { RoleDeleteDialog } from './role-delete-dialog'
@@ -24,10 +25,11 @@ function focusOpener(key?: string) {
 export function RolesDialogs() {
   const { app, open, setOpen, currentRow, setCurrentRow } = useRoles()
 
+  const scheduleClear = useDelayedRowClear(open, () => setCurrentRow(null))
   const close = () => setOpen(null)
   const closeWithRow = () => {
     setOpen(null)
-    setTimeout(() => setCurrentRow(null), 500)
+    scheduleClear()
   }
   // ConfirmDialog is an AlertDialog without a close-focus hook: focus the
   // opener in an effect, a frame later, once the dialog's focus scope has
