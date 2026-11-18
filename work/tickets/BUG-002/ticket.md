@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Type | bug |
-| State | PLANNING |
+| State | IN_PROGRESS |
 | Severity | S2 |
 | Priority | P1 |
 | Areas | ui, a11y |
