@@ -12,6 +12,9 @@ type OrganizationsToolbarProps = {
   onQ: (q: string | undefined) => void
   onStatus: (status: OrganizationStatus | undefined) => void
   onReset: () => void
+  searchRef?: React.Ref<HTMLInputElement>
+  searchInvalid?: boolean
+  searchDescribedBy?: string
 }
 
 export function OrganizationsToolbar({
@@ -21,6 +24,9 @@ export function OrganizationsToolbar({
   onQ,
   onStatus,
   onReset,
+  searchRef,
+  searchInvalid,
+  searchDescribedBy,
 }: OrganizationsToolbarProps) {
   return (
     <div
@@ -33,6 +39,9 @@ export function OrganizationsToolbar({
         placeholder='Name or slug'
         value={q}
         onCommit={onQ}
+        inputRef={searchRef}
+        invalid={searchInvalid}
+        describedBy={searchDescribedBy}
       />
       <FilterSelect
         label='Status'

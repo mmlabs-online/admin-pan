@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   flexRender,
@@ -61,6 +61,8 @@ export function AppsTable({ search, navigate }: AppsTableProps) {
       replace: opts?.replace,
       search: (prev) => ({ ...prev, ...patch, page: undefined }),
     })
+  const searchRef = useRef<HTMLInputElement>(null)
+  const invalidId = useId()
   const sorting = toSortingState(sort, APP_DEFAULT_SORT)
 
   const q = useQuery(
@@ -119,6 +121,7 @@ export function AppsTable({ search, navigate }: AppsTableProps) {
     )
 
   const rows = table.getRowModel().rows
+  const rejected = view.status === 'error' && isApiError(view.error, 422)
   const filtered = Boolean(term || statusFilter || joinPolicy || orgMode)
   const status =
     view.status === 'pending' || q.isPlaceholderData
@@ -139,11 +142,14 @@ export function AppsTable({ search, navigate }: AppsTableProps) {
         join_policy={joinPolicy}
         org_mode={orgMode}
         canReset={filtered || sort !== undefined}
+        searchRef={searchRef}
+        searchInvalid={rejected && Boolean(term)}
+        searchDescribedBy={rejected ? invalidId : undefined}
         onQ={(value) => setListSearch({ q: value }, { replace: true })}
         onStatus={(value) => setListSearch({ status: value })}
         onJoinPolicy={(value) => setListSearch({ join_policy: value })}
         onOrgMode={(value) => setListSearch({ org_mode: value })}
-        onReset={() =>
+        onReset={() => {
           setListSearch({
             q: undefined,
             status: undefined,
@@ -151,13 +157,17 @@ export function AppsTable({ search, navigate }: AppsTableProps) {
             org_mode: undefined,
             sort: undefined,
           })
-        }
+          searchRef.current?.focus()
+        }}
       />
       <p role='status' aria-live='polite' className='sr-only'>
         {status}
       </p>
       <div className='overflow-x-auto rounded-md border'>
-        <Table aria-label='Apps' aria-busy={q.isFetching}>
+        <Table
+          aria-label='Apps'
+          aria-busy={view.status === 'pending' || q.isPlaceholderData}
+        >
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
@@ -187,7 +197,10 @@ export function AppsTable({ search, navigate }: AppsTableProps) {
               <MessageRow span={columns.length}>Loading apps…</MessageRow>
             ) : view.status === 'error' && isApiError(view.error, 422) ? (
               <MessageRow span={columns.length}>
-                <p role='alert'>The search or filters weren&apos;t accepted.</p>
+                <p role='alert' id={invalidId}>
+                  The search or filters weren&apos;t accepted. Shorten or change
+                  the search, or reset the filters.
+                </p>
               </MessageRow>
             ) : view.status === 'error' ? (
               <MessageRow span={columns.length}>

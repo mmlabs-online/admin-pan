@@ -1,5 +1,5 @@
 import { apiError, fakeApi, json } from '@/test-utils/api'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { type App } from '../data/app-schema'
 import { APPS, appsPage } from './test-data'
@@ -437,6 +437,63 @@ describe('AppsTable', () => {
       .element(screen.getByText('admin:apps:read', { exact: true }))
       .toBeVisible()
     await expect.element(screen.getByRole('table')).not.toBeInTheDocument()
+  })
+
+  it('Reset filters moves focus to the search input', async () => {
+    const { client } = fakeApi(() => json(appsPage()))
+    const screen = await renderApps(client, {
+      search: { q: 'ad', org_mode: 'none' },
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Reset filters' }))
+    await expect.element(screen.getByLabelText('Search apps')).toHaveFocus()
+  })
+
+  it('422 marks the search input invalid and links the message', async () => {
+    const { client } = fakeApi((req) =>
+      param(req, 'org_mode') === 'required'
+        ? apiError(422, 'validation_error')
+        : json(appsPage())
+    )
+    const screen = await renderApps(client)
+    const input = screen.getByLabelText('Search apps')
+    await expect
+      .element(screen.getByText('Admin console', { exact: true }))
+      .toBeVisible()
+    await expect.element(input).not.toHaveAttribute('aria-invalid')
+    await expect.element(input).not.toHaveAttribute('aria-describedby')
+    await choose(screen, 'Org mode', 'Required')
+    const alert = screen.getByRole('alert')
+    await expect
+      .element(alert)
+      .toHaveTextContent(/Shorten or change the search/)
+    // A rejected filter with an empty search does not blame the search box.
+    await expect.element(input).not.toHaveAttribute('aria-invalid')
+    await userEvent.type(input, 'acme')
+    await expect.element(input).toHaveAttribute('aria-invalid', 'true')
+    await expect
+      .element(input)
+      .toHaveAttribute('aria-describedby', alert.element().id)
+  })
+
+  it('aria-busy stays false during a background refetch', async () => {
+    let calls = 0
+    let release: () => void = () => {}
+    const gate = new Promise<void>((r) => (release = r))
+    const { client } = fakeApi(async () => {
+      calls += 1
+      if (calls === 2) await gate
+      return json(appsPage())
+    })
+    const screen = await renderApps(client)
+    const table = screen.getByRole('table', { name: 'Apps' })
+    await expect
+      .element(screen.getByText('Admin console', { exact: true }))
+      .toBeVisible()
+    await expect.element(table).toHaveAttribute('aria-busy', 'false')
+    window.dispatchEvent(new Event('visibilitychange'))
+    await vi.waitFor(() => expect(calls).toBe(2))
+    await expect.element(table).toHaveAttribute('aria-busy', 'false')
+    release()
   })
 
   it('controls have accessible names and sit in a search landmark; no Reset when nothing is set', async () => {

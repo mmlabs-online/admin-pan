@@ -84,9 +84,8 @@ describe('UsersStatusDialog', () => {
     const dialog = await openDialog(screen, 'alice@example.com', /Disable/)
     await expect.element(dialog.getByText('alice@example.com')).toBeVisible()
     await expect.element(dialog.getByText(/Alice Nguyen/)).toBeVisible()
-    await expect
-      .element(dialog.getByText(/signed out of every mmlabs app/))
-      .toBeVisible()
+    await expect.element(dialog.getByText(/next admin request/)).toBeVisible()
+    await expect.element(dialog.getByText(/up to 12 hours/)).toBeVisible()
     await expect.element(dialog.getByText(/sessions are revoked/)).toBeVisible()
     await expect
       .element(

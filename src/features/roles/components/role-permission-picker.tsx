@@ -19,6 +19,8 @@ type RolePermissionPickerProps = {
   selected: ReadonlySet<string>
   onChange: (next: Set<string>) => void
   disabled?: boolean
+  /** `id` of the over-limit message, so a disabled button can point at it. */
+  limitId?: string
 }
 
 // Selection is a set of keys. Keys the role holds but the app list lacks are
@@ -31,6 +33,7 @@ export function RolePermissionPicker({
   selected,
   onChange,
   disabled,
+  limitId,
 }: RolePermissionPickerProps) {
   const id = useId()
   const known = new Set(permissions.map((p) => p.key))
@@ -138,7 +141,7 @@ export function RolePermissionPicker({
         )}
       </div>
       {selected.size > PERMISSION_KEYS_MAX && (
-        <p role='alert' className='text-sm text-destructive'>
+        <p id={limitId} role='alert' className='text-sm text-destructive'>
           A role can hold at most {PERMISSION_KEYS_MAX} permissions.
         </p>
       )}

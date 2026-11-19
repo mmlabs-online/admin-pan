@@ -15,7 +15,7 @@ import { type RoleDefinition } from '../data/role-schema'
 import { useRoles } from './roles-provider'
 
 const Reason = ({ children }: { children: React.ReactNode }) => (
-  <span className='block text-xs font-normal text-muted-foreground'>
+  <span className='block text-xs font-normal text-foreground/80'>
     {children}
   </span>
 )
@@ -77,11 +77,18 @@ export function RolesRowActions({ role }: { role: RoleDefinition }) {
           {!role.is_default && (
             <Can action='roles.setDefault'>
               <DropdownMenuItem
-                disabled={noDefault}
-                onClick={() => openDialog('default')}
+                aria-disabled={noDefault || undefined}
+                onSelect={(e) => {
+                  if (noDefault) e.preventDefault()
+                }}
+                onClick={() => {
+                  if (!noDefault) openDialog('default')
+                }}
               >
                 <span>
-                  Set as default
+                  <span className={noDefault ? 'opacity-60' : undefined}>
+                    Set as default
+                  </span>
                   {noDefault && (
                     <Reason>The admin app has no default role</Reason>
                   )}
@@ -95,12 +102,21 @@ export function RolesRowActions({ role }: { role: RoleDefinition }) {
           <Can action='roles.delete'>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              disabled={deleteReason !== null}
-              onClick={() => openDialog('delete')}
+              aria-disabled={deleteReason !== null || undefined}
+              onSelect={(e) => {
+                if (deleteReason !== null) e.preventDefault()
+              }}
+              onClick={() => {
+                if (deleteReason === null) openDialog('delete')
+              }}
               className='text-red-700 dark:text-red-400'
             >
               <span>
-                Delete
+                <span
+                  className={deleteReason !== null ? 'opacity-60' : undefined}
+                >
+                  Delete
+                </span>
                 {deleteReason && <Reason>{deleteReason}</Reason>}
               </span>
               <DropdownMenuShortcut>

@@ -306,6 +306,9 @@ describe('RolePermissionsDialog', () => {
     const dialog = await open(screen)
     await expect.element(box(dialog, 'stoktok:orders:read')).toBeDisabled()
     await expect.element(save(dialog)).not.toBeInTheDocument()
+    await expect
+      .element(dialog.getByText(/needs admin:roles:manage/))
+      .toBeVisible()
   })
 
   it('more than 200 selected -> Save aria-disabled with the limit message', async () => {
@@ -364,5 +367,167 @@ describe('RolePermissionsDialog', () => {
     await expect
       .element(dialog.getByRole('checkbox').first())
       .not.toBeInTheDocument()
+  })
+
+  it('Save with removals focuses the confirm heading; Back focuses Save; send failure focuses the alert', async () => {
+    const { client } = fakeApi(
+      rolesServer((req) =>
+        req.method === 'PUT' ? apiError(500, 'internal') : ok()
+      )
+    )
+    const screen = await renderRoles(client, stoktok)
+    const dialog = await open(screen, 'stoktok:operator')
+    await expect.element(box(dialog, 'stoktok:orders:write')).toBeChecked()
+    await expect.element(save(dialog)).not.toHaveAttribute('aria-disabled')
+    await userEvent.click(box(dialog, 'stoktok:orders:write'))
+    await userEvent.click(save(dialog))
+    await expect
+      .element(
+        dialog.getByRole('heading', { name: /Remove these permissions/ })
+      )
+      .toHaveFocus()
+    await userEvent.click(dialog.getByRole('button', { name: 'Back' }))
+    await expect.element(save(dialog)).toHaveFocus()
+    await userEvent.click(save(dialog))
+    await userEvent.click(
+      dialog.getByRole('button', { name: 'Remove and save' })
+    )
+    const alert = dialog.getByRole('alert')
+    await expect.element(alert).toBeVisible()
+    await vi.waitFor(() =>
+      expect(document.activeElement?.contains(alert.element())).toBe(true)
+    )
+  })
+
+  it('Save is described by its reason while loading', async () => {
+    const base = rolesServer(ok)
+    const { client } = fakeApi((req) =>
+      path(req) === `/api/v1/apps/stoktok/role-definitions/${VIEWER_ID}`
+        ? new Promise<Response>(() => {})
+        : base(req)
+    )
+    const screen = await renderRoles(client, stoktok)
+    const dialog = await open(screen)
+    await expect.element(save(dialog)).toHaveAccessibleDescription(/Loading/)
+  })
+
+  it('Save is described by its reason while over the limit', async () => {
+    const many = Array.from({ length: 201 }, (_, i) => `stoktok:x${i}:read`)
+    const { client } = fakeApi(
+      rolesServer(ok, {
+        roles: () => [
+          role('stoktok', VIEWER_ID, 'viewer', { permissions: many }),
+        ],
+      })
+    )
+    const screen = await renderRoles(client, stoktok)
+    const dialog = await open(screen)
+    await expect
+      .element(save(dialog))
+      .toHaveAccessibleDescription(/at most 200/)
+  })
+
+  it('loading is announced in the status region', async () => {
+    const base = rolesServer(ok)
+    const { client } = fakeApi((req) =>
+      path(req) === `/api/v1/apps/stoktok/role-definitions/${VIEWER_ID}`
+        ? new Promise<Response>(() => {})
+        : base(req)
+    )
+    const screen = await renderRoles(client, stoktok)
+    const dialog = await open(screen)
+    await expect
+      .element(dialog.getByRole('status'))
+      .toHaveTextContent('Loading permissions…')
+  })
+
+  it('no PUT when the role refetch fails during confirm', async () => {
+    let failDetail = false
+    const base = rolesServer(ok)
+    const { client, seen } = fakeApi((req) =>
+      failDetail &&
+      path(req) === `/api/v1/apps/stoktok/role-definitions/${OPERATOR_ID}`
+        ? apiError(500, 'internal')
+        : base(req)
+    )
+    const screen = await renderRoles(client, stoktok)
+    const dialog = await open(screen, 'stoktok:operator')
+    await expect.element(box(dialog, 'stoktok:orders:write')).toBeChecked()
+    await expect.element(save(dialog)).not.toHaveAttribute('aria-disabled')
+    await userEvent.click(box(dialog, 'stoktok:orders:write'))
+    await userEvent.click(save(dialog))
+    const confirm = dialog.getByRole('button', { name: 'Remove and save' })
+    await expect.element(confirm).toBeVisible()
+    failDetail = true
+    window.dispatchEvent(new Event('visibilitychange'))
+    await expect.element(confirm).toHaveAttribute('aria-disabled', 'true')
+    await expect.element(confirm).toHaveAccessibleDescription(/load this role/)
+    press(confirm)
+    await new Promise((r) => setTimeout(r, 100))
+    expect(writes(seen)).toHaveLength(0)
+    await expect
+      .element(dialog.getByText(/This role changed while you were reviewing/))
+      .not.toBeInTheDocument()
+    await expect
+      .element(dialog.getByRole('button', { name: 'Remove and save' }))
+      .toBeInTheDocument()
+  })
+
+  it('403 on the role refetch during confirm does not say Loading', async () => {
+    let deny = false
+    const base = rolesServer(ok)
+    const { client, seen } = fakeApi((req) =>
+      deny &&
+      path(req) === `/api/v1/apps/stoktok/role-definitions/${OPERATOR_ID}`
+        ? apiError(403, 'forbidden')
+        : base(req)
+    )
+    const screen = await renderRoles(client, stoktok)
+    const dialog = await open(screen, 'stoktok:operator')
+    await expect.element(box(dialog, 'stoktok:orders:write')).toBeChecked()
+    await expect.element(save(dialog)).not.toHaveAttribute('aria-disabled')
+    await userEvent.click(box(dialog, 'stoktok:orders:write'))
+    await userEvent.click(save(dialog))
+    const confirm = dialog.getByRole('button', { name: 'Remove and save' })
+    await expect.element(confirm).toBeVisible()
+    deny = true
+    window.dispatchEvent(new Event('visibilitychange'))
+    await expect.element(confirm).toHaveAttribute('aria-disabled', 'true')
+    await expect
+      .element(confirm)
+      .toHaveAccessibleDescription('You no longer have access to this role.')
+    expect(writes(seen)).toHaveLength(0)
+  })
+
+  it('role changed during confirm returns to edit with an alert and sends nothing', async () => {
+    let held = ['stoktok:orders:read', 'stoktok:orders:write']
+    const { client, seen } = fakeApi(
+      rolesServer(ok, {
+        roles: () => [
+          role('stoktok', OPERATOR_ID, 'operator', { permissions: held }),
+        ],
+      })
+    )
+    const screen = await renderRoles(client, stoktok)
+    const dialog = await open(screen, 'stoktok:operator')
+    await expect.element(box(dialog, 'stoktok:orders:write')).toBeChecked()
+    await expect.element(save(dialog)).not.toHaveAttribute('aria-disabled')
+    await userEvent.click(box(dialog, 'stoktok:orders:write'))
+    await userEvent.click(save(dialog))
+    const confirm = dialog.getByRole('button', { name: 'Remove and save' })
+    await expect.element(confirm).toBeVisible()
+    held = ['stoktok:orders:read']
+    const detailCalls = () =>
+      seen.filter((r) => path(r).includes('/role-definitions/')).length
+    const before = detailCalls()
+    window.dispatchEvent(new Event('visibilitychange'))
+    await expect.poll(detailCalls).toBeGreaterThan(before)
+    await expect.element(confirm).not.toHaveAttribute('aria-disabled')
+    press(confirm)
+    await expect
+      .element(dialog.getByRole('alert'))
+      .toHaveTextContent('This role changed while you were reviewing')
+    await expect.element(save(dialog)).toBeVisible()
+    expect(writes(seen)).toHaveLength(0)
   })
 })

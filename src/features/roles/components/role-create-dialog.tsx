@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
@@ -75,6 +75,7 @@ export function RoleCreateDialog({
   const partial = created !== null
   const isAdminApp = app.key === ADMIN_APP_KEY
   const overLimit = selected.size > PERMISSION_KEYS_MAX
+  const limitId = useId()
 
   const form = useForm<RoleCreateForm>({
     resolver: zodResolver(roleCreateSchema),
@@ -274,6 +275,9 @@ export function RoleCreateDialog({
             />
           </form>
         </Form>
+        <p role='status' className='text-sm text-muted-foreground'>
+          {permissions.isPending ? 'Loading permissions…' : ''}
+        </p>
         {permissions.isError ? (
           <div role='alert' className='space-y-2 text-sm'>
             <p>Couldn&apos;t load the permission list.</p>
@@ -285,12 +289,9 @@ export function RoleCreateDialog({
               Retry
             </Button>
           </div>
-        ) : permissions.isPending ? (
-          <p role='status' className='text-sm text-muted-foreground'>
-            Loading permissions…
-          </p>
-        ) : (
+        ) : permissions.isPending ? null : (
           <RolePermissionPicker
+            limitId={limitId}
             appKey={app.key}
             permissions={permissions.data}
             selected={selected}
@@ -320,6 +321,7 @@ export function RoleCreateDialog({
               <Button
                 type='button'
                 aria-disabled={pending || overLimit || undefined}
+                aria-describedby={overLimit ? limitId : undefined}
                 className={pending ? 'opacity-50' : undefined}
                 onClick={() => void retry()}
               >
@@ -331,6 +333,7 @@ export function RoleCreateDialog({
               type='submit'
               form='role-create-form'
               aria-disabled={pending || overLimit || undefined}
+              aria-describedby={overLimit ? limitId : undefined}
               className={pending ? 'opacity-50' : undefined}
             >
               {label ?? 'Create role'}

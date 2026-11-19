@@ -16,7 +16,7 @@ function focusOpener(key?: string) {
   const target =
     (key &&
       document.querySelector<HTMLElement>(
-        `[aria-label="Actions for ${key}"]`
+        `[aria-label="Actions for ${CSS.escape(key)}"]`
       )) ||
     document.querySelector<HTMLElement>('[data-new-role]')
   target?.focus()

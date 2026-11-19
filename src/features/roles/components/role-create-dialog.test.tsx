@@ -2,6 +2,7 @@ import { apiError, fakeApi, json } from '@/test-utils/api'
 import { toast } from 'sonner'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
+import { PERMISSIONS } from './test-data'
 import { renderRoles, rolesServer, writes } from './test-fixtures'
 
 vi.mock('sonner', async (orig) => ({
@@ -358,5 +359,45 @@ describe('RoleCreateDialog', () => {
     await submit(dialog)
     await expect.element(dialog).not.toBeInTheDocument()
     expect(writes(seen).map((r) => r.method)).toEqual(['POST'])
+  })
+
+  it('Create role is described by the over-limit reason', async () => {
+    const many = Array.from({ length: 201 }, (_, i) => ({
+      ...PERMISSIONS.stoktok[0],
+      id: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
+      key: `stoktok:r${i}:read`,
+    }))
+    const { client } = fakeApi(rolesServer(putOk, { permissions: () => many }))
+    const screen = await renderRoles(client, { search: { app: 'stoktok' } })
+    const dialog = await open(screen)
+    await expect.element(dialog.getByRole('checkbox').first()).toBeVisible()
+    // One click per tick: each toggle builds on the previous state.
+    for (const box of dialog.element().querySelectorAll('[role=checkbox]')) {
+      ;(box as HTMLElement).click()
+      await new Promise((r) => setTimeout(r, 0))
+    }
+    await expect
+      .element(dialog.getByRole('button', { name: 'Create role' }))
+      .toHaveAccessibleDescription(/at most 200/)
+  }, 30_000)
+
+  it('permissions loading status is the same node before and after load', async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((r) => (release = r))
+    const base = rolesServer(putOk)
+    const { client } = fakeApi(async (req) => {
+      if (path(req).endsWith('/permissions')) await gate
+      return base(req)
+    })
+    const screen = await renderRoles(client, { search: { app: 'stoktok' } })
+    await userEvent.click(screen.getByRole('button', { name: 'New role' }))
+    const dialog = screen.getByRole('dialog')
+    const status = dialog.getByRole('status').first()
+    await expect.element(status).toHaveTextContent('Loading permissions…')
+    const node = status.element()
+    release()
+    await expect.element(dialog.getByRole('checkbox').first()).toBeVisible()
+    expect(node.isConnected).toBe(true)
+    expect(node.textContent).toBe('')
   })
 })

@@ -68,6 +68,14 @@ export function RolesContent({ search, navigate, api }: RolesContentProps) {
   })
   const app = inList ?? extra.data ?? null
 
+  // Mounted before its text changes, so the load announcement is reliable;
+  // it stays across pending -> success.
+  const loadingStatus = (
+    <p role='status' className='sr-only'>
+      {appsView.status === 'pending' ? 'Loading apps…' : ''}
+    </p>
+  )
+
   if (appsView.status === 'forbidden')
     return (
       <ForbiddenPanel
@@ -79,9 +87,10 @@ export function RolesContent({ search, navigate, api }: RolesContentProps) {
   if (appsView.status !== 'success')
     return (
       <>
+        {loadingStatus}
         <RolesTitle />
         {appsView.status === 'pending' ? (
-          <p role='status'>Loading apps…</p>
+          <p>Loading apps…</p>
         ) : (
           <div role='alert' className='space-y-2'>
             <p>Couldn&apos;t load apps.</p>
@@ -99,47 +108,50 @@ export function RolesContent({ search, navigate, api }: RolesContentProps) {
   const appError = Boolean(requested) && !inList && extra.isError && !appGone
 
   return (
-    <RolesProvider api={client} app={app}>
-      <div className='flex flex-wrap items-end justify-between gap-2'>
-        <RolesTitle />
-        <NewRoleButton />
-      </div>
-      {apps.length || requested ? (
-        <RolesAppPicker
-          apps={apps}
-          total={appsQuery.data?.total ?? 0}
-          selected={app}
-          onChange={pick}
-        />
-      ) : (
-        <p>No apps registered yet.</p>
-      )}
-      {app?.key === ADMIN_APP_KEY && (
-        <p className='text-sm text-muted-foreground'>
-          Changes to the admin app&apos;s roles need the admin:* permission.
-          Permission changes apply to everyone holding the role on their next
-          request.
-        </p>
-      )}
-      {app?.status === 'disabled' && (
-        <p className='text-sm text-muted-foreground'>
-          This app is disabled. Its roles can still be edited.
-        </p>
-      )}
-      {app ? (
-        <RolesTable app={app} search={search} navigate={navigate} />
-      ) : appGone ? (
-        <p role='alert'>This app no longer exists.</p>
-      ) : appError ? (
-        <div role='alert' className='space-y-2'>
-          <p>Couldn&apos;t load this app.</p>
-          <Button size='sm' onClick={() => void extra.refetch()}>
-            Retry
-          </Button>
+    <>
+      {loadingStatus}
+      <RolesProvider api={client} app={app}>
+        <div className='flex flex-wrap items-end justify-between gap-2'>
+          <RolesTitle />
+          <NewRoleButton />
         </div>
-      ) : null}
-      <RolesDialogs />
-    </RolesProvider>
+        {apps.length || requested ? (
+          <RolesAppPicker
+            apps={apps}
+            total={appsQuery.data?.total ?? 0}
+            selected={app}
+            onChange={pick}
+          />
+        ) : (
+          <p>No apps registered yet.</p>
+        )}
+        {app?.key === ADMIN_APP_KEY && (
+          <p className='text-sm text-muted-foreground'>
+            Changes to the admin app&apos;s roles need the admin:* permission.
+            Permission changes apply to everyone holding the role on their next
+            request.
+          </p>
+        )}
+        {app?.status === 'disabled' && (
+          <p className='text-sm text-muted-foreground'>
+            This app is disabled. Its roles can still be edited.
+          </p>
+        )}
+        {app ? (
+          <RolesTable app={app} search={search} navigate={navigate} />
+        ) : appGone ? (
+          <p role='alert'>This app no longer exists.</p>
+        ) : appError ? (
+          <div role='alert' className='space-y-2'>
+            <p>Couldn&apos;t load this app.</p>
+            <Button size='sm' onClick={() => void extra.refetch()}>
+              Retry
+            </Button>
+          </div>
+        ) : null}
+        <RolesDialogs />
+      </RolesProvider>
+    </>
   )
 }
 

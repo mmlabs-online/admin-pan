@@ -4,6 +4,7 @@ import { ForbiddenPanel } from '@/components/forbidden-panel'
 import { useSetUserStatusMutation } from '../api/queries'
 import { statusChangeError } from '../data/errors'
 import { type User } from '../data/schema'
+import { DISABLE_EFFECT, ENABLE_EFFECT } from '../data/status'
 import { useUsers } from './users-provider'
 
 type UsersStatusDialogProps = {
@@ -65,9 +66,7 @@ export function UsersStatusDialog({
             {currentRow.email}
           </span>
           {currentRow.display_name ? ` (${currentRow.display_name})` : ''}?{' '}
-          {disabling
-            ? "They will be signed out of every mmlabs app: all their sessions are revoked and any password-reset or verification links stop working. They can't sign in until re-enabled."
-            : 'They will be able to sign in to mmlabs apps again.'}
+          {disabling ? DISABLE_EFFECT : ENABLE_EFFECT}
         </p>
       }
       confirmText={disabling ? 'Disable' : 'Enable'}
