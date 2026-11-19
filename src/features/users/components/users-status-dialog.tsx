@@ -24,9 +24,14 @@ export function UsersStatusDialog({
   currentRow,
 }: UsersStatusDialogProps) {
   const { api } = useUsers()
-  const mutation = useSetUserStatusMutation(api)
   const disabling = currentRow.status === 'active'
   const nextStatus = disabling ? 'disabled' : 'active'
+  const mutation = useSetUserStatusMutation(api, {
+    onSuccess: () =>
+      toast.success(
+        `${disabling ? 'Disabled' : 'Enabled'} ${currentRow.email}`
+      ),
+  })
 
   const handleConfirm = () => {
     mutation.mutate(
@@ -34,9 +39,6 @@ export function UsersStatusDialog({
       {
         onSuccess: () => {
           onOpenChange(false)
-          toast.success(
-            `${disabling ? 'Disabled' : 'Enabled'} ${currentRow.email}`
-          )
         },
       }
     )

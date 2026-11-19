@@ -403,6 +403,34 @@ describe('assignment mutations', () => {
     }
   })
 
+  it('useRevokeAssignmentMutation options.onSuccess runs after the invalidations, not on error', async () => {
+    let res = () => new Response(null, { status: 204 })
+    const { client } = fakeApi(() => res())
+    const h = mutationHarness(() =>
+      useRevokeAssignmentMutation(client, onSuccessOpts)
+    )
+    const order: string[] = []
+    const onSuccessOpts = {
+      onSuccess: vi.fn(() => order.push('callback')),
+    }
+    h.invalidate.mockImplementation((() => {
+      order.push('invalidate')
+      return Promise.resolve()
+    }) as never)
+    const { result } = await h.render()
+    const vars = { userId: ID, app: APP, assignmentId: AID }
+    await result.current.mutateAsync(vars)
+    expect(onSuccessOpts.onSuccess).toHaveBeenCalledTimes(1)
+    expect(onSuccessOpts.onSuccess).toHaveBeenCalledWith(undefined, vars)
+    expect(has(calls(h), assignmentsKey)).toBe(true)
+    expect(order[order.length - 1]).toBe('callback')
+    expect(order.slice(0, -1).every((e) => e === 'invalidate')).toBe(true)
+
+    res = (() => apiError(409, 'last_super_admin')) as typeof res
+    await expect(result.current.mutateAsync(vars)).rejects.toBeDefined()
+    expect(onSuccessOpts.onSuccess).toHaveBeenCalledTimes(1)
+  })
+
   it('revoke writes nothing to the cache before success (no optimistic update)', async () => {
     let release: (r: Response) => void = () => {}
     const { client } = fakeApi(

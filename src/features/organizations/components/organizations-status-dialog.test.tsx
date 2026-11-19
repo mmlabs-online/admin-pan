@@ -62,6 +62,7 @@ describe('OrganizationsStatusDialog', () => {
     expect(toast.success).toHaveBeenCalledWith(
       'Organization "Acme Corp" suspended.'
     )
+    expect(toast.success).toHaveBeenCalledTimes(1)
     await expect.poll(() => lists(seen).length).toBe(2)
   })
 
@@ -154,5 +155,22 @@ describe('OrganizationsStatusDialog', () => {
     await expect
       .poll(() => vi.mocked(toast.success))
       .toHaveBeenCalledWith('Organization "Acme Corp" suspended.')
+  })
+
+  it('unmount mid-request: the success toast still fires exactly once', async () => {
+    let release: (r: Response) => void = noop
+    const { client, seen } = server(
+      () => new Promise<Response>((r) => (release = r))
+    )
+    const screen = await renderOrganizations(client)
+    const dialog = await open(screen, 'Acme Corp', /Suspend/)
+    await userEvent.click(dialog.getByRole('button', { name: 'Suspend' }))
+    await expect.poll(() => patches(seen)).toHaveLength(1)
+    await screen.unmount()
+    release(json({ ...ORGS[0], status: 'suspended' }))
+    await expect
+      .poll(() => vi.mocked(toast.success))
+      .toHaveBeenCalledWith('Organization "Acme Corp" suspended.')
+    expect(toast.success).toHaveBeenCalledTimes(1)
   })
 })

@@ -23,9 +23,14 @@ export function AppStatusDialog({
   onOpenChange,
 }: AppStatusDialogProps) {
   const { api } = useApps()
-  const mutation = useUpdateAppMutation(api)
-  const inFlight = useRef(false)
   const disabling = currentRow.status === 'active'
+  const mutation = useUpdateAppMutation(api, {
+    onSuccess: () =>
+      toast.success(
+        `App ${currentRow.key} ${disabling ? 'disabled' : 'enabled'}.`
+      ),
+  })
+  const inFlight = useRef(false)
   const isAdminApp = currentRow.key === ADMIN_APP_KEY
 
   const handleConfirm = () => {
@@ -39,9 +44,6 @@ export function AppStatusDialog({
       {
         onSuccess: () => {
           onOpenChange(false)
-          toast.success(
-            `App ${currentRow.key} ${disabling ? 'disabled' : 'enabled'}.`
-          )
         },
         onSettled: () => {
           inFlight.current = false

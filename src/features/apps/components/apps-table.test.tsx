@@ -1,13 +1,29 @@
+import { act } from 'react'
 import { apiError, fakeApi, json } from '@/test-utils/api'
 import { describe, expect, it, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
+import { SEARCH_DEBOUNCE_MS } from '@/lib/list-search'
 import { type App } from '../data/app-schema'
 import { APPS, appsPage } from './test-data'
 import { isList, renderApps } from './test-fixtures'
 
 const param = (r: Request, k: string) => new URL(r.url).searchParams.get(k)
 
-const settle = () => new Promise((r) => setTimeout(r, 600))
+/**
+ * Runs `step` with only setTimeout/clearTimeout faked, then lets one search
+ * debounce elapse. A negative ("nothing is sent") needs a bounded window, and a
+ * later real input would restart the debounce, so the window is virtual.
+ */
+const throughDebounce = async (step: () => Promise<void>) => {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  try {
+    await step()
+    // act: flush the commit the debounce triggers before the faked clock ends.
+    await act(() => vi.advanceTimersByTimeAsync(SEARCH_DEBOUNCE_MS))
+  } finally {
+    vi.useRealTimers()
+  }
+}
 const withParam = (seen: Request[], k: string) =>
   seen.filter(isList).filter((r) => param(r, k) !== null)
 const last = (seen: Request[]) => seen.filter(isList).slice(-1)[0]
@@ -273,19 +289,29 @@ describe('AppsTable', () => {
       .element(screen.getByText('Admin console', { exact: true }))
       .toBeVisible()
     const box = screen.getByRole('searchbox', { name: 'Search apps' })
-    await userEvent.type(box, '   ')
-    await settle()
+    await throughDebounce(() => userEvent.type(box, '   '))
     expect(withParam(seen, 'q')).toHaveLength(0)
     expect(seen.filter(isList)).toHaveLength(1)
+    // Sentinel: a real request proves the whitespace one never went out first.
     await userEvent.fill(box, '  stok  ')
     await expect
       .poll(() => withParam(seen, 'q').map((r) => param(r, 'q')))
       .toEqual(['stok'])
-    await settle()
-    expect(withParam(seen, 'q')).toHaveLength(1)
+    expect(seen.filter(isList)).toHaveLength(2)
     await expect
       .element(screen.getByRole('status'))
       .toHaveTextContent('1 apps match these filters, page 1 of 1')
+    // Sentinel for "exactly one request for the term": the next request is the
+    // sort click, so any extra search request would show up before it.
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Name', exact: true })
+    )
+    await expect.poll(() => param(last(seen), 'sort')).toBe('name')
+    expect(withParam(seen, 'q').map((r) => param(r, 'q'))).toEqual([
+      'stok',
+      'stok',
+    ])
+    expect(seen.filter(isList)).toHaveLength(3)
   })
 
   it('sort headers: default Key ascending (aria-sort, no URL sort); Key -> -key -> default; Name; Created; others not sortable', async () => {
@@ -355,14 +381,28 @@ describe('AppsTable', () => {
     await expect
       .element(screen.getByRole('combobox', { name: 'Join policy' }))
       .toHaveTextContent('Open')
-    await userEvent.click(screen.getByRole('button', { name: 'Simulate back' }))
+    await throughDebounce(() =>
+      userEvent.click(screen.getByRole('button', { name: 'Simulate back' }))
+    )
     await expect.element(input).toHaveValue('')
     await expect
       .element(screen.getByRole('combobox', { name: 'Org mode' }))
       .toHaveTextContent('All modes')
-    await settle()
     await expect.element(screen.getByTestId('search')).toHaveTextContent('{}')
-    expect(param(last(seen), 'q')).toBeNull()
+    await expect.poll(() => param(last(seen), 'q')).toBeNull()
+    // Sentinel: after a full debounce the old draft was not written back.
+    const afterBack = seen.filter(isList).length
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Name', exact: true })
+    )
+    await expect.poll(() => param(last(seen), 'sort')).toBe('name')
+    expect(
+      seen
+        .filter(isList)
+        .slice(afterBack - 1)
+        .filter((r) => param(r, 'q') !== null)
+    ).toHaveLength(0)
+    await expect.element(input).toHaveValue('')
   })
 
   it('page resets on q / each select / sort', async () => {

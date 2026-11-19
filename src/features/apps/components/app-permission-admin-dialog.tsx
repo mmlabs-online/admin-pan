@@ -24,9 +24,14 @@ export function AppPermissionAdminDialog({
   onOpenChange,
 }: AppPermissionAdminDialogProps) {
   const { api } = useApps()
-  const mutation = useUpdatePermissionMutation(app.key, api)
-  const inFlight = useRef(false)
   const makeAdmin = !permission.is_admin
+  const mutation = useUpdatePermissionMutation(app.key, api, {
+    onSuccess: () =>
+      toast.success(
+        `${permission.key} is now ${makeAdmin ? 'admin only' : 'available to members'}.`
+      ),
+  })
+  const inFlight = useRef(false)
 
   const handleConfirm = () => {
     if (inFlight.current) return
@@ -36,9 +41,6 @@ export function AppPermissionAdminDialog({
       {
         onSuccess: () => {
           onOpenChange(false)
-          toast.success(
-            `${permission.key} is now ${makeAdmin ? 'admin only' : 'available to members'}.`
-          )
         },
         onSettled: () => {
           inFlight.current = false

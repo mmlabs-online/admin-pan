@@ -23,7 +23,9 @@ export function AppCredentialRevokeDialog({
   onDone,
 }: AppCredentialRevokeDialogProps) {
   const { api } = useApps()
-  const revoke = useRevokeCredentialMutation(app.key, api)
+  const revoke = useRevokeCredentialMutation(app.key, api, {
+    onSuccess: () => toast.success(`Credential ${credential.key_id} revoked.`),
+  })
   const inFlight = useRef(false)
 
   const handleConfirm = () => {
@@ -31,7 +33,6 @@ export function AppCredentialRevokeDialog({
     inFlight.current = true
     revoke.mutate(credential.id, {
       onSuccess: () => {
-        toast.success(`Credential ${credential.key_id} revoked.`)
         onDone('success')
       },
       onSettled: () => {

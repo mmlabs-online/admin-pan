@@ -14,6 +14,7 @@ import {
   type paths,
 } from '@/api'
 import { toSearchTerm } from '@/lib/list-search'
+import { type MutationSuccessOptions } from '@/lib/mutation-success'
 import { ORG_DEFAULT_SORT } from '../data/schema'
 
 type OrganizationCreate = components['schemas']['OrganizationCreate']
@@ -111,13 +112,18 @@ export function organizationQueryOptions(
  * Shared mutation options: never optimistic (R9); the dialogs show errors
  * themselves. Refetch on success and when the state changed elsewhere.
  */
-function useOrganizationMutationOptions() {
+function useOrganizationMutationOptions<TVars = unknown>(
+  extra?: MutationSuccessOptions<unknown, TVars>
+) {
   const queryClient = useQueryClient()
   const refetch = () =>
     queryClient.invalidateQueries({ queryKey: organizationsKeys.all })
   return {
     meta: { handlesOwnErrors: true },
-    onSuccess: refetch,
+    onSuccess: async (data: unknown, vars: TVars) => {
+      await refetch()
+      extra?.onSuccess?.(data, vars)
+    },
     onError: (error: unknown) => {
       if (isApiError(error, 404) || isApiError(error, 409)) void refetch()
     },
@@ -134,7 +140,13 @@ export function useCreateOrganizationMutation(api: ApiClient = getApi()) {
 }
 
 /** PATCH /api/v1/organizations/{org_id} — admin:organizations:write. */
-export function useUpdateOrganizationMutation(api: ApiClient = getApi()) {
+export function useUpdateOrganizationMutation(
+  api: ApiClient = getApi(),
+  options?: MutationSuccessOptions<
+    unknown,
+    { id: string; body: OrganizationUpdate }
+  >
+) {
   return useMutation({
     mutationFn: async ({
       id,
@@ -149,12 +161,15 @@ export function useUpdateOrganizationMutation(api: ApiClient = getApi()) {
           body,
         })
       ),
-    ...useOrganizationMutationOptions(),
+    ...useOrganizationMutationOptions(options),
   })
 }
 
 /** DELETE /api/v1/organizations/{org_id} (204) — admin:organizations:write. */
-export function useDeleteOrganizationMutation(api: ApiClient = getApi()) {
+export function useDeleteOrganizationMutation(
+  api: ApiClient = getApi(),
+  options?: MutationSuccessOptions<unknown, { id: string }>
+) {
   return useMutation({
     mutationFn: async ({ id }: { id: string }) =>
       unwrap(
@@ -162,6 +177,6 @@ export function useDeleteOrganizationMutation(api: ApiClient = getApi()) {
           params: { path: { org_id: id } },
         })
       ),
-    ...useOrganizationMutationOptions(),
+    ...useOrganizationMutationOptions(options),
   })
 }

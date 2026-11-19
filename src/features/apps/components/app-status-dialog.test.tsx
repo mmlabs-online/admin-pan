@@ -54,6 +54,7 @@ describe('AppStatusDialog', () => {
       status: 'disabled',
     })
     expect(toast.success).toHaveBeenCalledWith('App calechip disabled.')
+    expect(toast.success).toHaveBeenCalledTimes(1)
     await expect.poll(() => seen.filter(isList).length).toBe(2)
   })
 
@@ -185,5 +186,22 @@ describe('AppStatusDialog', () => {
     await expect
       .poll(() => vi.mocked(toast.success))
       .toHaveBeenCalledWith('App calechip disabled.')
+  })
+
+  it('unmount mid-request: the success toast still fires exactly once', async () => {
+    let release: (r: Response) => void = noop
+    const { client, seen } = fakeApi(
+      appsServer(() => new Promise<Response>((r) => (release = r)))
+    )
+    const screen = await renderApps(client)
+    const dialog = await open(screen, 'calechip', /Disable/)
+    await userEvent.click(dialog.getByRole('button', { name: 'Disable' }))
+    await expect.poll(() => writes(seen, 'PATCH')).toHaveLength(1)
+    await screen.unmount()
+    release(json({ ...APPS[1], status: 'disabled' }))
+    await expect
+      .poll(() => vi.mocked(toast.success))
+      .toHaveBeenCalledWith('App calechip disabled.')
+    expect(toast.success).toHaveBeenCalledTimes(1)
   })
 })

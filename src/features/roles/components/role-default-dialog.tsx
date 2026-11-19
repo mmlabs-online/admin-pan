@@ -24,7 +24,12 @@ export function RoleDefaultDialog({
   onOpenChange,
 }: RoleDefaultDialogProps) {
   const { api } = useRoles()
-  const mutation = useUpdateAppMutation(api)
+  const mutation = useUpdateAppMutation(api, {
+    onSuccess: () =>
+      toast.success(
+        `${currentRow.key} is now the default role of ${app.name}.`
+      ),
+  })
   const inFlight = useRef(false)
 
   const handleConfirm = () => {
@@ -35,9 +40,6 @@ export function RoleDefaultDialog({
       {
         onSuccess: () => {
           onOpenChange(false)
-          toast.success(
-            `${currentRow.key} is now the default role of ${app.name}.`
-          )
         },
         onSettled: () => {
           inFlight.current = false

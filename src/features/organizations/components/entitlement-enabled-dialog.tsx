@@ -24,10 +24,13 @@ export function EntitlementEnabledDialog({
   onDone,
 }: EntitlementEnabledDialogProps) {
   const { api } = useOrganizations()
-  const mutation = useUpdateEntitlementMutation(org.id, api)
-  const inFlight = useRef(false)
   const disabling = entitlement.enabled
   const target = `${entitlement.app_key} for ${org.name}`
+  const mutation = useUpdateEntitlementMutation(org.id, api, {
+    onSuccess: () =>
+      toast.success(`${target} ${disabling ? 'disabled' : 'enabled'}.`),
+  })
+  const inFlight = useRef(false)
 
   const handleConfirm = () => {
     if (inFlight.current) return
@@ -36,7 +39,6 @@ export function EntitlementEnabledDialog({
       { entitlementId: entitlement.id, body: { enabled: !disabling } },
       {
         onSuccess: () => {
-          toast.success(`${target} ${disabling ? 'disabled' : 'enabled'}.`)
           onDone()
         },
         onSettled: () => {

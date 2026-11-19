@@ -5,6 +5,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query'
 import { getApi, isApiError, toPageParams, unwrap, type ApiClient } from '@/api'
+import { type MutationSuccessOptions } from '@/lib/mutation-success'
 import { firstReason, isUnknownOutcome } from '@/features/apps/data/errors'
 import { organizationsKeys } from '@/features/organizations/api/queries'
 import { rolesKeys } from '@/features/roles/api/queries'
@@ -173,7 +174,10 @@ export function orgPickerQueryOptions(q: string, api: ApiClient = getApi()) {
 }
 
 /** PATCH status; never optimistic (R9). The dialog shows errors itself. */
-export function useSetUserStatusMutation(api: ApiClient = getApi()) {
+export function useSetUserStatusMutation(
+  api: ApiClient = getApi(),
+  options?: MutationSuccessOptions<unknown, { id: string; status: UserStatus }>
+) {
   const queryClient = useQueryClient()
   const refetchUsers = () =>
     queryClient.invalidateQueries({ queryKey: usersKeys.all })
@@ -186,7 +190,10 @@ export function useSetUserStatusMutation(api: ApiClient = getApi()) {
         })
       ),
     meta: { handlesOwnErrors: true },
-    onSuccess: refetchUsers,
+    onSuccess: async (data, vars) => {
+      await refetchUsers()
+      options?.onSuccess?.(data, vars)
+    },
     // The state changed elsewhere: refetch (no cache write).
     onError: (error) => {
       if (isApiError(error, 404) || isApiError(error, 409)) {
@@ -219,14 +226,20 @@ export function userSessionsQueryOptions(
 
 // Never optimistic (R9). A 404 means the user (or session) is gone: refetch the
 // whole detail. An unknown outcome may have committed: refetch the sessions.
-function useSessionRevokeOptions(userId: string) {
+function useSessionRevokeOptions<TVars = void>(
+  userId: string,
+  extra?: MutationSuccessOptions<unknown, TVars>
+) {
   const queryClient = useQueryClient()
   const invalidate = (queryKey: readonly unknown[]) =>
     void queryClient.invalidateQueries({ queryKey })
   return {
     meta: { handlesOwnErrors: true },
     retry: false,
-    onSuccess: () => invalidate(usersKeys.sessionsAll(userId)),
+    onSuccess: (data: unknown, vars: TVars) => {
+      invalidate(usersKeys.sessionsAll(userId))
+      extra?.onSuccess?.(data, vars)
+    },
     onError: (error: unknown) => {
       if (isApiError(error, 404)) invalidate(usersKeys.detail(userId))
       else if (isUnknownOutcome(error))
@@ -238,7 +251,8 @@ function useSessionRevokeOptions(userId: string) {
 /** DELETE /api/v1/users/{id}/sessions/{session_id} (204) — admin:*. */
 export function useRevokeUserSessionMutation(
   userId: string,
-  api: ApiClient = getApi()
+  api: ApiClient = getApi(),
+  options?: MutationSuccessOptions<unknown, string>
 ) {
   return useMutation({
     mutationFn: async (sessionId: string) =>
@@ -247,14 +261,15 @@ export function useRevokeUserSessionMutation(
           params: { path: { user_id: userId, session_id: sessionId } },
         })
       ),
-    ...useSessionRevokeOptions(userId),
+    ...useSessionRevokeOptions(userId, options),
   })
 }
 
 /** DELETE /api/v1/users/{id}/sessions (204) — admin:*. */
 export function useRevokeAllUserSessionsMutation(
   userId: string,
-  api: ApiClient = getApi()
+  api: ApiClient = getApi(),
+  options?: MutationSuccessOptions<unknown, void>
 ) {
   return useMutation({
     mutationFn: async () =>
@@ -263,16 +278,20 @@ export function useRevokeAllUserSessionsMutation(
           params: { path: { user_id: userId } },
         })
       ),
-    ...useSessionRevokeOptions(userId),
+    ...useSessionRevokeOptions(userId, options),
   })
 }
 
 type AssignmentVars = { userId: string; app: string }
+type AssignRoleVars = AssignmentVars & { body: AssignmentCreate }
+type RevokeAssignmentVars = AssignmentVars & { assignmentId: string }
 
 // Never optimistic (R9), never retried (a retry could grant or revoke twice).
 // The list and the holders of the app are refetched on success and whenever
 // the state may have changed elsewhere (404, 409, unknown outcome).
-function useAssignmentMutationOptions() {
+function useAssignmentMutationOptions<TVars extends AssignmentVars>(
+  extra?: MutationSuccessOptions<unknown, TVars>
+) {
   const queryClient = useQueryClient()
   const invalidate = (queryKey: readonly unknown[]) =>
     void queryClient.invalidateQueries({ queryKey })
@@ -283,8 +302,10 @@ function useAssignmentMutationOptions() {
   return {
     meta: { handlesOwnErrors: true },
     retry: false as const,
-    onSuccess: (_data: unknown, vars: AssignmentVars) =>
-      refetchAssignments(vars),
+    onSuccess: (data: unknown, vars: TVars) => {
+      refetchAssignments(vars)
+      extra?.onSuccess?.(data, vars)
+    },
     onError: (error: unknown, vars: AssignmentVars) => {
       if (
         isApiError(error, 404) ||
@@ -299,13 +320,13 @@ function useAssignmentMutationOptions() {
 }
 
 /** POST /api/v1/users/{id}/role-assignments (201) — admin:roles:assign. */
-export function useAssignRoleMutation(api: ApiClient = getApi()) {
-  const options = useAssignmentMutationOptions()
+export function useAssignRoleMutation(
+  api: ApiClient = getApi(),
+  extra?: MutationSuccessOptions<unknown, AssignRoleVars>
+) {
+  const options = useAssignmentMutationOptions(extra)
   return useMutation({
-    mutationFn: async ({
-      userId,
-      body,
-    }: AssignmentVars & { body: AssignmentCreate }) =>
+    mutationFn: async ({ userId, body }: AssignRoleVars) =>
       unwrap(
         await api.POST('/api/v1/users/{user_id}/role-assignments', {
           params: { path: { user_id: userId } },
@@ -317,14 +338,14 @@ export function useAssignRoleMutation(api: ApiClient = getApi()) {
 }
 
 /** DELETE /api/v1/users/{id}/role-assignments/{assignment_id} (204) — admin:roles:assign. */
-export function useRevokeAssignmentMutation(api: ApiClient = getApi()) {
-  const options = useAssignmentMutationOptions()
+export function useRevokeAssignmentMutation(
+  api: ApiClient = getApi(),
+  extra?: MutationSuccessOptions<unknown, RevokeAssignmentVars>
+) {
+  const options = useAssignmentMutationOptions(extra)
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({
-      userId,
-      assignmentId,
-    }: AssignmentVars & { assignmentId: string }) =>
+    mutationFn: async ({ userId, assignmentId }: RevokeAssignmentVars) =>
       unwrap(
         await api.DELETE(
           '/api/v1/users/{user_id}/role-assignments/{assignment_id}',

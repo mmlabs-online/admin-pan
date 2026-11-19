@@ -10,6 +10,7 @@ import {
   type ApiClient,
   type components,
 } from '@/api'
+import { type MutationSuccessOptions } from '@/lib/mutation-success'
 import { isUnknownOutcome } from '@/features/apps/data/errors'
 import { organizationsKeys } from './queries'
 
@@ -53,13 +54,19 @@ export function orgEntitlementsQueryOptions(
 }
 
 // Never optimistic (R9): the dialogs show errors themselves.
-function useEntitlementMutationOptions(orgId: string) {
+function useEntitlementMutationOptions<TVars = unknown>(
+  orgId: string,
+  extra?: MutationSuccessOptions<unknown, TVars>
+) {
   const queryClient = useQueryClient()
   const invalidate = (key: readonly unknown[]) =>
     void queryClient.invalidateQueries({ queryKey: key })
   return {
     meta: { handlesOwnErrors: true },
-    onSuccess: () => invalidate(entitlementsKeys.all(orgId)),
+    onSuccess: (data: unknown, vars: TVars) => {
+      invalidate(entitlementsKeys.all(orgId))
+      extra?.onSuccess?.(data, vars)
+    },
     onError: (error: unknown) => {
       if (isApiError(error, 404) || isApiError(error, 409))
         invalidate(organizationsKeys.detail(orgId))
@@ -92,7 +99,11 @@ export function useGrantEntitlementMutation(
 /** PATCH /api/v1/organizations/{org_id}/entitlements/{entitlement_id} — admin:entitlements:write. */
 export function useUpdateEntitlementMutation(
   orgId: string,
-  api: ApiClient = getApi()
+  api: ApiClient = getApi(),
+  options?: MutationSuccessOptions<
+    unknown,
+    { entitlementId: string; body: EntitlementUpdate }
+  >
 ) {
   return useMutation({
     mutationFn: async ({
@@ -113,6 +124,6 @@ export function useUpdateEntitlementMutation(
           }
         )
       ),
-    ...useEntitlementMutationOptions(orgId),
+    ...useEntitlementMutationOptions(orgId, options),
   })
 }

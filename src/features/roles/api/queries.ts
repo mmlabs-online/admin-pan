@@ -4,6 +4,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query'
 import { ApiError, getApi, isApiError, unwrap, type ApiClient } from '@/api'
+import { type MutationSuccessOptions } from '@/lib/mutation-success'
 import { mePermissionsKeys } from '@/lib/permissions/me-permissions'
 import { appsKeys } from '@/features/apps/api/queries'
 import { ADMIN_APP_KEY, type Permission } from '@/features/apps/data/app-schema'
@@ -194,15 +195,20 @@ export function appAllPermissionsQueryOptions(
  * themselves. Writes on the admin app can change the signed-in user's own
  * permissions, so the hint is refetched too (PAN-011b).
  */
-function useRoleMutationOptions(app: string, alsoOnError?: readonly unknown[]) {
+function useRoleMutationOptions<TVars = unknown>(
+  app: string,
+  alsoOnError?: readonly unknown[],
+  extra?: MutationSuccessOptions<unknown, TVars>
+) {
   const queryClient = useQueryClient()
   const invalidate = (key: readonly unknown[]) =>
     void queryClient.invalidateQueries({ queryKey: key })
   return {
     meta: { handlesOwnErrors: true },
-    onSuccess: () => {
+    onSuccess: (data: unknown, vars: TVars) => {
       invalidate(rolesKeys.all(app))
       if (app === ADMIN_APP_KEY) invalidate(mePermissionsKeys.all)
+      extra?.onSuccess?.(data, vars)
     },
     onError: (error: unknown) => {
       if (
@@ -274,7 +280,11 @@ export function useReplaceRolePermissionsMutation(
 }
 
 /** DELETE /api/v1/apps/{key}/roles/{role_id} (204) — admin:roles:manage. */
-export function useDeleteRoleMutation(app: string, api: ApiClient = getApi()) {
+export function useDeleteRoleMutation(
+  app: string,
+  api: ApiClient = getApi(),
+  options?: MutationSuccessOptions<unknown, string>
+) {
   return useMutation({
     mutationFn: async (roleId: string) =>
       unwrap(
@@ -282,6 +292,6 @@ export function useDeleteRoleMutation(app: string, api: ApiClient = getApi()) {
           params: { path: { key: app, role_id: roleId } },
         })
       ),
-    ...useRoleMutationOptions(app),
+    ...useRoleMutationOptions(app, undefined, options),
   })
 }

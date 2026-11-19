@@ -486,4 +486,29 @@ describe('UserSessionsTab', () => {
       for (const where of [keys, live, toasts]) expect(where).not.toContain(id)
     expect(urls).not.toContain(ids[1])
   })
+
+  it("unmount mid-request: 'Session revoked.' still fires exactly once", async () => {
+    let release: (r: Response) => void = () => {}
+    const rows = many(2)
+    const inner = server(rows)
+    const { client, seen } = fakeApi((r) =>
+      r.method === 'DELETE'
+        ? new Promise<Response>(
+            (res) => (release = () => res(inner(r) as Response))
+          )
+        : inner(r)
+    )
+    const { screen } = await renderTab(client)
+    await userEvent.click(rowRevoke(rows[0]))
+    await userEvent.click(
+      dialog().getByRole('button', { name: 'Revoke session' })
+    )
+    await expect.poll(() => deletes(seen)).toHaveLength(1)
+    await screen.unmount()
+    release(noContent())
+    await expect
+      .poll(() => vi.mocked(toast.success))
+      .toHaveBeenCalledWith('Session revoked.')
+    expect(toast.success).toHaveBeenCalledTimes(1)
+  })
 })
