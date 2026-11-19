@@ -24,7 +24,10 @@ export function OrganizationsDeleteDialog({
   currentRow,
 }: OrganizationsDeleteDialogProps) {
   const { api } = useOrganizations()
-  const mutation = useDeleteOrganizationMutation(api)
+  const mutation = useDeleteOrganizationMutation(api, {
+    onSuccess: () =>
+      toast.success(`Organization "${currentRow.name}" deleted.`),
+  })
   const [typed, setTyped] = useState('')
   const matches = typed.trim() === currentRow.slug
 
@@ -36,7 +39,6 @@ export function OrganizationsDeleteDialog({
         onSuccess: () => {
           setTyped('')
           onOpenChange(false)
-          toast.success(`Organization "${currentRow.name}" deleted.`)
         },
       }
     )

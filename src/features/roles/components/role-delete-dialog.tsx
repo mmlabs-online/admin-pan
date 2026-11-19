@@ -28,7 +28,9 @@ export function RoleDeleteDialog({
   onDeleted,
 }: RoleDeleteDialogProps) {
   const { api } = useRoles()
-  const mutation = useDeleteRoleMutation(app.key, api)
+  const mutation = useDeleteRoleMutation(app.key, api, {
+    onSuccess: () => toast.success(`Role ${currentRow.key} deleted.`),
+  })
   const inFlight = useRef(false)
 
   const handleConfirm = () => {
@@ -37,7 +39,6 @@ export function RoleDeleteDialog({
     mutation.mutate(currentRow.id, {
       onSuccess: () => {
         onDeleted()
-        toast.success(`Role ${currentRow.key} deleted.`)
       },
       onSettled: () => {
         inFlight.current = false

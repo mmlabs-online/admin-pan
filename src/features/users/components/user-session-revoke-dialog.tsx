@@ -27,8 +27,12 @@ type Props = {
 // (R9). Toasts carry no email, IP, user agent or id (R5).
 export function UserSessionRevokeDialog({ user, target, onDone }: Props) {
   const { api } = useUsers()
-  const one = useRevokeUserSessionMutation(user.id, api)
-  const all = useRevokeAllUserSessionsMutation(user.id, api)
+  const one = useRevokeUserSessionMutation(user.id, api, {
+    onSuccess: () => toast.success('Session revoked.'),
+  })
+  const all = useRevokeAllUserSessionsMutation(user.id, api, {
+    onSuccess: () => toast.success('All sessions revoked.'),
+  })
   const m = target.kind === 'one' ? one : all
   const inFlight = useRef(false)
 
@@ -37,9 +41,6 @@ export function UserSessionRevokeDialog({ user, target, onDone }: Props) {
     inFlight.current = true
     const options = {
       onSuccess: () => {
-        toast.success(
-          target.kind === 'one' ? 'Session revoked.' : 'All sessions revoked.'
-        )
         onDone('success')
       },
       onError: (error: unknown) => {

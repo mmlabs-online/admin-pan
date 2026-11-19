@@ -26,7 +26,14 @@ export function AppJoinRequestDecisionDialog({
   onDone,
 }: Props) {
   const { api } = useApps()
-  const mutation = useDecideJoinRequestMutation(app.key, decision, api)
+  const mutation = useDecideJoinRequestMutation(app.key, decision, api, {
+    onSuccess: () =>
+      toast.success(
+        decision === 'approve'
+          ? 'Join request approved.'
+          : 'Join request rejected.'
+      ),
+  })
   const inFlight = useRef(false)
   const approve = decision === 'approve'
 
@@ -35,9 +42,6 @@ export function AppJoinRequestDecisionDialog({
     inFlight.current = true
     mutation.mutate(request.id, {
       onSuccess: () => {
-        toast.success(
-          approve ? 'Join request approved.' : 'Join request rejected.'
-        )
         onDone('success')
       },
       onSettled: () => {

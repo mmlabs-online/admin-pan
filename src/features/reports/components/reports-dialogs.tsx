@@ -15,8 +15,8 @@ export function ReportsDialogs() {
   } = useReports()
 
   const scheduleClear = useDelayedRowClear(open, () => setCurrentRow(null))
-  const closeWithRow = (type: 'edit' | 'delete') => () => {
-    setOpen(type)
+  const closeWithRow = () => {
+    setOpen(null)
     scheduleClear()
   }
 
@@ -25,7 +25,9 @@ export function ReportsDialogs() {
       <ReportsActionDialog
         key='report-create'
         open={open === 'create'}
-        onOpenChange={() => setOpen('create')}
+        onOpenChange={(next) => {
+          if (!next) setOpen(null)
+        }}
         onSubmit={createReport}
       />
 
@@ -34,7 +36,7 @@ export function ReportsDialogs() {
           <ReportsActionDialog
             key={`report-edit-${currentRow.id}`}
             open={open === 'edit'}
-            onOpenChange={closeWithRow('edit')}
+            onOpenChange={closeWithRow}
             currentRow={currentRow}
             onSubmit={(values) => updateReport(currentRow.id, values)}
           />
@@ -42,7 +44,7 @@ export function ReportsDialogs() {
           <ReportsDeleteDialog
             key={`report-delete-${currentRow.id}`}
             open={open === 'delete'}
-            onOpenChange={closeWithRow('delete')}
+            onOpenChange={closeWithRow}
             currentRow={currentRow}
             onConfirm={deleteReport}
           />

@@ -15,6 +15,7 @@ import {
   type paths,
 } from '@/api'
 import { toSearchTerm } from '@/lib/list-search'
+import { type MutationSuccessOptions } from '@/lib/mutation-success'
 import { mePermissionsKeys } from '@/lib/permissions/me-permissions'
 import { usersKeys } from '@/features/users/api/queries'
 import {
@@ -28,6 +29,8 @@ type AppCreate = components['schemas']['AppCreate']
 type AppUpdate = components['schemas']['AppUpdate']
 type PermissionCreate = components['schemas']['PermissionCreate']
 type PermissionUpdate = components['schemas']['PermissionUpdate']
+type UpdateAppVars = { key: string; body: AppUpdate }
+type UpdatePermissionVars = { permissionId: string; body: PermissionUpdate }
 
 export const PERMISSIONS_PAGE_SIZE = 50
 export const CREDENTIALS_PAGE_SIZE = 20
@@ -222,18 +225,20 @@ export function appJoinRequestsQueryOptions(
  * Shared mutation options: never optimistic (R9); the dialogs show errors
  * themselves. Refetch on success and when the state changed elsewhere.
  */
-function useMutationOptions(
+function useMutationOptions<TVars = unknown>(
   scope: readonly unknown[],
-  alsoOnSuccess?: readonly unknown[]
+  alsoOnSuccess?: readonly unknown[],
+  extra?: MutationSuccessOptions<unknown, TVars>
 ) {
   const queryClient = useQueryClient()
   const refetch = () => queryClient.invalidateQueries({ queryKey: scope })
   return {
     meta: { handlesOwnErrors: true },
-    onSuccess: () => {
+    onSuccess: (data: unknown, vars: TVars) => {
       void refetch()
       if (alsoOnSuccess)
         void queryClient.invalidateQueries({ queryKey: alsoOnSuccess })
+      extra?.onSuccess?.(data, vars)
     },
     onError: (error: unknown) => {
       if (isApiError(error, 404) || isApiError(error, 409)) void refetch()
@@ -251,25 +256,32 @@ export function useCreateAppMutation(api: ApiClient = getApi()) {
 }
 
 /** PATCH /api/v1/apps/{key} — admin:apps:write (+ admin:* for the admin app). */
-export function useUpdateAppMutation(api: ApiClient = getApi()) {
+export function useUpdateAppMutation(
+  api: ApiClient = getApi(),
+  options?: MutationSuccessOptions<unknown, UpdateAppVars>
+) {
   return useMutation({
-    mutationFn: async ({ key, body }: { key: string; body: AppUpdate }) =>
+    mutationFn: async ({ key, body }: UpdateAppVars) =>
       unwrap(
         await api.PATCH('/api/v1/apps/{key}', {
           params: { path: { key } },
           body,
         })
       ),
-    ...useMutationOptions(appsKeys.all),
+    ...useMutationOptions(appsKeys.all, undefined, options),
   })
 }
 
 // Writes on the admin app's permissions can change the signed-in user's own
 // permissions, so the hint is refetched too (PAN-011b).
-function useAppPermissionMutationOptions(appKey: string) {
+function useAppPermissionMutationOptions<TVars = unknown>(
+  appKey: string,
+  extra?: MutationSuccessOptions<unknown, TVars>
+) {
   return useMutationOptions(
     appsKeys.detail(appKey),
-    appKey === ADMIN_APP_KEY ? mePermissionsKeys.all : undefined
+    appKey === ADMIN_APP_KEY ? mePermissionsKeys.all : undefined,
+    extra
   )
 }
 
@@ -293,23 +305,18 @@ export function useCreatePermissionMutation(
 /** PATCH /api/v1/apps/{key}/permissions/{permission_id} — admin:roles:manage. */
 export function useUpdatePermissionMutation(
   appKey: string,
-  api: ApiClient = getApi()
+  api: ApiClient = getApi(),
+  options?: MutationSuccessOptions<unknown, UpdatePermissionVars>
 ) {
   return useMutation({
-    mutationFn: async ({
-      permissionId,
-      body,
-    }: {
-      permissionId: string
-      body: PermissionUpdate
-    }) =>
+    mutationFn: async ({ permissionId, body }: UpdatePermissionVars) =>
       unwrap(
         await api.PATCH('/api/v1/apps/{key}/permissions/{permission_id}', {
           params: { path: { key: appKey, permission_id: permissionId } },
           body,
         })
       ),
-    ...useAppPermissionMutationOptions(appKey),
+    ...useAppPermissionMutationOptions(appKey, options),
   })
 }
 
@@ -361,7 +368,8 @@ export function useIssueCredentialMutation(
 /** DELETE /api/v1/apps/{key}/credentials/{credential_id} (204) — admin:apps:write. */
 export function useRevokeCredentialMutation(
   appKey: string,
-  api: ApiClient = getApi()
+  api: ApiClient = getApi(),
+  options?: MutationSuccessOptions<unknown, string>
 ) {
   return useMutation({
     mutationFn: async (credentialId: string) =>
@@ -370,7 +378,7 @@ export function useRevokeCredentialMutation(
           params: { path: { key: appKey, credential_id: credentialId } },
         })
       ),
-    ...useMutationOptions(appsKeys.credentialsAll(appKey)),
+    ...useMutationOptions(appsKeys.credentialsAll(appKey), undefined, options),
   })
 }
 
@@ -383,7 +391,8 @@ export function useRevokeCredentialMutation(
 export function useDecideJoinRequestMutation(
   appKey: string,
   decision: 'approve' | 'reject',
-  api: ApiClient = getApi()
+  api: ApiClient = getApi(),
+  options?: MutationSuccessOptions<unknown, string>
 ) {
   const queryClient = useQueryClient()
   const invalidate = (key: readonly unknown[]) =>
@@ -407,9 +416,10 @@ export function useDecideJoinRequestMutation(
     },
     retry: false,
     meta: { handlesOwnErrors: true },
-    onSuccess: (data) => {
+    onSuccess: (data, requestId) => {
       invalidate(appsKeys.joinRequestsAll(appKey))
       if (decision === 'approve') invalidate(usersKeys.detail(data.user_id))
+      options?.onSuccess?.(data, requestId)
     },
     onError: (error: unknown) => {
       if (

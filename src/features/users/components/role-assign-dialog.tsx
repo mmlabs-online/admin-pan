@@ -88,7 +88,6 @@ const roleLabel = (r: RoleDefinition) => `${r.name} (${r.key})`
 // self hints are advisory: the API decides and every 403 is shown (R4). Never
 // optimistic, never retried; privileged and admin-app grants confirm first (R9).
 export function RoleAssignDialog({ api, target, onDone }: Props) {
-  const assign = useAssignRoleMutation(api)
   const source = usePermissionSource()
   const selfId = useSelfUserId()
   const usersPermission = useActionPermission('users.view')
@@ -142,6 +141,11 @@ export function RoleAssignDialog({ api, target, onDone }: Props) {
     target.kind === 'role'
       ? target.role
       : roles.data?.find((r) => r.id === roleId)
+  const assign = useAssignRoleMutation(api, {
+    // No email in the toast (R5).
+    onSuccess: () =>
+      role && toast.success(`Role ${role.key} granted in ${role.app}.`),
+  })
   const user = target.kind === 'user' ? target.user : pickedUser
   const adminDenied = source.check('admin:*') === 'denied'
   const privileged = !!role && (role.privileged || appKey === ADMIN_APP_KEY)
@@ -204,8 +208,6 @@ export function RoleAssignDialog({ api, target, onDone }: Props) {
       { userId: user.id, app: role.app, body },
       {
         onSuccess: () => {
-          // No email in the toast (R5).
-          toast.success(`Role ${role.key} granted in ${role.app}.`)
           onDone({ result: 'success', app: role.app, roleKey: role.key })
         },
         onError: (error) => {

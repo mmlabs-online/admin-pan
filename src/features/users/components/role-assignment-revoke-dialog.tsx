@@ -40,7 +40,12 @@ export function RoleAssignmentRevokeDialog({
   assignment,
   onDone,
 }: Props) {
-  const revoke = useRevokeAssignmentMutation(api)
+  const revoke = useRevokeAssignmentMutation(api, {
+    onSuccess: () =>
+      toast.success(
+        `Role ${assignment.role_key} revoked in ${assignment.app}.`
+      ),
+  })
   const inFlight = useRef(false)
   const source = usePermissionSource()
   const selfId = useSelfUserId()
@@ -68,9 +73,6 @@ export function RoleAssignmentRevokeDialog({
       { userId: user.id, app: assignment.app, assignmentId: assignment.id },
       {
         onSuccess: () => {
-          toast.success(
-            `Role ${assignment.role_key} revoked in ${assignment.app}.`
-          )
           onDone('success')
         },
         onError: (error) => {

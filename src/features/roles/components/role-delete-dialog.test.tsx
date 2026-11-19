@@ -56,6 +56,7 @@ describe('RoleDeleteDialog', () => {
       `DELETE /api/v1/apps/stoktok/roles/${OPERATOR_ID}`,
     ])
     expect(toast.success).toHaveBeenCalledWith('Role stoktok:operator deleted.')
+    expect(toast.success).toHaveBeenCalledTimes(1)
     await expect.poll(() => listCalls(seen).length).toBeGreaterThan(before)
     await expect
       .element(screen.getByRole('button', { name: 'New role' }))
@@ -99,5 +100,22 @@ describe('RoleDeleteDialog', () => {
     await expect
       .element(dialog.getByText('Only super admins can do this'))
       .toBeVisible()
+  })
+
+  it('unmount mid-request: the success toast still fires exactly once', async () => {
+    let release: (r: Response) => void = () => {}
+    const { client, seen } = fakeApi(
+      rolesServer(() => new Promise<Response>((r) => (release = r)))
+    )
+    const screen = await renderRoles(client, stoktok)
+    const dialog = await open(screen)
+    await userEvent.click(dialog.getByRole('button', { name: 'Delete' }))
+    await expect.poll(() => writes(seen)).toHaveLength(1)
+    await screen.unmount()
+    release(noContent())
+    await expect
+      .poll(() => vi.mocked(toast.success))
+      .toHaveBeenCalledWith('Role stoktok:operator deleted.')
+    expect(toast.success).toHaveBeenCalledTimes(1)
   })
 })

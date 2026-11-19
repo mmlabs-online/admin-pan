@@ -21,8 +21,15 @@ export function OrganizationsStatusDialog({
   currentRow,
 }: OrganizationsStatusDialogProps) {
   const { api } = useOrganizations()
-  const mutation = useUpdateOrganizationMutation(api)
   const suspend = currentRow.status === 'active'
+  const mutation = useUpdateOrganizationMutation(api, {
+    onSuccess: () =>
+      toast.success(
+        suspend
+          ? `Organization "${currentRow.name}" suspended.`
+          : `Organization "${currentRow.name}" reactivated.`
+      ),
+  })
 
   const handleConfirm = () => {
     mutation.mutate(
@@ -33,11 +40,6 @@ export function OrganizationsStatusDialog({
       {
         onSuccess: () => {
           onOpenChange(false)
-          toast.success(
-            suspend
-              ? `Organization "${currentRow.name}" suspended.`
-              : `Organization "${currentRow.name}" reactivated.`
-          )
         },
       }
     )

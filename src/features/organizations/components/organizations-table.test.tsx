@@ -1,6 +1,8 @@
+import { act } from 'react'
 import { apiError, fakeApi, json } from '@/test-utils/api'
 import { describe, expect, it, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
+import { SEARCH_DEBOUNCE_MS } from '@/lib/list-search'
 import { type Organization } from '../data/schema'
 import { ORGS, orgsPage } from './test-data'
 import { renderOrganizations } from './test-fixtures'
@@ -12,7 +14,21 @@ const listCalls = (seen: Request[]) =>
   )
 const param = (r: Request, k: string) => new URL(r.url).searchParams.get(k)
 
-const settle = () => new Promise((r) => setTimeout(r, 600))
+/**
+ * Runs `step` with only setTimeout/clearTimeout faked, then lets one search
+ * debounce elapse. A negative ("nothing is sent") needs a bounded window, and a
+ * later real input would restart the debounce, so the window is virtual.
+ */
+const throughDebounce = async (step: () => Promise<void>) => {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  try {
+    await step()
+    // act: flush the commit the debounce triggers before the faked clock ends.
+    await act(() => vi.advanceTimersByTimeAsync(SEARCH_DEBOUNCE_MS))
+  } finally {
+    vi.useRealTimers()
+  }
+}
 const withParam = (seen: Request[], k: string) =>
   listCalls(seen).filter((r) => param(r, k) !== null)
 
@@ -195,21 +211,39 @@ describe('OrganizationsTable', () => {
     await expect
       .element(screen.getByText('Acme Corp', { exact: true }))
       .toBeVisible()
-    await userEvent.type(
-      screen.getByRole('searchbox', { name: 'Search organizations' }),
-      '  glob  '
-    )
+    const box = screen.getByRole('searchbox', { name: 'Search organizations' })
+    // Keystrokes with a pause shorter than the debounce: still one request.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      await userEvent.type(box, '  gl')
+      await act(() => vi.advanceTimersByTimeAsync(SEARCH_DEBOUNCE_MS - 100))
+      await userEvent.type(box, 'ob  ', { skipClick: true })
+      await act(() => vi.advanceTimersByTimeAsync(SEARCH_DEBOUNCE_MS))
+    } finally {
+      vi.useRealTimers()
+    }
     await expect
       .poll(() => withParam(seen, 'q').map((r) => param(r, 'q')))
       .toEqual(['glob'])
-    await settle()
-    expect(withParam(seen, 'q')).toHaveLength(1)
     await expect
       .element(screen.getByTestId('search'))
       .toHaveTextContent('"q":"glob"')
     await expect
       .element(screen.getByRole('status'))
       .toHaveTextContent('1 organizations match these filters, page 1 of 1')
+    // Sentinel: the next request is the sort click, so an extra search
+    // request (one per keystroke) would show up before it.
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Slug', exact: true })
+    )
+    await expect
+      .poll(() => param(listCalls(seen).slice(-1)[0], 'sort'))
+      .toBe('slug')
+    expect(withParam(seen, 'q').map((r) => param(r, 'q'))).toEqual([
+      'glob',
+      'glob',
+    ])
+    expect(listCalls(seen)).toHaveLength(3)
   })
 
   it('whitespace-only search sends no q and no extra request', async () => {
@@ -218,16 +252,27 @@ describe('OrganizationsTable', () => {
     await expect
       .element(screen.getByText('Acme Corp', { exact: true }))
       .toBeVisible()
-    await userEvent.type(
-      screen.getByRole('searchbox', { name: 'Search organizations' }),
-      '   '
+    await throughDebounce(() =>
+      userEvent.type(
+        screen.getByRole('searchbox', { name: 'Search organizations' }),
+        '   '
+      )
     )
-    await settle()
     expect(withParam(seen, 'q')).toHaveLength(0)
     expect(listCalls(seen)).toHaveLength(1)
     await expect
       .element(screen.getByTestId('search'))
       .not.toHaveTextContent('"q"')
+    // Sentinel: a real request after the debounce window; it carries no q and
+    // is the only one besides the initial load.
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Slug', exact: true })
+    )
+    await expect
+      .poll(() => param(listCalls(seen).slice(-1)[0], 'sort'))
+      .toBe('slug')
+    expect(withParam(seen, 'q')).toHaveLength(0)
+    expect(listCalls(seen)).toHaveLength(2)
   })
 
   it('status filter (keyboard: focus, open, choose Suspended) sends status=suspended; All removes it', async () => {
@@ -331,16 +376,30 @@ describe('OrganizationsTable', () => {
       .element(screen.getByRole('combobox', { name: 'Status' }))
       .toHaveTextContent('Active')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Simulate back' }))
+    const count = listCalls(seen).length
+    await throughDebounce(() =>
+      userEvent.click(screen.getByRole('button', { name: 'Simulate back' }))
+    )
     await expect.element(input).toHaveValue('')
     await expect
       .element(screen.getByRole('combobox', { name: 'Status' }))
       .toHaveTextContent('All statuses')
-    const count = listCalls(seen).length
-    await settle()
     await expect.element(screen.getByTestId('search')).toHaveTextContent('{}')
-    expect(param(listCalls(seen).slice(-1)[0], 'q')).toBeNull()
-    expect(listCalls(seen).length).toBeLessThanOrEqual(count + 1)
+    await expect.poll(() => param(listCalls(seen).slice(-1)[0], 'q')).toBeNull()
+    // Sentinel: after a full debounce the old draft was not written back, so
+    // the back step caused one request and the sort click one more.
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Slug', exact: true })
+    )
+    await expect
+      .poll(() => param(listCalls(seen).slice(-1)[0], 'sort'))
+      .toBe('slug')
+    expect(listCalls(seen)).toHaveLength(count + 2)
+    expect(
+      listCalls(seen)
+        .slice(count)
+        .filter((r) => param(r, 'q'))
+    ).toEqual([])
   })
 
   it('every control resets the page: start at page 2, change q / status / sort', async () => {

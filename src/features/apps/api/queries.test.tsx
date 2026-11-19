@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ApiError } from '@/api'
 import { apiError, fakeApi, json } from '@/test-utils/api'
 import { FAKE_CREDENTIAL } from '@/test-utils/fake-credential'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { renderHook } from 'vitest-browser-react'
 import {
   APPS,
@@ -185,6 +185,23 @@ describe('apps queries', () => {
     respond = () => apiError(500, 'internal_error')
     await run()
     expect(invalidated).toHaveLength(3)
+  })
+
+  it('useUpdateAppMutation options.onSuccess runs once after success with data and vars, not on error', async () => {
+    let respond: () => Response = () => json(APPS[2])
+    const { client, wrapper } = setup(() => respond())
+    const onSuccess = vi.fn()
+    const update = await renderHook(
+      () => useUpdateAppMutation(client, { onSuccess }),
+      { wrapper }
+    )
+    const vars = { key: 'stoktok', body: { name: 'x' } }
+    await update.result.current.mutateAsync(vars)
+    expect(onSuccess).toHaveBeenCalledTimes(1)
+    expect(onSuccess).toHaveBeenCalledWith(APPS[2], vars)
+    respond = () => apiError(409, 'conflict')
+    await update.result.current.mutateAsync(vars).catch(() => {})
+    expect(onSuccess).toHaveBeenCalledTimes(1)
   })
 
   it("permission create POSTs /apps/{key}/permissions; update PATCHes /permissions/{id}; both invalidate ['apps','detail',key] on success and on 404/409", async () => {
