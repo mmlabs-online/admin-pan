@@ -7,7 +7,7 @@
 | Areas | ui |
 | Attempts | 0 |
 | Created | 2026-11-18 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/32 |
 
 ## Goal
 Make success feedback and tests robust against dialogs unmounting mid-request, and remove remaining timing hacks (BUG-002 follow-ups).
