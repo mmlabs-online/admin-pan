@@ -68,7 +68,7 @@ API: **org-admin-api ADM-006** (backlog).
 ### §6.1 Deployment
 - First release (owner, 2026-11-16): ship the mock-data UI publicly at `admin-portal.mmlabs.online` before real sign-in (PAN-010); it holds no real data.
 - Hostname on `*.mmlabs.online` — required, because the identity cookie flow only works same-site with `api.mmlabs.online` (org-admin-api identity-architecture §7). Hostname: `admin-portal.mmlabs.online` (owner, 2026-11-16). Its origin must be registered on app `admin` (`apps.origins`).
-- Static files in an nginx image; release/deploy like org-admin-api: branch `release/vX.Y.Z` from main → image on Docker Hub → PR on `mmlabs-online/deployment` → owner merges → Mac runner, Cloudflare Tunnel.
+- Static files in an nginx image; release/deploy like org-admin-api: branch `release/X.Y.Z` from main → image on Docker Hub → PR on `mmlabs-online/deployment` → owner merges → Mac runner, Cloudflare Tunnel.
 
 ## §7 Success metrics
 
