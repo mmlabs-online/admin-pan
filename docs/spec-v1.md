@@ -39,6 +39,45 @@ Public pages at fixed paths `/forgot-password`, `/reset-password` and `/verify-e
 List with email search and status filter (paginated), detail, enable/disable with confirmation.
 API: `GET /api/v1/users`, `GET/PATCH /api/v1/users/{id}` (`admin:users:read`, `admin:users:write`) — **org-admin-api USR-01b** (done; mounted only when `ADMIN_USERS_API_ENABLED=true` until ADM-002).
 
+#### §5.2.1 Access per user in the list (proposed, owner request 2026-11-25)
+Owner request (2026-11-25): *"ở list hiện thị cho thấy user đang có quyền access gì"* — the Users list shows what access each user has today.
+
+- **Problem.** Today staff must open each user's detail sheet (Role assignments tab, PAN-015c) to see their roles. Answering "who on this page can use app X / is an admin" takes one click per user.
+- **Proposal.** A read-only **Access** column: per user, the apps where they hold at least one **active** role assignment, each with its role keys and scope (app-wide, or "N orgs"). Long lists are truncated to a few chips plus "+N more" that opens the detail sheet. Expired / inactive assignments are not shown. Users without any role show "No roles".
+- **Rules.** The column needs `admin:users:read` (the same permission as `GET /users/{id}/role-assignments`). Values come from the API as-is; the UI does not compute effective permissions.
+- **No N+1.** One page of the list must stay **one request** (or a fixed small number), never one request per row (up to 100 per page, §6). `UserRead` today has no access data (fields: `id, email, status, email_verified_at, display_name, created_at, updated_at`), so this needs an API change — **gap**, see API needs below. Until then the column is not built; it must not be faked by looping `GET /users/{id}/role-assignments` per row.
+- **Filter (Q11 — yes, 2026-11-25).** "Has a role in app X" / "has role R" filters on the list. `GET /users` filters today only by `email` and `status` — **gap**.
+- **Decided (Q8, 2026-11-25):** "access" = active role assignments only (app + role + scope); expired assignments are hidden in the list (the detail sheet still shows them).
+
+#### §5.2.2 Bulk role assignment from the list (proposed, owner request 2026-11-25)
+Owner request (2026-11-25): *"ở list user. tôi muốn có bulk action để assign role cho 1 loạt account"* — select many accounts on the Users list and assign one role to all of them at once.
+
+- **Problem.** Onboarding a team (e.g. giving 20 support staff the same role) today means 20 × (open user → Role assignments → Assign). Slow and error-prone.
+- **Proposal.**
+  1. Row checkboxes on the Users list (plus "select all on this page"); selection is limited to the **current page** (≤ `limit`, max 100) in v1 — no "select all N matching the filter". Selection clears on page/filter change.
+  2. A bulk action bar ("N selected · Assign role…") shown only with `admin:roles:assign` (R4); the API's 403 is still handled.
+  3. Dialog reuses the single-user assign form (PAN-015c): app → role → scope (app-wide or one org, by the app's org mode) → optional expiry.
+  4. **Confirmation (R9)** names the target: role key, app, scope (org name), expiry, the number of accounts and their emails (list scrollable). Not optimistic.
+  5. **Result per account**: assigned / already had this role (skipped) / failed with the API's reason (e.g. `self_assignment_forbidden`, user not found, disabled-user policy if any). The summary stays open until dismissed; failed accounts stay selected so staff can retry or deselect. Afterwards the affected queries (list, each user's assignments, role holders) are invalidated.
+- **Rules owned by the API.** Validation (role exists in app, org allowed by org mode, expiry rules, `admin:super-admin` expiry ban, self-assignment, last-super-admin) and the audit entry per assignment are the API's. The UI only presents results.
+- **Partial failure — decided (Q9 = A, 2026-11-25):** use a bulk endpoint; no client loop. Per-user results; already holding the active role counts as **unchanged**, not an error.
+  - **(A, chosen) Bulk endpoint in org-admin-api** — one request, server validates once, returns a result per user, writes one audit entry per assignment; the API decides atomic vs per-user. Needs a new org-admin-api ticket.
+  - ~~(B) Client loop~~ (rejected) over the existing `POST /users/{user_id}/role-assignments`, **sequential** (the API serializes assignments on an app lock and can return 409 `conflict` "changed concurrently"), max one page (100) per run, with the per-account result report above. Works today, but a closed tab mid-run leaves a partial result with no server-side record of the batch, and 100 calls take noticeably long.
+- **Not in this iteration:** bulk revoke, bulk change of role, bulk assign across pages / to "all matching the filter", CSV import of emails. Bulk revoke is a later, separate ticket (Q12).
+- **Targets (Q10, 2026-11-25):** disabled users are allowed, with a warning in the confirmation (the API decides); `admin` app roles (incl. `admin:super-admin`) are **not** bulk-assignable — one by one only; max 100 accounts per run.
+
+API needs for §5.2.1–§5.2.2 (contract snapshot `src/api/openapi.json`, 2026-11-25):
+
+| Need | Endpoint | State |
+|---|---|---|
+| List users | `GET /api/v1/users` (`email`, `status`, `limit`≤100, `offset`) | exists (USR-01b) |
+| Access per user in the list | `GET /api/v1/users` items gain an access summary, e.g. opt-in `include=access` → `access: [{app, roles: [{role_id, role_key, org_id\|null, expires_at\|null}]}]` (active only); **or** one batch read `GET /api/v1/role-assignments?user_id=…&user_id=…` (≤100 ids, active only) | **missing** — propose org-admin-api ticket |
+| Filter users by access | `GET /api/v1/users?app=<key>&role_id=<uuid>` | **missing** — propose org-admin-api ticket (Q11 = yes) |
+| One user's assignments | `GET /api/v1/users/{user_id}/role-assignments` (`app`, paginated; `admin:users:read`) | exists (PAN-015c) |
+| Assign one | `POST /api/v1/users/{user_id}/role-assignments` `{role_id, org_id?, expires_at?}` (`admin:roles:assign`; 409 `conflict` on active duplicate; 404/409 undocumented in OpenAPI) | exists (PAN-015c) |
+| Assign many | e.g. `POST /api/v1/apps/{key}/role-definitions/{role_id}/assignments:bulk` or `POST /api/v1/role-assignments/bulk` `{role_id, org_id?, expires_at?, user_ids[≤100]}` → `{results: [{user_id, status: created\|unchanged\|failed, assignment_id?, error?: {code, reason}}]}` (`admin:roles:assign`, one audit entry per assignment) | **missing** — propose org-admin-api ticket (Q9 = A) |
+| Roles of an app, holders of a role | `GET /apps/{key}/role-definitions`, `GET /apps/{key}/role-definitions/{role_id}/assignments` | exists |
+
 ### §5.3 Organizations
 List (paginated), create, detail, edit, suspend/reactivate, delete with confirmation.
 API: `/api/v1/organizations` CRUD — **org-admin-api ADM-001** (done). Note: the table moves to the Identity module and gains `created_by` in **USR-06**; members per org arrive there too.
@@ -83,9 +122,16 @@ API: **org-admin-api ADM-006** (backlog).
 - [ ] Q5. Order of screens after sign-in (proposal: users → organizations → apps/roles → audit → entitlements).
 - [ ] Q6. 2FA for staff (org-admin-api OQ3) — does the UI need a second-factor step in v1?
 - [ ] Q7. "Reports management": the mock (PAN-007) lets staff define, run and download operational reports (sign-ups, active users, app memberships, org overview, audit activity). Is that the intended scope? It needs a reports API in org-admin-api.
+- [x] Q8. **answered 2026-11-25:** role assignments only; expired assignments hidden in the list. (Question: Users list "access" (§5.2.1): does it mean role assignments only (app + role + scope), or also app memberships the user has without a role (joined apps)? And should expired assignments be hidden (proposal: hide; the detail sheet shows them)?)
+- [x] Q9. **answered 2026-11-25:** (A) bulk endpoint in org-admin-api; per-user results, already-assigned = unchanged. (Question: Bulk assign (§5.2.2): (A) wait for a bulk endpoint in org-admin-api (recommended: one request, server-side per-user results and audit), or (B) ship now with a sequential per-user loop and a per-account result report, then switch to (A) later? If (A): all-or-nothing, or per-user results (proposal: per-user results, already-assigned counts as unchanged, not as an error)?)
+- [x] Q10. **answered 2026-11-25:** disabled users allowed with a warning; no `admin` app roles in bulk; 100 per run. (Question: Bulk assign targets: may it include **disabled** users (proposal: allowed, warned in the confirmation — the API decides), and may it assign **`admin:super-admin`** or other `admin` app roles in bulk (proposal: not in bulk; one by one only)? Is 100 accounts per run enough?)
+- [x] Q11. **answered 2026-11-25:** yes. (Question: Do you also want to filter the Users list by app / role ("everyone with role R in app X")? It needs new filter params on `GET /users`.)
+- [x] Q12. **answered 2026-11-25:** later, separate ticket. (Question: Bulk revoke / remove a role from many accounts: wanted soon, or later (proposal: later, separate ticket)?)
 
 ## §9 Tickets
 
 All tickets are in [`work/backlog.md`](../work/backlog.md). Phase 1 (screens on mock data) is done; the rest waits on org-admin-api endpoints, except PAN-009.
 
-API gaps to raise in org-admin-api (no ticket there yet): admin sessions list/revoke, reports.
+API gaps to raise in org-admin-api (no ticket there yet): admin sessions list/revoke, reports, access summary per user in `GET /users` (§5.2.1), users filter by app/role (§5.2.1, Q11), bulk role assignment (§5.2.2, Q9).
+
+Proposed (not yet in the backlog, from `/idea` 2026-11-25): PAN-032 Access column on the Users list · PAN-033 Bulk assign a role to selected users · PAN-034 Filter users by app / role.
