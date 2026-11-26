@@ -111,6 +111,14 @@ export const ACTIONS = {
     'admin:organizations:read',
     'GET /api/v1/organizations/{org_id}'
   ),
+  'organizations.viewMembers': perm(
+    'admin:users:read',
+    'GET /api/v1/organizations/{org_id}/members'
+  ),
+  'organizations.viewInvitations': perm(
+    'admin:organizations:read',
+    'GET /api/v1/organizations/{org_id}/invitations'
+  ),
   'organizations.create': perm(
     'admin:organizations:write',
     'POST /api/v1/organizations'

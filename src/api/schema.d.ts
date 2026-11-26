@@ -706,6 +706,46 @@ export interface paths {
         patch: operations["update_entitlement_api_v1_organizations__org_id__entitlements__entitlement_id__patch"];
         trace?: never;
     };
+    "/api/v1/organizations/{org_id}/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Org Invitations
+         * @description Invitations of this organization, newest first. No invitee email or token.
+         */
+        get: operations["list_org_invitations_api_v1_organizations__org_id__invitations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Org Members
+         * @description Org-scoped role assignments of this organization with their holders. `total` counts assignments, not distinct users: a user with two roles in the org appears twice.
+         */
+        get: operations["list_org_members_api_v1_organizations__org_id__members_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/stats/dashboard": {
         parameters: {
             query?: never;
@@ -1385,6 +1425,11 @@ export interface components {
             role: string;
         };
         /**
+         * InvitationStatus
+         * @enum {string}
+         */
+        InvitationStatus: "pending" | "accepted" | "revoked" | "expired";
+        /**
          * JoinPendingResponse
          * @description 202: the app needs a staff decision (`join_policy = approval`).
          */
@@ -1679,6 +1724,95 @@ export interface components {
             status: components["schemas"]["OrganizationStatus"];
         };
         /**
+         * OrgInvitationRead
+         * @description Staff view of one invitation (USR-23). No invitee email, token, token hash or email HMAC.
+         */
+        OrgInvitationRead: {
+            /** Accepted At */
+            accepted_at: string | null;
+            /** Accepted By */
+            accepted_by: string | null;
+            /** App */
+            app: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Invited By */
+            invited_by: string | null;
+            /** Revoked At */
+            revoked_at: string | null;
+            /**
+             * Role Id
+             * Format: uuid
+             */
+            role_id: string;
+            /** Role Key */
+            role_key: string;
+            /** @description Computed at read time on the database clock: accepted > revoked > expired > pending. An invitation can read pending while its inviter has since lost the right to invite; accepting it is then refused. */
+            status: components["schemas"]["InvitationStatus"];
+        };
+        /**
+         * OrgMemberRead
+         * @description One org-scoped assignment with its holder (USR-23). `total` of the list counts
+         *     assignments, not distinct users: a user with two roles in the org appears twice.
+         */
+        OrgMemberRead: {
+            /**
+             * Active
+             * @description Not expired (database clock); ignores user, org and app status, so not 'effective in tokens'.
+             */
+            active: boolean;
+            /** App */
+            app: string;
+            /**
+             * Assignment Id
+             * Format: uuid
+             */
+            assignment_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             * @description When the assignment was first granted; kept when an expired assignment is re-granted in place.
+             */
+            created_at: string;
+            /** Display Name */
+            display_name: string | null;
+            /** Email */
+            email: string;
+            /** Expires At */
+            expires_at: string | null;
+            /** Granted By */
+            granted_by: string | null;
+            /**
+             * Role Id
+             * Format: uuid
+             */
+            role_id: string;
+            /** Role Key */
+            role_key: string;
+            /** Role Name */
+            role_name: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** @description Account status; disabled users are listed. */
+            user_status: components["schemas"]["UserStatus"];
+        };
+        /**
          * OrgMode
          * @enum {string}
          */
@@ -1815,6 +1949,28 @@ export interface components {
         Page_MyOrgRead_: {
             /** Items */
             items: components["schemas"]["MyOrgRead"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[OrgInvitationRead] */
+        Page_OrgInvitationRead_: {
+            /** Items */
+            items: components["schemas"]["OrgInvitationRead"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[OrgMemberRead] */
+        Page_OrgMemberRead_: {
+            /** Items */
+            items: components["schemas"]["OrgMemberRead"][];
             /** Limit */
             limit: number;
             /** Offset */
@@ -5554,6 +5710,154 @@ export interface operations {
             };
             /** @description Missing permission */
             403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    list_org_invitations_api_v1_organizations__org_id__invitations_get: {
+        parameters: {
+            query?: {
+                /** @description Only invitations with this status. */
+                status?: components["schemas"]["InvitationStatus"] | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_OrgInvitationRead_"];
+                };
+            };
+            /** @description Missing or invalid Bearer token */
+            401: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Missing permission */
+            403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Organization not found */
+            404: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            422: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    list_org_members_api_v1_organizations__org_id__members_get: {
+        parameters: {
+            query?: {
+                /** @description Only roles of this app key. */
+                app?: string | null;
+                /** @description true: not expired; false: expired; omitted: all rows. */
+                active?: boolean | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_OrgMemberRead_"];
+                };
+            };
+            /** @description Missing or invalid Bearer token */
+            401: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Missing permission */
+            403: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Organization not found */
+            404: {
                 headers: {
                     /** @description Server-generated request id (UUID4); quote it to support. */
                     "X-Request-ID"?: string;
