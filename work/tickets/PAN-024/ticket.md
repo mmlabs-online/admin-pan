@@ -23,4 +23,5 @@ PAN-001
 - [ ] Dates/numbers formatted for the chosen locale
 
 ## Notes / answers from owner
+- 2026-11-26 (owner, Q3): UI language is English.
 - Blocked on spec §8 Q3.
