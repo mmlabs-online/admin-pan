@@ -7,7 +7,7 @@
 | Areas | ui |
 | Attempts | 0 |
 | Created | 2026-11-11 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/36 |
 
 ## Goal
 Apply the owner's choice of UI language (Vietnamese, English or both with a switcher).
