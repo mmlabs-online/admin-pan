@@ -111,6 +111,24 @@ export default defineConfig(
     },
   },
   {
+    files: ['src/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            'CallExpression[callee.property.name=/^toLocale(Date|Time)?String$/]',
+          message:
+            'Format dates/numbers with @/lib/format (APP_LOCALE, PAN-024)',
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/lib/format.ts'],
+    rules: { 'no-restricted-syntax': 'off' },
+  },
+  {
     // test-utils builds real auth clients
     files: ['src/test-utils/**'],
     rules: {
@@ -145,6 +163,7 @@ export default defineConfig(
       'no-restricted-imports': 'off',
       'no-restricted-globals': 'off',
       'no-restricted-properties': 'off',
+      'no-restricted-syntax': 'off',
     },
   }
 )

@@ -117,11 +117,11 @@ API: **org-admin-api ADM-006** (backlog).
 
 - [x] Q1. Stack — **answered 2026-11-11:** build on the satnaing/shadcn-admin template (React + Vite + TanStack + shadcn/ui).
 - [x] Q2. Hostname — **answered 2026-11-16:** `admin-portal.mmlabs.online`.
-- [ ] Q3. UI language: Vietnamese, English, or both?
-- [ ] Q4. Design reference: a Figma file, or design in code from a brief (like stoktok)?
-- [ ] Q5. Order of screens after sign-in (proposal: users → organizations → apps/roles → audit → entitlements).
-- [ ] Q6. 2FA for staff (org-admin-api OQ3) — does the UI need a second-factor step in v1?
-- [ ] Q7. "Reports management": the mock (PAN-007) lets staff define, run and download operational reports (sign-ups, active users, app memberships, org overview, audit activity). Is that the intended scope? It needs a reports API in org-admin-api.
+- [x] Q3. **answered 2026-11-26:** English. (Question: UI language: Vietnamese, English, or both?)
+- [x] Q4. **answered 2026-11-26:** design in code from a brief (shadcn-admin template, like stoktok); no Figma. (Question: Design reference: a Figma file, or design in code from a brief (like stoktok)?)
+- [x] Q5. **answered 2026-11-26:** as proposed — users → organizations → apps/roles → audit → entitlements. (Question: Order of screens after sign-in.)
+- [x] Q6. **answered 2026-11-26:** yes, a mandatory second-factor step for staff in v1. Needs org-admin-api support first (OQ3; no ticket there yet), then an admin-pan ticket. (Question: 2FA for staff (org-admin-api OQ3) — does the UI need a second-factor step in v1?)
+- [x] Q7. **answered 2026-11-26:** keep the PAN-007 scope (define, run, download). Conflicts with org-admin-api ADM-017, which is BLOCKED as "out of v1" there — needs ADM-017 unblocked before PAN-021. (Question: "Reports management": the mock (PAN-007) lets staff define, run and download operational reports (sign-ups, active users, app memberships, org overview, audit activity). Is that the intended scope? It needs a reports API in org-admin-api.
 - [x] Q8. **answered 2026-11-25:** role assignments only; expired assignments hidden in the list. (Question: Users list "access" (§5.2.1): does it mean role assignments only (app + role + scope), or also app memberships the user has without a role (joined apps)? And should expired assignments be hidden (proposal: hide; the detail sheet shows them)?)
 - [x] Q9. **answered 2026-11-25:** (A) bulk endpoint in org-admin-api; per-user results, already-assigned = unchanged. (Question: Bulk assign (§5.2.2): (A) wait for a bulk endpoint in org-admin-api (recommended: one request, server-side per-user results and audit), or (B) ship now with a sequential per-user loop and a per-account result report, then switch to (A) later? If (A): all-or-nothing, or per-user results (proposal: per-user results, already-assigned counts as unchanged, not as an error)?)
 - [x] Q10. **answered 2026-11-25:** disabled users allowed with a warning; no `admin` app roles in bulk; 100 per run. (Question: Bulk assign targets: may it include **disabled** users (proposal: allowed, warned in the confirmation — the API decides), and may it assign **`admin:super-admin`** or other `admin` app roles in bulk (proposal: not in bulk; one by one only)? Is 100 accounts per run enough?)

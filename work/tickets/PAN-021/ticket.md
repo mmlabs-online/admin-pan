@@ -24,5 +24,6 @@ PAN-007, PAN-011; org-admin-api reports API (gap)
 - [ ] States tested
 
 ## Notes / answers from owner
+- 2026-11-26 (owner, Q7): keep the PAN-007 scope (define, run, download reports). Still blocked on org-admin-api ADM-017 (BLOCKED there, "out of v1").
 - Needs owner confirmation of the reports scope (spec §8 Q7) and an org-admin-api ticket.
 - Proposed data shape for the org-admin-api reports API is in PAN-007's mock (`src/features/reports/data/schema.ts`).

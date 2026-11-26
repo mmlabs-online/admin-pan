@@ -2,12 +2,12 @@
 
 | Field | Value |
 |---|---|
-| State | BACKLOG |
+| State | DONE |
 | Priority | P3 |
 | Areas | ui |
 | Attempts | 0 |
 | Created | 2026-11-11 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/36 |
 
 ## Goal
 Apply the owner's choice of UI language (Vietnamese, English or both with a switcher).
@@ -23,4 +23,5 @@ PAN-001
 - [ ] Dates/numbers formatted for the chosen locale
 
 ## Notes / answers from owner
+- 2026-11-26 (owner, Q3): UI language is English.
 - Blocked on spec §8 Q3.

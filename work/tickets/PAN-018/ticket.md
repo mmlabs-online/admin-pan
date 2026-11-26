@@ -24,4 +24,4 @@ PAN-014; org-admin-api USR-06
 - [ ] States tested
 
 ## Notes / answers from owner
-None yet.
+- 2026-11-26 (owner): accepted plan assumptions A1–A7 as-is (joined date = role grant date; flat rows per assignment; inviter/acceptor/granter ids hidden; page size 20; invitations default to Pending; 404 in a tab shows a message only; revoke/invite/remove are follow-up tickets).

@@ -1,5 +1,5 @@
-import { format } from 'date-fns'
 import { type ColumnDef } from '@tanstack/react-table'
+import { formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { SortButton } from '@/components/data-table/sort-button'
@@ -59,7 +59,7 @@ export const organizationsColumns: ColumnDef<Organization>[] = [
     header: ({ column }) => <SortButton column={column} title='Created at' />,
     cell: ({ row }) => (
       <time dateTime={row.original.created_at} className='text-nowrap'>
-        {format(new Date(row.original.created_at), 'MMM d, yyyy')}
+        {formatDate(row.original.created_at)}
       </time>
     ),
   },

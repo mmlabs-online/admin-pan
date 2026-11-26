@@ -1,6 +1,7 @@
 import { format } from 'date-fns'
 import { type ColumnDef } from '@tanstack/react-table'
 import { Loader2 } from 'lucide-react'
+import { formatNumber } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { DataTableColumnHeader } from '@/components/data-table'
@@ -81,7 +82,7 @@ export const reportsColumns: ColumnDef<Report>[] = [
           <time dateTime={last_run_at}>{formatDateTime(last_run_at)}</time>
           {row_count !== null && (
             <span className='block text-xs text-muted-foreground'>
-              {row_count.toLocaleString('en-US')} rows
+              {formatNumber(row_count)} rows
             </span>
           )}
         </div>
