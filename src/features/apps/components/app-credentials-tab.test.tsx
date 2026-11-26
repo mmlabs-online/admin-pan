@@ -126,8 +126,8 @@ describe('AppCredentialsTab', () => {
       .toBeVisible()
     await expect
       .element(table.getByText(/^Revoked/))
-      .toHaveTextContent('Revoked 20 Mar 2026')
-    await expect.element(table.getByText('1 Apr 2026')).toBeVisible()
+      .toHaveTextContent('Revoked Mar 20, 2026')
+    await expect.element(table.getByText('Apr 1, 2026')).toBeVisible()
     await expect.element(table.getByText('Never')).toBeVisible()
     await expect
       .element(table.getByRole('columnheader', { name: 'Last used' }))

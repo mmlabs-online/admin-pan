@@ -1,3 +1,4 @@
+import { formatDate as formatSharedDate } from '@/lib/format'
 import {
   type AppStatus,
   type JoinPolicy,
@@ -61,11 +62,7 @@ export const permissionScopeLabels: Record<PermissionScope, string> = {
 
 export function formatDate(iso: string | null): string {
   if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('en-GB', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
+  return formatSharedDate(iso)
 }
 
 // Shown on the admin app's form, sheet, status and permission dialogs; the API

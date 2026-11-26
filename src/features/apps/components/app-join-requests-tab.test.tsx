@@ -116,8 +116,10 @@ describe('AppJoinRequestsTab', () => {
     await expect.element(table.getByText('Email not verified')).toBeVisible()
     await expect.element(table.getByText('Account disabled')).toBeVisible()
     expect(table.getByText('Pending').elements()).toHaveLength(3)
-    expect(table.getByText('1 May 2026').elements()).toHaveLength(3)
-    expect(sheet.getByText('1 May 2026').first().element().tagName).toBe('TIME')
+    expect(table.getByText('May 1, 2026').elements()).toHaveLength(3)
+    expect(sheet.getByText('May 1, 2026').first().element().tagName).toBe(
+      'TIME'
+    )
   })
 
   it('a display_name that looks like HTML renders as literal text', async () => {
@@ -157,7 +159,9 @@ describe('AppJoinRequestsTab', () => {
     await userEvent.click(sheet.getByRole('combobox', { name: 'Status' }))
     await userEvent.click(screen.getByRole('option', { name: 'Approved' }))
     await expect.element(sheet.getByText(/\(by you\)/)).toBeVisible()
-    await expect.element(sheet.getByText(/2 May 2026 \(by you\)/)).toBeVisible()
+    await expect
+      .element(sheet.getByText(/May 2, 2026 \(by you\)/))
+      .toBeVisible()
     const last = new URL(listCalls(seen, 'stoktok').slice(-1)[0].url)
       .searchParams
     expect(last.get('status')).toBe('approved')

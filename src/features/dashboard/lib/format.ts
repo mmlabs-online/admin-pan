@@ -1,3 +1,5 @@
+import { APP_LOCALE, formatNumber } from '@/lib/format'
+
 const MONTH = /^(\d{4})-(0[1-9]|1[0-2])$/
 
 /**
@@ -7,7 +9,7 @@ const MONTH = /^(\d{4})-(0[1-9]|1[0-2])$/
 export function formatMonth(month: string, style: 'full' | 'tick') {
   const m = MONTH.exec(month)
   if (!m) return month
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(APP_LOCALE, {
     month: 'short',
     year: style === 'full' ? 'numeric' : '2-digit',
     timeZone: 'UTC',
@@ -15,5 +17,5 @@ export function formatMonth(month: string, style: 'full' | 'tick') {
 }
 
 export function formatCount(n: number) {
-  return n.toLocaleString('en-US')
+  return formatNumber(n)
 }

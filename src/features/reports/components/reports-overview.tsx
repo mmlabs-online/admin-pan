@@ -8,6 +8,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { formatNumber } from '@/lib/format'
 import {
   Card,
   CardContent,
@@ -176,13 +177,13 @@ export function ReportsOverview() {
     <div className='grid gap-4 lg:grid-cols-2'>
       <ChartCard
         title='Sign-ups per week'
-        description={`New user sign-ups across all apps over the last 12 weeks (${totalSignups.toLocaleString('en-US')} total). Weeks start on the date shown (MM-DD).`}
+        description={`New user sign-ups across all apps over the last 12 weeks (${formatNumber(totalSignups)} total). Weeks start on the date shown (MM-DD).`}
         valueLabel='Sign-ups'
         data={signupsData}
       />
       <ChartCard
         title='Members per app'
-        description={`Users with a membership in each app (${totalMembers.toLocaleString('en-US')} memberships total).`}
+        description={`Users with a membership in each app (${formatNumber(totalMembers)} memberships total).`}
         valueLabel='Members'
         data={membersData}
         layout='vertical'

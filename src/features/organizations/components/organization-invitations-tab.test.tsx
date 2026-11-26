@@ -138,10 +138,10 @@ describe('OrganizationInvitationsTab', () => {
         .element(table.getByText(label, { exact: true }).first())
         .toBeVisible()
     await expect
-      .element(table.getByRole('cell', { name: /^Accepted \d/ }))
+      .element(table.getByRole('cell', { name: /^Accepted [A-Z]/ }))
       .toBeVisible()
     await expect
-      .element(table.getByRole('cell', { name: /^Revoked \d/ }))
+      .element(table.getByRole('cell', { name: /^Revoked [A-Z]/ }))
       .toBeVisible()
     expect(table.getByText('None').elements()).toHaveLength(2)
     await expect
