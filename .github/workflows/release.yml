@@ -1,4 +1,4 @@
-# A push to a branch `release/vX.Y.Z` (its commit must already be on main) releases exactly vX.Y.Z:
+# A push to a branch `release/X.Y.Z` (its commit must already be on main) releases exactly vX.Y.Z:
 # it must be new and higher than every existing vX.Y.Z tag. The workflow creates and pushes that git
 # tag, builds and pushes mingming21400/admin-pan:vX.Y.Z (static nginx image, public VITE_* values
 # baked in), smoke-tests the pushed image, then opens a pull request release/admin-pan-vX.Y.Z on
@@ -6,7 +6,7 @@
 # Merging it runs deploy-admin-pan on macbook-runner. Same flow as org-admin-api; based on
 # mmlabs-online/deployment docs/app-release.yml. Runbook: docs/deploy.md.
 #
-# GitHub Environment `release` (limited to branches release/v*) holds the secrets:
+# GitHub Environment `release` (limited to branches release/[0-9]*) holds the secrets:
 #   DOCKERHUB_USERNAME, DOCKERHUB_TOKEN  push to mingming21400/admin-pan
 #   DEPLOY_REPO_TOKEN                    fine-grained PAT on mmlabs-online/deployment only:
 #                                        Contents read/write, Pull requests read/write
@@ -17,7 +17,7 @@ name: release
 
 on:
   push:
-    branches: ['release/v*']
+    branches: ['release/[0-9]*'] # release/X.Y.Z (no v); the tag is vX.Y.Z
 
 permissions: {}
 
@@ -35,7 +35,7 @@ jobs:
   release:
     runs-on: ubuntu-24.04           # GitHub's runner: app code never runs on the home server
     timeout-minutes: 30
-    environment: release             # secrets live here, limited to release/v* branches
+    environment: release             # secrets live here, limited to release/[0-9]* branches
     permissions:
       contents: write                # push the version tag
     steps:
@@ -58,10 +58,10 @@ jobs:
           if git tag --points-at "$GITHUB_SHA" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
             echo "::error::$GITHUB_SHA is already released ($(git tag --points-at "$GITHUB_SHA" | tr '\n' ' '))"; exit 1
           fi
-          if ! [[ "$GITHUB_REF_NAME" =~ ^release/(v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$ ]]; then
-            echo "::error::branch '$GITHUB_REF_NAME' is not release/vX.Y.Z (for example release/v0.2.0)"; exit 1
+          if ! [[ "$GITHUB_REF_NAME" =~ ^release/((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$ ]]; then
+            echo "::error::branch '$GITHUB_REF_NAME' is not release/X.Y.Z (for example release/0.2.0)"; exit 1
           fi
-          TAG="${BASH_REMATCH[1]}"
+          TAG="v${BASH_REMATCH[1]}"
           if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
             echo "::error::$TAG already exists: pick a new version branch"; exit 1
           fi

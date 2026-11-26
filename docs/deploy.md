@@ -10,7 +10,7 @@ the reset-password and verify-email pages talk to the real API; `/forgot-passwor
 ## Flow
 
 ```
-push branch release/vX.Y.Z (from main) ─► release.yml (GitHub runner, Environment `release`)
+push branch release/X.Y.Z (from main) ─► release.yml (GitHub runner, Environment `release`)
                                    ├─ guards: commit on main, not yet released, strict branch name,
                                    │          version new and higher, secrets and site key set
                                    ├─ create tag vX.Y.Z
@@ -28,11 +28,11 @@ The first release has no previous one: a failed v0.1.0 ends as a red `no-previou
 
 ## Release a version
 
-Create a branch `release/vX.Y.Z` from the current `main` and push it, on GitHub (branch dropdown,
-type `release/v0.1.0`, "Create branch from main") or:
+Create a branch `release/X.Y.Z` from the current `main` and push it, on GitHub (branch dropdown,
+type `release/0.1.0`, "Create branch from main") or:
 
 ```bash
-git fetch origin && git push origin origin/main:refs/heads/release/v0.1.0
+git fetch origin && git push origin origin/main:refs/heads/release/0.1.0
 ```
 
 Never commit to a release branch. The tag is pushed first, so a failed run still uses up its
@@ -72,7 +72,7 @@ Values come from your own accounts; none are written in this repo.
 
 1. Docker Hub: create the repository `mingming21400/admin-pan`, **public**.
 2. This repo, Settings, Environments: create `release`. Deployment branches: selected branches,
-   pattern `release/v*`. A required reviewer is optional. Add these Environment secrets:
+   pattern `release/[0-9]*`. A required reviewer is optional. Add these Environment secrets:
    `DOCKERHUB_USERNAME`; `DOCKERHUB_TOKEN` (Docker Hub access token with Read & Write, not Admin);
    `DEPLOY_REPO_TOKEN` (fine-grained PAT on `mmlabs-online/deployment` only: Contents read/write,
    Pull requests read/write, with an expiry date). Note that this token can read every committed
@@ -82,7 +82,7 @@ Values come from your own accounts; none are written in this repo.
    secret org-admin-api holds (`ORG_ADMIN_TURNSTILE_SECRET_KEY` in the deployment repo's
    `org-admin-api` Environment), copied from the Cloudflare dashboard. Release refuses an empty key
    or a test key (`1x...`, `2x...`, `3x...`).
-4. Optional: repository rulesets so only you can create `release/v*` branches and `v*` tags.
+4. Optional: repository rulesets so only you can create `release/[0-9]*` branches and `v*` tags.
 5. Merge the deployment PR "admin-pan setup". deploy-admin-pan runs and skips with "No
    apps/admin-pan/release.env yet".
 6. Merge the deployment PR that adds `admin-portal.mmlabs.online` to org-admin-api
@@ -95,7 +95,7 @@ Values come from your own accounts; none are written in this repo.
    2026-11-16). For this hostname keep Rocket Loader, Email Obfuscation, automatic Web Analytics
    injection and Zaraz **off** (they inject inline scripts the CSP blocks), and add no "Cache
    Everything" rule.
-9. After the PAN-022 PR is merged: push `release/v0.1.0`, merge the release PR it opens in the
+9. After the PAN-022 PR is merged: push `release/0.1.0`, merge the release PR it opens in the
    deployment repo, and check `https://admin-portal.mmlabs.online/healthz`.
 10. Register the origin (next section).
 
