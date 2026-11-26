@@ -4,6 +4,8 @@ import { userEvent } from 'vitest/browser'
 import { ORGS } from './test-data'
 import {
   entitlementCalls,
+  invitationCalls,
+  memberCalls,
   orgsServer,
   renderOrganizations,
   renderOrgSheet,
@@ -17,7 +19,7 @@ const detailCalls = (seen: Request[], id: string) =>
 const ACME = ORGS[0]
 
 describe('OrganizationDetailSheet', () => {
-  it('View opens the sheet: title name + slug; Overview shows slug, status text, description or "No description", created; GET /organizations/{id} is sent; tabs are Overview and Entitlements', async () => {
+  it('View opens the sheet: title name + slug; Overview shows slug, status text, description or "No description", created; GET /organizations/{id} is sent; tabs are Overview, Members, Invitations and Entitlements', async () => {
     const { client, seen } = fakeApi(orgsServer(() => json({})))
     const screen = await renderOrganizations(client)
     await userEvent.click(
@@ -31,7 +33,12 @@ describe('OrganizationDetailSheet', () => {
     expect(
       (sheet.element() as HTMLElement).querySelectorAll('time')
     ).toHaveLength(1)
-    expect(sheet.getByRole('tab').elements()).toHaveLength(2)
+    expect(
+      sheet
+        .getByRole('tab')
+        .elements()
+        .map((t) => t.textContent)
+    ).toEqual(['Overview', 'Members', 'Invitations', 'Entitlements'])
     await expect
       .element(sheet.getByRole('tab', { name: 'Entitlements' }))
       .toBeVisible()
@@ -94,6 +101,39 @@ describe('OrganizationDetailSheet', () => {
       screen.getByRole('tab', { name: 'Entitlements' }).elements()
     ).toHaveLength(0)
     expect(entitlementCalls(seen, ACME.id)).toHaveLength(0)
+  })
+
+  it('granted admin:organizations:read only: Members tab absent and no …/members request; Invitations tab present and loads', async () => {
+    const { client, seen } = fakeApi(orgsServer(() => json({})))
+    const screen = await renderOrgSheet(client, {
+      granted: ['admin:organizations:read'],
+    })
+    await expect
+      .element(screen.getByRole('tab', { name: 'Overview' }))
+      .toBeVisible()
+    expect(
+      screen.getByRole('tab', { name: 'Members' }).elements()
+    ).toHaveLength(0)
+    await userEvent.click(screen.getByRole('tab', { name: 'Invitations' }))
+    await expect.poll(() => invitationCalls(seen, ACME.id).length).toBe(1)
+    expect(memberCalls(seen, ACME.id)).toHaveLength(0)
+  })
+
+  it('granted admin:organizations:read + admin:users:read: both tabs; a 403 on …/invitations shows ForbiddenPanel in Invitations while Members still lists rows', async () => {
+    const { client } = fakeApi(
+      orgsServer(() => json({}), {
+        invitations: () => apiError(403, 'permission_denied'),
+      })
+    )
+    const screen = await renderOrgSheet(client, {
+      granted: ['admin:organizations:read', 'admin:users:read'],
+    })
+    await userEvent.click(screen.getByRole('tab', { name: 'Invitations' }))
+    await expect
+      .element(screen.getByRole('alert'))
+      .toHaveTextContent("You don't have permission to do this")
+    await userEvent.click(screen.getByRole('tab', { name: 'Members' }))
+    await expect.element(screen.getByText('grace@example.com')).toBeVisible()
   })
 
   it("closing the sheet returns focus to that row's View button (not body)", async () => {

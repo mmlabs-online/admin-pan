@@ -1,5 +1,6 @@
 import { type components } from '@/api'
 import { type Entitlement } from '../data/entitlement-schema'
+import { type OrgInvitation, type OrgMember } from '../data/members'
 import { type Organization } from '../data/schema'
 
 export const ORGS: Organization[] = [
@@ -89,6 +90,108 @@ export const entitlementsPage = (
   items: Entitlement[],
   total = items.length
 ) => ({ items, total, limit: 100, offset: 0 })
+
+const member = (over: Partial<OrgMember>): OrgMember => ({
+  assignment_id: 'a1a1a1a1-1111-4111-8111-000000000001',
+  user_id: 'bbbbbbbb-1111-4111-8111-000000000001',
+  email: 'ada@example.com',
+  display_name: 'Ada Lovelace',
+  user_status: 'active',
+  app: 'calechip',
+  role_id: 'c1c1c1c1-1111-4111-8111-000000000001',
+  role_key: 'admin',
+  role_name: 'Administrator',
+  granted_by: null,
+  created_at: '2026-02-01T10:00:00.000Z',
+  expires_at: null,
+  active: true,
+  ...over,
+})
+
+/** Role assignments by org id. Acme: Ada twice, a disabled user without a name, one expired row. */
+export const MEMBERS: Record<string, OrgMember[]> = {
+  [ACME]: [
+    member({}),
+    member({
+      assignment_id: 'a1a1a1a1-1111-4111-8111-000000000002',
+      role_id: 'c1c1c1c1-1111-4111-8111-000000000002',
+      role_key: 'member',
+      role_name: 'Member',
+    }),
+    member({
+      assignment_id: 'a1a1a1a1-1111-4111-8111-000000000003',
+      user_id: 'bbbbbbbb-2222-4222-8222-000000000002',
+      email: 'grace@example.com',
+      display_name: null,
+      user_status: 'disabled',
+      app: 'stoktok',
+      role_key: 'viewer',
+      role_name: 'Viewer',
+      expires_at: '2026-03-01T10:00:00.000Z',
+      active: false,
+    }),
+  ],
+  [GLOBEX]: [],
+  [ORGS[2].id]: [],
+}
+
+/** A `Page<OrgMemberRead>` body. */
+export const membersPage = (
+  items: OrgMember[],
+  total = items.length,
+  limit = 20,
+  offset = 0
+) => ({ items, total, limit, offset })
+
+const invitation = (over: Partial<OrgInvitation>): OrgInvitation => ({
+  id: 'd1d1d1d1-1111-4111-8111-000000000001',
+  app: 'calechip',
+  role_id: 'c1c1c1c1-1111-4111-8111-000000000002',
+  role_key: 'member',
+  invited_by: null,
+  created_at: '2026-04-01T10:00:00.000Z',
+  expires_at: '2026-04-08T10:00:00.000Z',
+  accepted_at: null,
+  accepted_by: null,
+  revoked_at: null,
+  status: 'pending',
+  ...over,
+})
+
+/** Invitations by org id. Acme: one per status. */
+export const INVITATIONS: Record<string, OrgInvitation[]> = {
+  [ACME]: [
+    invitation({}),
+    invitation({
+      id: 'd1d1d1d1-1111-4111-8111-000000000002',
+      role_key: 'admin',
+      accepted_at: '2026-04-02T10:00:00.000Z',
+      status: 'accepted',
+    }),
+    invitation({
+      id: 'd1d1d1d1-1111-4111-8111-000000000003',
+      app: 'stoktok',
+      role_key: 'viewer',
+      revoked_at: '2026-04-03T10:00:00.000Z',
+      status: 'revoked',
+    }),
+    invitation({
+      id: 'd1d1d1d1-1111-4111-8111-000000000004',
+      role_key: 'owner',
+      status: 'expired',
+    }),
+  ],
+  [GLOBEX]: [],
+  [ORGS[2].id]: [],
+}
+
+/** A `Page<OrgInvitationRead>` body. */
+export const invitationsPage = (
+  items: OrgInvitation[],
+  total = items.length,
+  limit = 20,
+  offset = 0
+) => ({ items, total, limit, offset })
 
 type AppRead = components['schemas']['AppRead']
 let appCount = 0

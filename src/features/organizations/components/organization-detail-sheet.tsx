@@ -20,6 +20,8 @@ import { organizationQueryOptions } from '../api/queries'
 import { organizationStatuses, statusBadgeClasses } from '../data/data'
 import { type Organization } from '../data/schema'
 import { OrganizationEntitlementsTab } from './organization-entitlements-tab'
+import { OrganizationInvitationsTab } from './organization-invitations-tab'
+import { OrganizationMembersTab } from './organization-members-tab'
 import { useOrganizations } from './organizations-provider'
 
 type OrganizationDetailSheetProps = {
@@ -40,6 +42,10 @@ export function OrganizationDetailSheet({
 }: OrganizationDetailSheetProps) {
   const { api } = useOrganizations()
   const [tab, setTab] = useState('overview')
+  const showMembers =
+    useActionPermission('organizations.viewMembers') !== 'denied'
+  const showInvitations =
+    useActionPermission('organizations.viewInvitations') !== 'denied'
   const showEntitlements = useActionPermission('entitlements.view') !== 'denied'
   const q = useQuery({
     ...organizationQueryOptions(currentRow.id, api),
@@ -63,7 +69,7 @@ export function OrganizationDetailSheet({
             {org.name} <span className='font-mono text-sm'>({org.slug})</span>
           </SheetTitle>
           <SheetDescription>
-            Organization details and product entitlements.
+            Organization details, members, invitations and product entitlements.
           </SheetDescription>
         </SheetHeader>
         {view.status === 'forbidden' ? (
@@ -89,8 +95,14 @@ export function OrganizationDetailSheet({
             onValueChange={setTab}
             className='min-h-0 flex-1 px-4 pb-4'
           >
-            <TabsList>
+            <TabsList className='h-auto flex-wrap'>
               <TabsTrigger value='overview'>Overview</TabsTrigger>
+              {showMembers && (
+                <TabsTrigger value='members'>Members</TabsTrigger>
+              )}
+              {showInvitations && (
+                <TabsTrigger value='invitations'>Invitations</TabsTrigger>
+              )}
               {showEntitlements && (
                 <TabsTrigger value='entitlements'>Entitlements</TabsTrigger>
               )}
@@ -99,6 +111,16 @@ export function OrganizationDetailSheet({
               <TabsContent value='overview'>
                 <OrganizationOverview org={org} />
               </TabsContent>
+              {showMembers && (
+                <TabsContent value='members'>
+                  <OrganizationMembersTab org={org} />
+                </TabsContent>
+              )}
+              {showInvitations && (
+                <TabsContent value='invitations'>
+                  <OrganizationInvitationsTab org={org} />
+                </TabsContent>
+              )}
               {showEntitlements && (
                 <TabsContent value='entitlements'>
                   <OrganizationEntitlementsTab org={org} />

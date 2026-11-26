@@ -16,9 +16,13 @@ import {
 import { OrganizationsTable } from './organizations-table'
 import {
   ENTITLEMENTS,
+  INVITATIONS,
+  MEMBERS,
   ORGS,
   PICKER_APPS,
   entitlementsPage,
+  invitationsPage,
+  membersPage,
   orgsPage,
 } from './test-data'
 
@@ -129,6 +133,18 @@ export const entitlementCalls = (seen: Request[], orgId: string) =>
       path(r) === `/api/v1/organizations/${orgId}/entitlements`
   )
 
+export const memberCalls = (seen: Request[], orgId: string) =>
+  seen.filter(
+    (r) =>
+      r.method === 'GET' && path(r) === `/api/v1/organizations/${orgId}/members`
+  )
+export const invitationCalls = (seen: Request[], orgId: string) =>
+  seen.filter(
+    (r) =>
+      r.method === 'GET' &&
+      path(r) === `/api/v1/organizations/${orgId}/invitations`
+  )
+
 /**
  * Fake `fetch` handler: GETs answer from the fixtures (`entitlements()` and
  * `apps()` are read per request, so a test can change what the refetch
@@ -139,6 +155,10 @@ export function orgsServer(
   opts: {
     entitlements?: (orgId: string) => (typeof ENTITLEMENTS)[string]
     apps?: () => typeof PICKER_APPS
+    /** Answers `…/{id}/members`; sees the request so it can vary by `offset`. */
+    members?: (req: Request, orgId: string) => Response
+    /** Answers `…/{id}/invitations`; sees the request so it can vary by `status`. */
+    invitations?: (req: Request, orgId: string) => Response
   } = {}
 ) {
   return (req: Request) => {
@@ -149,10 +169,29 @@ export function orgsServer(
       const items = (opts.apps ?? (() => PICKER_APPS))()
       return json({ items, total: items.length, limit: 100, offset: 0 })
     }
-    const m = /^\/api\/v1\/organizations\/([^/]+)(\/entitlements)?$/.exec(p)
+    const m =
+      /^\/api\/v1\/organizations\/([^/]+)(\/entitlements|\/members|\/invitations)?$/.exec(
+        p
+      )
     const org = ORGS.find((o) => o.id === m?.[1])
     if (!m || !org) return apiError(404, 'not_found')
     if (!m[2]) return json(org)
+    if (m[2] === '/members')
+      return (
+        opts.members?.(req, org.id) ?? json(membersPage(MEMBERS[org.id] ?? []))
+      )
+    if (m[2] === '/invitations')
+      return (
+        opts.invitations?.(req, org.id) ??
+        json(
+          invitationsPage(
+            (INVITATIONS[org.id] ?? []).filter((i) => {
+              const status = new URL(req.url).searchParams.get('status')
+              return !status || i.status === status
+            })
+          )
+        )
+      )
     return json(
       entitlementsPage(
         (opts.entitlements ?? ((id) => ENTITLEMENTS[id] ?? []))(org.id)
