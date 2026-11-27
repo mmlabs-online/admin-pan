@@ -7,7 +7,7 @@
 | Areas | ui, a11y |
 | Attempts | 0 |
 | Created | 2026-11-27 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/38 |
 
 ## Goal
 Make the sign-in form's busy state accessible: focus stays on the Sign in button from the click until navigation (or returns there after an error), and screen readers hear "Signing in…". These are the two 🟡 findings of the BUG-003 a11y review.
