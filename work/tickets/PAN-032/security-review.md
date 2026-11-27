@@ -38,3 +38,41 @@ Scope: `git diff origin/main...HEAD -- src/`, which touches `src/features/auth/s
 - None new. The BUG-003 follow-ups still stand: `@mmlabs/auth-client` login should resolve after the provider state is updated, and TanStack Query devtools must stay out of production builds.
 
 Summary: no 🔴 blockers. The BUG-003 security constraints (single login, Turnstile, password cleared, safeRedirect, no PII) still hold. Two 🟡 should-fix: add `turnstileMissing` to the `onSubmit` early return, and recheck the login count later in the Turnstile Enter test.
+
+## Attempt 2
+
+## Security review: PAN-032, attempt 2 (read-only)
+
+**Scope:** I reviewed `git diff HEAD~1 -- src/` (commit 0386d0a) and the current `src/features/auth/sign-in/components/user-auth-form.tsx`.
+
+**Checks:** `pnpm typecheck` and `pnpm lint` pass. `pnpm test src/features/auth/sign-in` passes 21/21. I did not run `format:check` or `build`.
+
+### Attempt-1 findings
+- **🟡1 is fixed.** `user-auth-form.tsx:128` is now `if (busy || inFlight.current || turnstileMissing) return`. `turnstileMissing` is defined at :120 as `needsTurnstile && !turnstileToken`, before `onSubmit`. This is the fix I asked for. The `<form>` handler check at :143 (`inFlight.current || blocked`) is unchanged.
+- **🟡2 is fixed.** In `user-auth-form.test.tsx:213-221`, the login count is now checked again at three points:
+  - after `vi.waitFor(() => opts.callback)` (:216);
+  - after the token arrives and `aria-disabled` clears (:219);
+  - at the end, where the test submits with the token and waits for the count to reach exactly 2 (:220-221).
+
+  A submit that is wrongly allowed but arrives late would now very likely be caught. The test also proves that Enter works once a token is present.
+
+### Regressions
+None found. The BUG-003 constraints still hold:
+- **Single login:** `inFlight` is set at :129 and reset only at :94 (`onError`) and :124 (`sessionError`).
+- **Password cleared and Turnstile reset:** both still happen in `onSettled`.
+- **Redirect:** still only through `safeRedirect`.
+- **Logs, storage and URLs:** the diff adds no logging, storage or URL changes.
+
+### New findings
+None at 🔴 or 🟡.
+
+💭 Two notes, neither blocking:
+- **The new guard reads a value from render time, like the outer check.** `turnstileMissing` in `onSubmit` comes from the render that created the `handleSubmit(onSubmit)` closure, the same as `blocked` at :143. The check is now in `onSubmit` as BUG-003 asked, but the small window after a token reset or expiry is still possible in theory. The API still rejects that submit with `turnstile_required`, so impact is nil. If you want a check that is never out of date, keep the token in a ref and read that at :128. Optional hardening.
+- **The final count check (:221) can still pass if an extra submit lands at the wrong moment.** It waits for exactly 2, so it could pass while the count is briefly 2 before rising to 3. The earlier checks at :216 and :219 make this unlikely. Optional: after the `waitFor`, add one more short wait, then check the count is still 2.
+
+💭3 from attempt 1 (a caller's `onSubmit` overriding the form handler through `{...props}`) is unchanged. It was already there before this ticket and is hardening only.
+
+### Follow-ups
+None new.
+
+**Summary:** both 🟡 items from attempt 1 are fixed (guard at user-auth-form.tsx:128; extra count checks at user-auth-form.test.tsx:216/219/221), with no regressions and no 🔴 or 🟡 findings, so security PASS.
