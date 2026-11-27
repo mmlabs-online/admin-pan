@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -61,7 +61,9 @@ export function UserAuthForm({
   ...props
 }: UserAuthFormProps) {
   const navigate = useNavigate()
-  const { login } = useAuth()
+  const { login, reload, status } = useAuth()
+  const [signedIn, setSignedIn] = useState(false)
+  const navigated = useRef(false)
   const [needsTurnstile, setNeedsTurnstile] = useState(false)
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
   const turnstile = useRef<TurnstileHandle>(null)
@@ -76,16 +78,21 @@ export function UserAuthForm({
     retry: false,
     gcTime: 0,
     meta: { handlesOwnErrors: true },
-    mutationFn: (v: {
+    mutationFn: async (v: {
       email: string
       password: string
       turnstileToken?: string
-    }) => login(v),
+    }) => {
+      await login(v)
+      // login() resolves before the provider's state catches up; wait for it
+      // so the guard does not bounce us back to /sign-in (BUG-003).
+      await reload()
+    },
     onError: (e) => {
       if (authFailure(e).kind === 'turnstile_required') setNeedsTurnstile(true)
     },
     onSuccess: () => {
-      void navigate({ href: safeRedirect(redirectTo), replace: true })
+      setSignedIn(true)
     },
     onSettled: () => {
       form.resetField('password')
@@ -94,7 +101,23 @@ export function UserAuthForm({
     },
   })
 
+  // Navigate once, on the committed auth status. ready / needs-account / error
+  // are rendered by AuthGate at the target (target, picker, retry).
+  useEffect(() => {
+    if (!signedIn || status === 'signed-out' || status === 'loading') return
+    if (!navigated.current) {
+      navigated.current = true
+      void navigate({ href: safeRedirect(redirectTo), replace: true })
+    }
+  }, [signedIn, status, navigate, redirectTo])
+
+  // signed-out after a successful login: stay here with an alert, no loop
+  const sessionError = signedIn && status === 'signed-out'
+  const busy = mutation.isPending || (signedIn && !sessionError)
+
   function onSubmit(data: z.infer<typeof formSchema>) {
+    if (busy) return
+    setSignedIn(false)
     mutation.mutate({
       ...data,
       ...(needsTurnstile && turnstileToken ? { turnstileToken } : {}),
@@ -151,21 +174,19 @@ export function UserAuthForm({
         {needsTurnstile && (
           <Turnstile ref={turnstile} onToken={setTurnstileToken} />
         )}
-        {mutation.isError && (
+        {(mutation.isError || sessionError) && (
           <p role='alert' className='text-sm text-destructive'>
-            {messageFor(mutation.error)}
+            {mutation.isError
+              ? messageFor(mutation.error)
+              : 'Could not start your session. Please try again.'}
           </p>
         )}
         <Button
           className='mt-2'
-          disabled={mutation.isPending || (needsTurnstile && !turnstileToken)}
-          aria-busy={mutation.isPending}
+          disabled={busy || (needsTurnstile && !turnstileToken)}
+          aria-busy={busy}
         >
-          {mutation.isPending ? (
-            <Loader2 className='animate-spin' />
-          ) : (
-            <LogIn />
-          )}
+          {busy ? <Loader2 className='animate-spin' /> : <LogIn />}
           Sign in
         </Button>
       </form>
