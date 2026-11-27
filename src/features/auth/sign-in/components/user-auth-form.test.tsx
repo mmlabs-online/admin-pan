@@ -154,15 +154,67 @@ describe('UserAuthForm', () => {
       .toHaveTextContent('Complete the verification, then sign in again.')
     await vi.waitFor(() => expect(widget.render).toHaveBeenCalled())
     await userEvent.fill(t.password, PASSWORD)
-    await expect.element(t.submit).toBeDisabled()
+    await expect.element(t.submit).toHaveAttribute('aria-disabled', 'true')
     opts.callback?.('ts-token')
-    await expect.element(t.submit).toBeEnabled()
+    await expect.element(t.submit).not.toHaveAttribute('aria-disabled')
     await userEvent.click(t.submit)
     await vi.waitFor(() => expect(t.router.state.location.pathname).toBe('/'))
     const logins = t.api.calls.filter((c) => c.path === '/api/v1/auth/login')
     expect(logins[0].body).not.toHaveProperty('turnstile_token')
     expect(logins[1].body).toMatchObject({ turnstile_token: 'ts-token' })
     expect(widget.reset).toHaveBeenCalledWith('w1')
+  })
+
+  it('invalid_credentials: focus stays on the button, status empties, Enter retries', async () => {
+    const t = await setup({
+      login: () => envelope(401, 'invalid_credentials'),
+    })
+    await t.signIn()
+    await expect.element(t.screen.getByRole('alert')).toBeVisible()
+    await expect.element(t.submit).toHaveFocus()
+    await expect.element(t.submit).not.toHaveAttribute('aria-disabled')
+    await expect.element(t.screen.getByRole('status')).toHaveTextContent('')
+    await userEvent.fill(t.password, PASSWORD)
+    ;(t.submit.element() as HTMLElement).focus()
+    await userEvent.keyboard('{Enter}')
+    await vi.waitFor(() => expect(t.api.count(LOGIN)).toBe(2))
+  })
+
+  it('rate_limited: focus stays on the button after the alert', async () => {
+    const t = await setup({
+      login: () =>
+        envelope(429, 'rate_limited', null, { 'Retry-After': '120' }),
+    })
+    await t.signIn()
+    await expect.element(t.screen.getByRole('alert')).toBeVisible()
+    await expect.element(t.submit).toHaveFocus()
+  })
+
+  it('turnstile_required: focus stays on the aria-disabled button; Enter submits nothing until a token arrives', async () => {
+    vi.stubEnv('VITE_TURNSTILE_SITE_KEY', 'site')
+    const opts: { callback?: (t: string) => void } = {}
+    load.mockResolvedValue({
+      render: vi.fn((_el: HTMLElement, o: typeof opts) => {
+        Object.assign(opts, o)
+        return 'w1'
+      }),
+      reset: vi.fn(),
+      remove: vi.fn(),
+    })
+    const t = await setup({
+      login: () => envelope(403, 'turnstile_required'),
+    })
+    await t.signIn()
+    await expect.element(t.screen.getByRole('alert')).toBeVisible()
+    await expect.element(t.submit).toHaveFocus()
+    await expect.element(t.submit).toHaveAttribute('aria-disabled', 'true')
+    await userEvent.fill(t.password, PASSWORD)
+    ;(t.submit.element() as HTMLElement).focus()
+    await userEvent.keyboard('{Enter}')
+    expect(t.api.count(LOGIN)).toBe(1)
+    await vi.waitFor(() => expect(opts.callback).toBeDefined())
+    opts.callback?.('ts-token')
+    await expect.element(t.submit).not.toHaveAttribute('aria-disabled')
   })
 
   it('rate_limited shows the wait time', async () => {
@@ -274,14 +326,62 @@ describe('UserAuthForm (behind AuthGate)', () => {
     expect(t.api.count(LOGIN)).toBe(1)
   })
 
-  it('keeps the button disabled and aria-busy until navigation; a second click does not log in again', async () => {
+  it('keeps focus on the aria-disabled button while busy; a second click or Enter does not log in again (BUG-003)', async () => {
     const t = await gatedSetup()
     await t.signIn()
-    await expect.element(t.submit).toBeDisabled()
+    await expect.element(t.submit).toHaveAttribute('aria-disabled', 'true')
+    await expect.element(t.submit).not.toHaveAttribute('disabled')
     await expect.element(t.submit).toHaveAttribute('aria-busy', 'true')
-    await userEvent.click(t.submit, { force: true })
+    await expect.element(t.submit).toHaveFocus()
+    ;(t.submit.element() as HTMLElement).click()
+    await userEvent.keyboard('{Enter}')
     await expect.element(t.screen.getByText('Protected: Users')).toBeVisible()
     expect(t.api.count(LOGIN)).toBe(1)
+  })
+
+  it('Enter in the password field while busy submits nothing and shows no validation message', async () => {
+    const t = await gatedSetup()
+    await userEvent.fill(t.email, EMAIL)
+    await userEvent.fill(t.password, PASSWORD)
+    await userEvent.click(t.password)
+    await userEvent.keyboard('{Enter}')
+    await expect.element(t.submit).toHaveAttribute('aria-busy', 'true')
+    await userEvent.keyboard('{Enter}')
+    expect(t.screen.getByText('Please enter your password.').query()).toBe(null)
+    await expect.element(t.screen.getByText('Protected: Users')).toBeVisible()
+    expect(t.api.count(LOGIN)).toBe(1)
+  })
+
+  it('status region exists empty before submit and says Signing in… while busy', async () => {
+    const t = await gatedSetup()
+    const status = t.screen.getByRole('status')
+    await expect.element(status).toHaveTextContent('')
+    await t.signIn()
+    await expect.element(status).toHaveTextContent('Signing in…')
+  })
+
+  it('spinner is aria-hidden while busy', async () => {
+    const t = await gatedSetup()
+    await t.signIn()
+    await expect.element(t.submit).toHaveAttribute('aria-busy', 'true')
+    expect(
+      t.submit.element().querySelector('svg')?.getAttribute('aria-hidden')
+    ).toBe('true')
+  })
+
+  it('session error: focus stays on the button; Enter retries', async () => {
+    const t = await gatedSetup({
+      postLogin: () => envelope(401, 'session_invalid'),
+    })
+    await t.signIn()
+    await expect.element(t.screen.getByRole('alert')).toBeVisible()
+    await expect.element(t.submit).toHaveFocus()
+    await expect.element(t.submit).not.toHaveAttribute('aria-disabled')
+    await expect.element(t.screen.getByRole('status')).toHaveTextContent('')
+    await userEvent.fill(t.password, PASSWORD)
+    ;(t.submit.element() as HTMLElement).focus()
+    await userEvent.keyboard('{Enter}')
+    await vi.waitFor(() => expect(t.api.count(LOGIN)).toBe(2))
   })
 
   it('signed-out after a successful login stays on the form with a generic alert, no navigation', async () => {
@@ -298,6 +398,7 @@ describe('UserAuthForm (behind AuthGate)', () => {
     expect(t.paths).not.toContain('/users')
     expect(t.api.count(LOGIN)).toBe(1)
     await expect.element(t.submit).toBeEnabled()
+    await expect.element(t.submit).not.toHaveAttribute('aria-disabled')
   })
 
   it('accounts error after login opens the target, where the gate shows retry', async () => {
