@@ -251,7 +251,10 @@ export function AppCredentialIssueDialog({
                 id='credential-issue-form'
                 noValidate
                 onSubmit={(e) =>
-                  void form.handleSubmit((values) => onIssue(values.scope))(e)
+                  void form.handleSubmit(
+                    (values) => onIssue(values.scope),
+                    () => form.setFocus('scope')
+                  )(e)
                 }
               >
                 <FormField
@@ -259,9 +262,16 @@ export function AppCredentialIssueDialog({
                   name='scope'
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Scope</FormLabel>
+                      <FormLabel>
+                        Scope
+                        <span aria-hidden='true' className='text-destructive'>
+                          *
+                        </span>
+                      </FormLabel>
                       <SelectDropdown
                         isControlled
+                        required
+                        triggerRef={field.ref}
                         defaultValue={field.value ?? ''}
                         onValueChange={field.onChange}
                         placeholder='Select a scope'
@@ -283,14 +293,11 @@ export function AppCredentialIssueDialog({
               </form>
             </Form>
             {chosen && isRuntimeScope(chosen) && (
-              <Alert>
-                <AlertDescription>
-                  Backend deploy environment only, never CI or browser code.{' '}
-                  {chosen === 'org-members:read'
-                    ? `This key can read data of every org of ${app.name}.`
-                    : `This key can read or report usage for ${app.name}.`}
-                </AlertDescription>
-              </Alert>
+              <p role='status' aria-live='polite' className='text-sm'>
+                {chosen === 'org-members:read'
+                  ? `This key can read data of every org of ${app.name}.`
+                  : `This key can read or report usage for ${app.name}.`}
+              </p>
             )}
             {alert?.kind === 'forbidden' && (
               <ForbiddenPanel variant='inline' copy={alert.copy} />

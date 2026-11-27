@@ -55,3 +55,19 @@ None beyond the plan's conditional `apps-table.test.tsx` (recorded above).
 ### Scope self-check
 - Could the diff be smaller? No; every file is listed in the plan.
 - Diff size: about +725 / -163 lines across 24 tracked files (incl. generated schema and JSON), plus this log.
+
+## Attempt 2 (REWORK: a11y finding 1 + two should-fix items)
+
+### What changed
+- `src/components/select-dropdown.tsx`: optional `triggerRef` and `required` props (forwarded to `SelectTrigger` as `ref` and `aria-required`); backward compatible, other callers unchanged.
+- `app-credential-issue-dialog.tsx`: Scope `field.ref` wired via `triggerRef`; `required` set; label shows an `aria-hidden` `*` marker (accessible name stays "Scope"); invalid submit calls `form.setFocus('scope')`; the runtime-scope warning is now a polite `role='status'` paragraph holding only the extra sentence (no duplicate of the hint).
+- ADR 0007 behaviour untouched.
+
+### Tests added / changed
+- `app-credential-issue-dialog.test.tsx` › the existing "Issue without a scope" test now also asserts focus on the Scope trigger, `aria-required`, `aria-invalid`, description contains "Select a scope.", and no POST.
+
+### Checks
+- typecheck, lint, format:check: clean
+- pnpm test: 124 files, 1028 tests passed
+- pnpm build: OK
+- pnpm e2e: 30 passed

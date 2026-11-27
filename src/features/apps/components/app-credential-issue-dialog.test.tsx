@@ -323,6 +323,8 @@ describe('AppCredentialIssueDialog', () => {
     const message = dialog.getByText('Select a scope.')
     await expect.element(message).toBeVisible()
     const el = trigger.element()
+    expect(document.activeElement).toBe(el)
+    expect(el.getAttribute('aria-required')).toBe('true')
     expect(el.getAttribute('aria-invalid')).toBe('true')
     expect(el.getAttribute('aria-describedby')).toContain(
       (message.element() as HTMLElement).id
