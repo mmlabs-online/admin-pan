@@ -83,3 +83,49 @@ None.
 - The same aria-disabled and status-region pattern on reset-password, verify-email and the other auth forms.
 - An axe/Playwright check of `/sign-in` in the busy and error states once PAN-023 lands.
 - BUG-003 a11y 💭 5: the possible stuck `loading` state with no timeout.
+
+## Attempt 2 — 2026-11-27
+Verdict: PASS
+
+Scope of this attempt: the owner asked for a rework that fixes only the two 🟡 items in security-review.md Attempt 1. Commits b21505e (ticket/backlog state) and 0386d0a (fix). The later commits 015019b and 86963a3 only add a11y/security review notes under `work/`.
+
+### Checks (run by reviewer)
+Run on `claude/zealous-turing-4o04h1` with `PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium`.
+- pnpm typecheck: ok
+- pnpm lint: ok
+- pnpm format:check: ok ("All matched files use Prettier code style!")
+- pnpm test: 124 files and 1016 tests passed. This matches impl-log Attempt 2.
+- pnpm build: ok ("built in 943ms")
+- pnpm e2e: not planned
+
+The flaky run mentioned in the impl-log is in `src/features/roles/components/role-permissions-dialog.test.tsx`. It is unrelated to this change: no commit on the branch touches `src/features/roles/`, nothing in that folder imports the sign-in code, it passed in my full run, and it passed 3 out of 3 isolated reruns (19/19 each time).
+
+### Rework items (security-review.md Attempt 1)
+- [x] **🟡 1. `onSubmit` checks for a missing Turnstile token.**
+  - Code: `src/features/auth/sign-in/components/user-auth-form.tsx:128` is now `if (busy || inFlight.current || turnstileMissing) return`. `turnstileMissing` is defined at :120, before the function.
+  - Mutation check, run in a throwaway worktree that was removed afterwards. I removed only the form-level `blocked` check (:143) and kept the new guard: all 21 sign-in tests still pass. So the `onSubmit` guard alone blocks the Turnstile submit.
+- [x] **🟡 2. The Turnstile regression test can no longer pass when the bug returns.**
+  - Code: `user-auth-form.test.tsx:216`, `:219` and `:221`. The login count is checked again after the widget callback is registered and after the token arrives. Then Enter is pressed and the test waits for the count to reach 2.
+  - Mutation check: with both Turnstile checks removed (form-level and `onSubmit`), "turnstile_required: … Enter submits nothing until a token arrives" fails (1 failed, 20 passed). So the test is not vacuous.
+
+### Acceptance criteria
+AC1–AC5 are unchanged from Attempt 1, and their evidence still holds: all 21 sign-in tests pass and the full suite is green. The rework only adds one guard condition and three assertions.
+
+### Scope (R7)
+`git diff 1fe1509..HEAD -- src` shows only 2 source files: `user-auth-form.tsx` (one line) and `user-auth-form.test.tsx` (+4 lines). The rest are ticket, backlog, impl-log and review files under `work/`. There are no new dependencies and nothing outside the two 🟡 items.
+
+### Issues
+None.
+
+### Rules R1–R11
+No violations found.
+
+### Security / a11y blockers
+None. security-review.md Attempt 2 reports no 🔴 or 🟡 findings, and a11y-review.md Attempt 2 reports no 🔴 or 🟡 findings.
+
+### Nits (do not block)
+- 💭 `user-auth-form.test.tsx:221`: `vi.waitFor(() => count === 2)` passes as soon as the count reaches 2, so it would not catch a late third request. A final `expect(t.api.count(LOGIN)).toBe(2)` after a later await (for example the redirect target) would assert "exactly 2".
+- 💭 Security 💭 3 from Attempt 1 (caller `onSubmit` overriding the guard via `{...props}`) remains as optional hardening.
+
+### Follow-ups (out of scope)
+- As in Attempt 1.
