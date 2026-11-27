@@ -49,7 +49,7 @@ Phases: **1. UI with mock data** (PAN-001…008, done) → **2. Foundations** (P
 | PAN-031 | Success toasts in mutation hooks; dialog-host and test robustness | DONE | P2 | ui | 0 | 2026-11-18 |
 | BUG-001 | Session revoke copy says admin tokens stay valid up to 12 h | DONE | P1 | ui, auth | 1 | 2026-11-18 |
 | BUG-003 | First Sign in click lands back on the sign-in page; a second click is needed | DONE | P1 | ui, auth, security | 0 | 2026-11-27 |
-| PAN-032 | Sign-in form: keep focus while busy and announce "Signing in…" | REWORK | P2 | ui, a11y | 1 | 2026-11-27 |
+| PAN-032 | Sign-in form: keep focus while busy and announce "Signing in…" | REVIEW | P2 | ui, a11y | 1 | 2026-11-27 |
 | PAN-033 | Adopt an @mmlabs/auth-client whose login() resolves after the provider state is updated | BACKLOG | P3 | auth, security | 0 | 2026-11-27 |
 
 Order of work (dependencies): PAN-001 → PAN-002…008 → PAN-009 → PAN-010 → PAN-011 → PAN-013, PAN-014, PAN-015 → PAN-016 → PAN-012, PAN-019, PAN-022, PAN-023 → PAN-025 → PAN-026 → PAN-027 (after PAN-015) → PAN-019, PAN-028 → PAN-017, PAN-018, PAN-020, PAN-021, PAN-024 · PAN-029 (after PAN-014, PAN-015; org-admin-api ADM-020, USR-18) → BUG-002 → PAN-030, PAN-031 · BUG-003 → PAN-032; BUG-003 → PAN-033 (after a fixed @mmlabs/auth-client release; library ticket needed).

@@ -125,7 +125,7 @@ export function UserAuthForm({
   }, [sessionError])
 
   function onSubmit(data: z.infer<typeof formSchema>) {
-    if (busy || inFlight.current) return
+    if (busy || inFlight.current || turnstileMissing) return
     inFlight.current = true
     setSignedIn(false)
     mutation.mutate({

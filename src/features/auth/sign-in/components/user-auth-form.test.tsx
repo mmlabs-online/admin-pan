@@ -213,8 +213,12 @@ describe('UserAuthForm', () => {
     await userEvent.keyboard('{Enter}')
     expect(t.api.count(LOGIN)).toBe(1)
     await vi.waitFor(() => expect(opts.callback).toBeDefined())
+    expect(t.api.count(LOGIN)).toBe(1)
     opts.callback?.('ts-token')
     await expect.element(t.submit).not.toHaveAttribute('aria-disabled')
+    expect(t.api.count(LOGIN)).toBe(1)
+    await userEvent.keyboard('{Enter}')
+    await vi.waitFor(() => expect(t.api.count(LOGIN)).toBe(2))
   })
 
   it('rate_limited shows the wait time', async () => {

@@ -28,3 +28,13 @@ Focus/aria-disabled while busy; Enter in password while busy; status region text
 
 ### Follow-ups
 As in plan.md (other auth forms, axe e2e after PAN-023).
+
+## Attempt 2 (REWORK, owner request: two 🟡 items from security-review.md)
+
+### Touched files
+- src/features/auth/sign-in/components/user-auth-form.tsx: `onSubmit` early return now also checks `turnstileMissing`.
+- src/features/auth/sign-in/components/user-auth-form.test.tsx: in "turnstile_required: … Enter submits nothing until a token arrives" the login count is re-checked (1) after the widget callback is registered and after the token arrives, then Enter is pressed and exactly 2 logins are asserted.
+
+### Checks
+- pnpm typecheck: ok; pnpm lint: ok; pnpm format:check: ok; pnpm build: ok
+- pnpm test: 124 files, 1016 tests passed (one earlier run had an unrelated flaky failure in role-permissions-dialog.test.tsx; passed on rerun).
