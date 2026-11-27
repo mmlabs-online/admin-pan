@@ -2,10 +2,10 @@
 
 | Field | Value |
 |---|---|
-| State | DONE |
+| State | REWORK |
 | Priority | P2 |
 | Areas | ui, a11y |
-| Attempts | 0 |
+| Attempts | 1 |
 | Created | 2026-11-27 |
 | PR | https://github.com/mmlabs-online/admin-pan/pull/38 |
 
@@ -28,3 +28,4 @@ BUG-003 (PR #37, merged first).
 ## Notes / answers from owner
 - 2026-11-27 (owner): create a ticket for the two BUG-003 a11y follow-ups.
 - Source: `work/tickets/BUG-003/a11y-review.md` (Attempt 1, findings 🟡 1 and 🟡 2). The same pattern on the other auth forms (reset-password, verify-email) is out of scope here.
+- 2026-11-27 (owner): fix the two 🟡 items from security-review.md Attempt 1 in this PR (#38).
