@@ -9,12 +9,15 @@ import {
 } from '@tanstack/react-router'
 import {
   ACCOUNT_A,
+  ACCOUNT_B,
   PASSWORD,
   createTestAuthClient,
   envelope,
   fakeIdentityApi,
   json,
   memoryStorage,
+  renderWithAuth,
+  row,
   type Handler,
 } from '@/test-utils/auth'
 import { AuthProvider } from '@mmlabs/auth-client/react'
@@ -132,12 +135,17 @@ describe('UserAuthForm', () => {
       remove: vi.fn(),
     }
     load.mockResolvedValue(widget)
-    const ok: Handler = () =>
-      json(200, {
+    // eslint-disable-next-line prefer-const -- assigned after the handlers exist
+    let t: Awaited<ReturnType<typeof setup>>
+    const ok: Handler = () => {
+      // a real login leaves a session, which the post-login reload lists
+      t.api.state.accounts = [row(ACCOUNT_A, EMAIL)]
+      return json(200, {
         account_id: ACCOUNT_A,
         user: { id: 'u', email: EMAIL, email_verified: true },
       })
-    const t = await setup({
+    }
+    t = await setup({
       login: [() => envelope(403, 'turnstile_required'), ok],
     })
     await t.signIn()
@@ -202,5 +210,140 @@ describe('UserAuthForm', () => {
     await userEvent.fill(t.password, '1')
     await userEvent.click(t.submit)
     await vi.waitFor(() => expect(t.router.state.location.pathname).toBe('/'))
+  })
+})
+
+describe('UserAuthForm (behind AuthGate)', () => {
+  const ACCOUNTS = 'GET /api/v1/auth/accounts'
+
+  async function gatedSetup({
+    postLogin,
+    accounts,
+    login,
+    storage,
+    path = '/users',
+  }: {
+    postLogin?: Handler
+    accounts?: ReturnType<typeof row>[]
+    login?: Handler
+    storage?: Record<string, string>
+    path?: string
+  } = {}) {
+    const api = fakeIdentityApi({
+      accounts,
+      routes: login ? { [LOGIN]: login } : {},
+    })
+    const base = api.routes[ACCOUNTS] as Handler
+    api.routes[ACCOUNTS] = async (c) => {
+      // delay only the listings made after login
+      if (api.count(LOGIN) === 0) return base(c)
+      await new Promise((r) => setTimeout(r, 150))
+      return (postLogin ?? base)(c)
+    }
+    const client = createTestAuthClient(api, {
+      storage: memoryStorage(storage).storage,
+    })
+    const { screen, router } = await renderWithAuth({
+      client,
+      path,
+      signInPage: ({ redirect }) => <UserAuthForm redirectTo={redirect} />,
+    })
+    const paths: string[] = []
+    router.subscribe('onResolved', (e) => paths.push(e.toLocation.pathname))
+    const email = screen.getByRole('textbox', { name: /^Email$/i })
+    const password = screen.getByLabelText(/^Password$/i)
+    const submit = screen.getByRole('button', { name: /^Sign in$/i })
+    async function signIn() {
+      await userEvent.fill(email, EMAIL)
+      await userEvent.fill(password, PASSWORD)
+      await userEvent.click(submit)
+    }
+    return { api, router, screen, paths, email, password, submit, signIn }
+  }
+
+  it('one sign-in reaches the protected redirect target without bouncing to /sign-in (BUG-003)', async () => {
+    const t = await gatedSetup()
+    await expect.element(t.submit).toBeVisible()
+    expect(t.router.state.location.pathname).toBe('/sign-in')
+    await t.signIn()
+    await expect.element(t.screen.getByText('Protected: Users')).toBeVisible()
+    expect(t.router.state.location.pathname).toBe('/users')
+    const firstUsers = t.paths.indexOf('/users')
+    expect(firstUsers).toBeGreaterThanOrEqual(0)
+    expect(t.paths.slice(firstUsers)).not.toContain('/sign-in')
+    expect(t.api.count(LOGIN)).toBe(1)
+  })
+
+  it('keeps the button disabled and aria-busy until navigation; a second click does not log in again', async () => {
+    const t = await gatedSetup()
+    await t.signIn()
+    await expect.element(t.submit).toBeDisabled()
+    await expect.element(t.submit).toHaveAttribute('aria-busy', 'true')
+    await userEvent.click(t.submit, { force: true })
+    await expect.element(t.screen.getByText('Protected: Users')).toBeVisible()
+    expect(t.api.count(LOGIN)).toBe(1)
+  })
+
+  it('signed-out after a successful login stays on the form with a generic alert, no navigation', async () => {
+    const t = await gatedSetup({
+      postLogin: () => envelope(401, 'session_invalid'),
+    })
+    await t.signIn()
+    const alert = t.screen.getByRole('alert')
+    await expect
+      .element(alert)
+      .toHaveTextContent('Could not start your session. Please try again.')
+    await expect.element(alert).not.toHaveTextContent(EMAIL)
+    expect(t.router.state.location.pathname).toBe('/sign-in')
+    expect(t.paths).not.toContain('/users')
+    expect(t.api.count(LOGIN)).toBe(1)
+    await expect.element(t.submit).toBeEnabled()
+  })
+
+  it('accounts error after login opens the target, where the gate shows retry', async () => {
+    const t = await gatedSetup({ postLogin: () => envelope(500, 'internal') })
+    await t.signIn()
+    await expect
+      .element(t.screen.getByText(/Could not reach mmlabs Identity/))
+      .toBeVisible()
+    await expect
+      .element(t.screen.getByRole('button', { name: /retry/i }))
+      .toBeVisible()
+    expect(t.router.state.location.pathname).toBe('/users')
+    expect(t.paths.slice(t.paths.indexOf('/users'))).not.toContain('/sign-in')
+  })
+
+  it('needs-account after login opens the target with the account picker', async () => {
+    const t = await gatedSetup({
+      postLogin: () => json(200, { items: [row(ACCOUNT_B, 'b@staff.test')] }),
+    })
+    await t.signIn()
+    await expect.element(t.screen.getByText(/Choose an account/)).toBeVisible()
+    expect(t.router.state.location.pathname).toBe('/users')
+    expect(t.paths.slice(t.paths.indexOf('/users'))).not.toContain('/sign-in')
+  })
+
+  it('account switch from a ready account lands as the newly signed-in account', async () => {
+    const t = await gatedSetup({
+      accounts: [row(ACCOUNT_A, 'a@staff.test')],
+      storage: { mm_account_id: ACCOUNT_A },
+      path: '/sign-in?redirect=/users',
+      login: () => {
+        t.api.state.accounts = [
+          row(ACCOUNT_A, 'a@staff.test'),
+          row(ACCOUNT_B, EMAIL),
+        ]
+        return json(200, {
+          account_id: ACCOUNT_B,
+          user: { id: ACCOUNT_A, email: EMAIL, email_verified: true },
+        })
+      },
+    })
+    await t.signIn()
+    await expect.element(t.screen.getByText('Protected: Users')).toBeVisible()
+    const tokens = t.api.calls.filter((c) => c.path === '/api/v1/auth/token')
+    expect(tokens[tokens.length - 1]?.body).toMatchObject({
+      account_id: ACCOUNT_B,
+    })
   })
 })

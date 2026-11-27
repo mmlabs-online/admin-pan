@@ -188,12 +188,15 @@ export async function renderWithAuth({
   path = '/',
   onQuery,
   extra,
+  signInPage,
 }: {
   client: AuthClient
   path?: string
   onQuery?: () => void
   /** Rendered inside the gate, next to the page (e.g. a dialog). */
   extra?: React.ReactNode
+  /** Replaces the /sign-in stub; receives the validated search. */
+  signInPage?: (search: { redirect?: string }) => React.ReactNode
 }) {
   const root = createRootRoute({ component: Outlet })
   const signIn = createRoute({
@@ -202,8 +205,16 @@ export async function renderWithAuth({
     validateSearch: (s: Record<string, unknown>) => ({
       redirect: typeof s.redirect === 'string' ? s.redirect : undefined,
     }),
-    component: () => <p>Sign-in page</p>,
+    component: () =>
+      signInPage ? <SignInPage render={signInPage} /> : <p>Sign-in page</p>,
   })
+  function SignInPage({
+    render,
+  }: {
+    render: (search: { redirect?: string }) => React.ReactNode
+  }) {
+    return <>{render(signIn.useSearch())}</>
+  }
   const layout = createRoute({
     getParentRoute: () => root,
     id: '_authenticated',
