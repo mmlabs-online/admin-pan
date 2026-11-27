@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| State | REVIEW |
+| State | DONE |
 | Priority | P1 |
 | Areas | ui, api, auth, security |
 | Attempts | 1 |
@@ -36,10 +36,10 @@ PAN-015, PAN-015b, PAN-027 (all DONE); org-admin-api ADM-034 and ADM-041 (creden
 - No change to the secret-reveal flow beyond adding the scope.
 
 ## Acceptance criteria
-- [ ] A staff user can issue an `org-members:read` credential for simap from the UI, and the credentials list shows its scope.
-- [ ] A staff user can set simap's Org owner role to `simap:admin` from the UI; the detail sheet then shows "simap:admin".
-- [ ] Every API refusal for these calls shows a specific message; nothing fails silently.
-- [ ] Tests cover scope options per app (admin vs other), the request bodies sent, the role-field PATCH diff, and the refusal-message mapping.
+- [x] A staff user can issue an `org-members:read` credential for simap from the UI, and the credentials list shows its scope.
+- [ ] (moved to PAN-034b) A staff user can set simap's Org owner role to `simap:admin` from the UI; the detail sheet then shows "simap:admin".
+- [x] (credential calls; role PATCH in PAN-034b) Every API refusal for these calls shows a specific message; nothing fails silently.
+- [x] (credential parts; role-field PATCH in PAN-034b) Tests cover scope options per app (admin vs other), the request bodies sent, the role-field PATCH diff, and the refusal-message mapping.
 
 ## Notes / answers from owner
 - 2026-11-27 (owner): ticket text provided by the owner; created as written.

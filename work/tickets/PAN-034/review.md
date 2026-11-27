@@ -67,3 +67,44 @@ None. No security-review.md or a11y-review.md was present at review time; the or
 
 ### Security / a11y blockers (added by the orchestrator)
 - 🔴 a11y-review.md Attempt 1, finding 1: submitting the issue dialog with no scope shows "Select a scope." without any announcement, and focus stays on the submit button (`field.ref` not wired to the Select trigger) — WCAG 3.3.1 / 4.1.3. This turns the PASS above into **REWORK** (orchestrator rule: a 🔴 in a11y-review.md blocks).
+
+## Attempt 2 — 2026-11-27
+Verdict: PASS
+
+### Checks (run by reviewer, PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium)
+- pnpm typecheck: clean
+- pnpm lint: clean
+- pnpm format:check: all files use Prettier code style
+- pnpm test: 124 files, 1028 tests passed (matches impl-log Attempt 2)
+- pnpm build: OK
+- pnpm e2e: 30 passed (matches impl-log Attempt 2)
+
+### Scope of the rework (git diff HEAD~1)
+Only `src/components/select-dropdown.tsx`, `app-credential-issue-dialog.tsx`, `app-credential-issue-dialog.test.tsx`, plus `work/` state/log files changed. No other source, dependency or ADR change. ADR 0007 is untouched by this attempt (its amendment is from Attempt 1, already reviewed); the reveal phase and copy-then-clear handling are unchanged.
+
+### Fixes from a11y-review.md Attempt 1
+- [x] 🔴 Finding 1 (focus/announce on invalid submit): `field.ref` is wired to the trigger via `triggerRef` (`app-credential-issue-dialog.tsx:274`), and the invalid handler calls `form.setFocus('scope')` (`:254-257`). Evidence: `app-credential-issue-dialog.test.tsx:326` asserts `document.activeElement` is the Scope combobox after submitting with no scope; `aria-invalid` and `aria-describedby` → "Select a scope." still asserted; no POST.
+- [x] 🟡 Finding 2 (required): `aria-required='true'` on the trigger (`select-dropdown.tsx:47`, test `:327`) and a visible `aria-hidden` `*` in the label, so the accessible name stays "Scope" (test queries `combobox { name: 'Scope' }` and passes).
+- [x] 🟡 Finding 3 (assertive duplicate warning): the runtime warning is now `<p role='status' aria-live='polite'>` with only the scope-specific sentence (`app-credential-issue-dialog.tsx:296-300`); the "Backend deploy environment only…" sentence remains in the hint (`data.ts:102`) linked via `aria-describedby`. Test at `:370-385` still checks the runtime copy is shown before Issue and absent for manifest.
+
+### select-dropdown.tsx backward compatibility
+Both new props are optional; `aria-required={required || undefined}` renders nothing when absent and `ref={undefined}` is a no-op (React 19 passes `ref` as a prop through `SelectTrigger`'s `...props`). The other SelectDropdown callers are unchanged and their tests pass.
+
+### Acceptance criteria
+Unchanged from Attempt 1 (all met with evidence there); re-verified by the green test and e2e runs above.
+
+### Issues
+None.
+
+### Rules R1–R11
+No violations found. R10 improved by this attempt (WCAG 3.3.1, 3.3.2, 4.1.3).
+
+### Security / a11y blockers
+None remaining from a11y-review.md Attempt 1; security-review.md Attempt 1 listed no blocker for these files.
+
+### Nits (do not block)
+- Plan Approach §4 described the runtime warning as an `Alert` repeating "Backend deploy environment only…"; the rework drops the duplicate as the a11y review recommended. The copy is still on screen through the hint, so the plan's intent is kept.
+- The `*` marker has no legend ("* required"); acceptable with a single field and `aria-required` set.
+
+### Follow-ups (out of scope)
+- Same as Attempt 1.
