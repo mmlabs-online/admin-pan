@@ -293,8 +293,11 @@ describe('apps queries', () => {
     expect(page.items).toHaveLength(2)
   })
 
-  it('useIssueCredentialMutation: POST with no body; sink receives FAKE_CREDENTIAL; resolves with metadata without `credential`; mutation state has no FAKE_CREDENTIAL; invalidates credentialsAll(key) only', async () => {
-    const meta = CREDENTIALS.stoktok[0]
+  it('useIssueCredentialMutation: POST with body {scope}; sink receives FAKE_CREDENTIAL; resolves with metadata without `credential`; mutation state has no FAKE_CREDENTIAL; invalidates credentialsAll(key) only', async () => {
+    const meta = {
+      ...CREDENTIALS.stoktok[0],
+      scope: 'org-members:read' as const,
+    }
     const { client, seen, invalidated, wrapper, queryClient } = setup(() =>
       json({ ...meta, credential: FAKE_CREDENTIAL }, 201)
     )
@@ -303,11 +306,14 @@ describe('apps queries', () => {
       { wrapper }
     )
     const sink: string[] = []
-    const result = await issue.result.current.mutateAsync((c) => sink.push(c))
+    const result = await issue.result.current.mutateAsync({
+      scope: 'org-members:read',
+      onSecret: (c) => sink.push(c),
+    })
     expect(seen.map((r) => `${r.method} ${new URL(r.url).pathname}`)).toEqual([
       'POST /api/v1/apps/stoktok/credentials',
     ])
-    expect(await seen[0].text()).toBe('')
+    expect(await seen[0].text()).toBe('{"scope":"org-members:read"}')
     expect(sink).toEqual([FAKE_CREDENTIAL])
     expect(result).toEqual(meta)
     expect('credential' in result).toBe(false)
@@ -335,11 +341,12 @@ describe('apps queries', () => {
     const sink: string[] = []
     const run = () =>
       issue.result.current
-        .mutateAsync((c) => sink.push(c))
+        .mutateAsync({ scope: 'manifest', onSecret: (c) => sink.push(c) })
         .catch((e: unknown) => e)
 
     await run()
     expect(seen).toHaveLength(1)
+    expect(await seen[0].text()).toBe('{"scope":"manifest"}')
     expect(invalidated).toEqual([['apps', 'detail', 'stoktok', 'credentials']])
 
     respond = () => apiError(409, 'conflict')

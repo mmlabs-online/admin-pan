@@ -1,5 +1,6 @@
 import { isApiError } from '@/api'
 import { forbiddenCopy, isForbidden, type ForbiddenCopy } from '@/lib/forbidden'
+import { type AppCredentialScope } from './app-schema'
 
 export type AppAlert =
   | { kind: 'forbidden'; copy: ForbiddenCopy }
@@ -229,7 +230,10 @@ export function isUnknownOutcome(error: unknown): boolean {
 }
 
 /** Maps a failed issue to what the dialog shows (ADR-0016 §5). */
-export function credentialIssueError(error: unknown): AppAlert {
+export function credentialIssueError(
+  error: unknown,
+  scope: AppCredentialScope
+): AppAlert {
   if (isUnknownOutcome(error))
     return message(
       "We couldn't confirm whether the credential was created. Check the list and revoke any key ID you don't recognise."
@@ -237,19 +241,22 @@ export function credentialIssueError(error: unknown): AppAlert {
   if (isApiError(error, 409)) {
     switch (firstReason(error)) {
       case 'admin_app':
-        return message('The admin app has no credentials.')
+        return message('The admin app can only have releases credentials.')
       case 'app_disabled':
         return message(
           'This app is disabled. Enable it before issuing a credential.'
         )
+      case 'scope_not_available':
+        return message("This scope can't be issued yet.")
       case 'credential_limit':
         return message(
-          'This app already has 2 active credentials. Revoke one, then issue a new one.'
+          `This app already has 2 active ${scope} credentials. Revoke one, then issue a new one.`
         )
       default:
         return message('The API refused to issue a credential for this app.')
     }
   }
+  if (isApiError(error, 422)) return message('The API rejected this scope.')
   return fallback(error)
 }
 

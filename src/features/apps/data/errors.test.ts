@@ -229,24 +229,30 @@ describe('isUnknownOutcome', () => {
 })
 
 describe('credentialIssueError', () => {
-  it('409 admin_app / app_disabled / credential_limit / other 409 / 404 / 403 -> forbidden / unknown outcome text / other -> fallback', () => {
+  it('409 admin_app / app_disabled / scope_not_available / credential_limit (names the chosen scope) / other 409 / 422 / 404 / 403 -> forbidden / unknown outcome text / other -> fallback', () => {
     const text = (e: unknown) => {
-      const a = credentialIssueError(e)
+      const a = credentialIssueError(e, 'org-members:read')
       return a.kind === 'message' ? a.text : a.kind
     }
     expect(text(err(409, 'conflict', reason('admin_app')))).toBe(
-      'The admin app has no credentials.'
+      'The admin app can only have releases credentials.'
     )
     expect(text(err(409, 'conflict', reason('app_disabled')))).toContain(
       'disabled'
     )
+    expect(text(err(409, 'conflict', reason('scope_not_available')))).toBe(
+      "This scope can't be issued yet."
+    )
     expect(text(err(409, 'conflict', reason('credential_limit')))).toContain(
-      '2 active credentials'
+      '2 active org-members:read credentials'
     )
     expect(text(err(409, 'conflict'))).toContain('refused')
     expect(text(err(404, 'not_found'))).toBe('This app no longer exists.')
     expect(text(err(403, 'permission_denied'))).toBe('forbidden')
-    const wildcard = credentialIssueError(err(403, 'admin_wildcard_required'))
+    const wildcard = credentialIssueError(
+      err(403, 'admin_wildcard_required'),
+      'manifest'
+    )
     expect(wildcard).toMatchObject({
       kind: 'forbidden',
       copy: { title: 'Only super admins can do this' },
@@ -258,7 +264,9 @@ describe('credentialIssueError', () => {
       apiErr('invalid_response', 0),
     ])
       expect(text(e)).toContain("couldn't confirm whether")
-    expect(text(err(422, 'validation_error'))).toBe('server text')
+    expect(text(err(422, 'validation_error'))).toBe(
+      'The API rejected this scope.'
+    )
     expect(text(new Error('x'))).toBe('Something went wrong.')
   })
 })

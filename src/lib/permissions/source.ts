@@ -24,6 +24,7 @@ export function evaluate(
 ): PermissionState {
   if (requirement.kind === 'none') return 'granted'
   if (requirement.kind === 'pending') return 'unknown'
+  if (requirement.kind === 'super') return source.check('admin:*')
   return source.check(requirement.permission)
 }
 

@@ -9,7 +9,10 @@ import {
 } from './registry'
 
 type Spec = {
-  paths: Record<string, Record<string, { 'x-permission'?: string }>>
+  paths: Record<
+    string,
+    Record<string, { 'x-permission'?: string; 'x-requires-super'?: string }>
+  >
 }
 const spec = JSON.parse(raw) as Spec
 
@@ -36,6 +39,22 @@ describe('permission registry', () => {
         const op = spec.paths[path]?.[method.toLowerCase()]
         expect(op, `${id}: ${operation}`).toBeDefined()
         expect(op['x-permission'], `${id}: ${operation}`).toBe(req.permission)
+      }
+    }
+  })
+
+  it('every super requirement: base equals x-permission and when equals x-requires-super of each operation it names', () => {
+    const supers = declared.filter(([, r]) => r.kind === 'super')
+    expect(supers.length).toBeGreaterThan(0)
+    for (const [id, req] of supers) {
+      if (req.kind !== 'super') continue
+      expect(req.operations.length, id).toBeGreaterThan(0)
+      for (const operation of req.operations) {
+        const [method, path] = operation.split(' ')
+        const op = spec.paths[path]?.[method.toLowerCase()]
+        expect(op, `${id}: ${operation}`).toBeDefined()
+        expect(op['x-permission'], `${id}: ${operation}`).toBe(req.base)
+        expect(op['x-requires-super'], `${id}: ${operation}`).toBe(req.when)
       }
     }
   })

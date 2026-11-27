@@ -971,6 +971,14 @@ export interface components {
             /** Origins */
             origins?: string[];
         };
+        /**
+         * AppCredentialIssue
+         * @description Optional issuance body; no body or `{}` means `manifest` (current clients keep working).
+         */
+        AppCredentialIssue: {
+            /** @default manifest */
+            scope: components["schemas"]["AppCredentialScope"];
+        };
         /** AppCredentialIssued */
         AppCredentialIssued: {
             /** Active */
@@ -997,6 +1005,7 @@ export interface components {
             last_used_at: string | null;
             /** Revoked At */
             revoked_at: string | null;
+            scope: components["schemas"]["AppCredentialScope"];
         };
         /**
          * AppCredentialRead
@@ -1025,7 +1034,14 @@ export interface components {
             last_used_at: string | null;
             /** Revoked At */
             revoked_at: string | null;
+            scope: components["schemas"]["AppCredentialScope"];
         };
+        /**
+         * AppCredentialScope
+         * @description One scope per key (ADR-0021 §1). USR-29 adds the first runtime scope (ADR-0025).
+         * @enum {string}
+         */
+        AppCredentialScope: "manifest" | "releases" | "org-members:read" | "usage:read" | "usage:write" | "limits:write";
         /** AppMembers */
         AppMembers: {
             /** App Key */
@@ -2888,7 +2904,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AppCredentialIssue"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             201: {
@@ -2912,7 +2932,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Missing permission */
+            /** @description Missing permission (permission_denied), or admin:* required (admin_wildcard_required) */
             403: {
                 headers: {
                     /** @description Server-generated request id (UUID4); quote it to support. */
@@ -2923,7 +2943,18 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description admin app, disabled app or credential limit (details[0].reason); also needs admin:* */
+            /** @description Unknown app */
+            404: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description admin app (manifest scope), disabled app or credential limit per scope (details) */
             409: {
                 headers: {
                     /** @description Server-generated request id (UUID4); quote it to support. */

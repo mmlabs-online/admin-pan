@@ -33,3 +33,8 @@ R4: each route and action declares the `admin:<resource>:<action>` permission it
 - **Retry.** The route 403 panel offers "Try again", which refetches the permission query.
 - **`user_id`** is used only to disable self-actions (users row menu).
 - **Consequences.** A revoked permission keeps controls visible for up to `staleTime` (60 s) or until the next focus or 403; the API still refuses. An endpoint outage shows everything (fail-open, intended). If org-admin-api withdraws the USR-11 endpoint, its 403/404 degrade to `unknown`.
+
+## Amendment (PAN-034, 2026-11-27)
+- **`super` requirement kind.** `{ kind: 'super', base, when: 'always' | 'conditional', operations }`, built with `superOf()`. It mirrors the API's `x-requires-super` next to `x-permission`: `always` means every call needs `admin:*` too, `conditional` means it depends on the request body. `evaluate` answers what the source says for `admin:*` (holding `admin:apps:write` alone is `denied`; the tri-state and fail-open rules are unchanged). `Can disable` shows "Requires admin:*". `registry.test.ts` checks `base` against `x-permission` and `when` against `x-requires-super` of every named operation.
+- **Routes.** `route-permission-guard.tsx` only special-cases `permission`; `super` is not used on routes and is left unhandled there.
+- First user: `apps.issueCredential` (`always`). Slice 2 (PAN-034b) reuses it with `conditional` for the super-admin role.

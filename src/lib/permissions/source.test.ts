@@ -27,6 +27,15 @@ describe('permission source', () => {
     expect(evaluate(read, unknownPermissionSource)).toBe('unknown')
   })
 
+  it("evaluate: super returns the source's answer for admin:*", () => {
+    const issue = ACTIONS['apps.issueCredential']
+    expect(evaluate(issue, fakePermissionSource(['admin:*']))).toBe('granted')
+    expect(evaluate(issue, fakePermissionSource(['admin:apps:write']))).toBe(
+      'denied'
+    )
+    expect(evaluate(issue, unknownPermissionSource)).toBe('unknown')
+  })
+
   it('evaluate many: denied only when every requirement is denied; granted if any is granted; otherwise unknown', () => {
     const source = fakePermissionSource(['admin:users:read'])
     expect(evaluateAll([read, write], source)).toBe('granted')

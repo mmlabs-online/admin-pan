@@ -172,16 +172,49 @@ describe('AppCredentialsTab', () => {
     await expect.element(sheet.getByText('Showing 1–20 of 25')).toBeVisible()
   })
 
-  it("admin app: no Issue button, note 'The admin app has no credentials.'; disabled app: Issue natively disabled with 'Enable this app to issue credentials.' linked by aria-describedby; Revoke still shown", async () => {
+  it("Scope column shows each row's scope (manifest, org-members:read); table header 'Scope'; empty row spans 6 columns; copy says 'Each scope can have at most 2 active credentials.'", async () => {
+    const { client } = fakeApi(server(() => json({})))
+    let screen = await renderApps(client)
+    let sheet = await openTab(screen, 'simap')
+    const table = sheet.getByRole('table', { name: 'Credentials of simap' })
+    await expect
+      .element(table.getByRole('columnheader', { name: 'Scope' }))
+      .toBeVisible()
+    await expect.element(table.getByText('org-members:read')).toBeVisible()
+    await expect
+      .element(table.getByText('manifest', { exact: true }))
+      .toBeVisible()
+    await expect
+      .element(sheet.getByText(/Each scope can have at most 2 active/))
+      .toBeVisible()
+    await screen.unmount()
+
+    const empty = fakeApi(
+      server(
+        () => json({}),
+        () => json(credentialsPage([]))
+      )
+    )
+    screen = await renderApps(empty.client)
+    sheet = await openTab(screen, 'calechip')
+    await expect.element(sheet.getByText('No credentials yet.')).toBeVisible()
+    expect(
+      sheet.getByText('No credentials yet.').element().closest('td')?.colSpan
+    ).toBe(6)
+  })
+
+  it("admin app: Issue button shown with 'The admin app can only have releases credentials.'; disabled app: Issue natively disabled with 'Enable this app to issue credentials.' linked by aria-describedby; Revoke still shown", async () => {
     const { client } = fakeApi(server(() => json({})))
     let screen = await renderApps(client)
     let sheet = await openTab(screen, 'admin')
     await expect
-      .element(sheet.getByText('The admin app has no credentials.'))
+      .element(
+        sheet.getByText(/The admin app can only have releases credentials\./)
+      )
       .toBeVisible()
     await expect
       .element(sheet.getByRole('button', { name: 'Issue credential' }))
-      .not.toBeInTheDocument()
+      .toBeEnabled()
     await screen.unmount()
 
     screen = await renderApps(client)
@@ -198,7 +231,28 @@ describe('AppCredentialsTab', () => {
       .toBeVisible()
   })
 
-  it("granted only admin:apps:read: Issue disabled with 'Requires admin:apps:write', Revoke hidden; list still shown", async () => {
+  it("granted admin:apps:read + admin:apps:write without admin:*: Issue disabled with 'Requires admin:*' linked by aria-describedby; granted all: enabled", async () => {
+    const { client } = fakeApi(server(() => json({})))
+    let screen = await renderApps(client, {
+      granted: ['admin:apps:read', 'admin:apps:write'],
+    })
+    let sheet = await openTab(screen, 'calechip')
+    const issue = sheet.getByRole('button', { name: 'Issue credential' })
+    await expect.element(issue).toBeDisabled()
+    const reason = sheet.getByText('Requires admin:*')
+    await expect.element(reason).toBeVisible()
+    expect(issue.element().getAttribute('aria-describedby')).toContain(
+      reason.element().id
+    )
+    await screen.unmount()
+    screen = await renderApps(client)
+    sheet = await openTab(screen, 'calechip')
+    await expect
+      .element(sheet.getByRole('button', { name: 'Issue credential' }))
+      .toBeEnabled()
+  })
+
+  it("granted only admin:apps:read: Issue disabled with 'Requires admin:*', Revoke hidden; list still shown", async () => {
     const { client } = fakeApi(server(() => json({})))
     const screen = await renderApps(client, { granted: ['admin:apps:read'] })
     const sheet = await openTab(screen, 'calechip')
@@ -206,9 +260,7 @@ describe('AppCredentialsTab', () => {
     await expect
       .element(sheet.getByRole('button', { name: 'Issue credential' }))
       .toBeDisabled()
-    await expect
-      .element(sheet.getByText('Requires admin:apps:write'))
-      .toBeVisible()
+    await expect.element(sheet.getByText('Requires admin:*')).toBeVisible()
     await expect
       .element(sheet.getByRole('button', { name: 'Revoke aaaa000000000002' }))
       .not.toBeInTheDocument()

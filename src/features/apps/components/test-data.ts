@@ -50,6 +50,20 @@ export const APPS: App[] = [
     created_at: stamp,
     updated_at: '2026-02-10T10:00:00.000Z',
   },
+  {
+    id: '8d8d8d8d-8888-4888-8888-888888888888',
+    key: 'simap',
+    name: 'Simap',
+    status: 'active',
+    join_policy: 'closed',
+    org_mode: 'required',
+    origins: [],
+    default_role_id: null,
+    member_count: 0,
+    org_owner_role_id: null,
+    created_at: stamp,
+    updated_at: stamp,
+  },
 ]
 
 const permission = (
@@ -71,6 +85,7 @@ export const PERMISSIONS: Record<string, Permission[]> = {
     permission(2, 'admin:apps:read', { is_admin: true }),
   ],
   calechip: [],
+  simap: [],
   stoktok: [
     permission(3, 'stoktok:orders:read', { description: 'View orders' }),
     permission(4, 'stoktok:orders:write', { is_admin: true, scope: 'org' }),
@@ -101,6 +116,7 @@ const credential = (
   id: `7a7a7a7${n}-7777-4777-8777-777777777777`,
   app,
   key_id: `aaaa00000000000${n}`,
+  scope: 'manifest',
   active: true,
   created_at: '2026-03-01T10:00:00.000Z',
   created_by: null,
@@ -112,6 +128,10 @@ const credential = (
 export const CREDENTIALS: Record<string, AppCredential[]> = {
   admin: [],
   calechip: [credential(2, 'calechip')],
+  simap: [
+    credential(4, 'simap', { scope: 'org-members:read' }),
+    credential(5, 'simap', { scope: 'manifest' }),
+  ],
   stoktok: [
     credential(1, 'stoktok', { last_used_at: '2026-04-01T10:00:00.000Z' }),
     credential(3, 'stoktok', {

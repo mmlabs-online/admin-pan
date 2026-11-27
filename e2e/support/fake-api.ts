@@ -549,6 +549,7 @@ export async function installFakeApi(context: BrowserContext) {
         id: '77777770-7777-4777-8777-777777777777',
         app: 'stoktok',
         key_id: 'e2e0000000000001',
+        scope: 'manifest',
         active: true,
         created_at: stamp,
         created_by: null,
@@ -633,7 +634,10 @@ export async function installFakeApi(context: BrowserContext) {
     routes[`GET /api/v1/apps/${a.key}/credentials`] = ({ query }) =>
       json(200, page(creds[a.key], query))
     for (const c of creds[a.key]) addRevokeRoute(a.key, c)
-    routes[`POST /api/v1/apps/${a.key}/credentials`] = () => {
+    routes[`POST /api/v1/apps/${a.key}/credentials`] = ({ body }) => {
+      const scope =
+        (body as { scope?: AppCredentialRead['scope'] } | null)?.scope ??
+        'manifest'
       const reason = (r: string) =>
         json(409, {
           error: {
@@ -642,14 +646,16 @@ export async function installFakeApi(context: BrowserContext) {
             details: [{ field: 'key', reason: r }],
           },
         })
-      if (a.key === 'admin') return reason('admin_app')
+      if (a.key === 'admin' && scope !== 'releases') return reason('admin_app')
       if (a.status === 'disabled') return reason('app_disabled')
-      if (creds[a.key].filter((c) => c.active).length >= 2)
+      if (scope === 'limits:write') return reason('scope_not_available')
+      if (creds[a.key].filter((c) => c.active && c.scope === scope).length >= 2)
         return reason('credential_limit')
       const row: AppCredentialRead = {
         id: '77777771-7777-4777-8777-777777777777',
         app: a.key,
         key_id: FAKE_KEY_ID,
+        scope,
         active: true,
         created_at: stamp,
         created_by: null,

@@ -35,9 +35,9 @@ export function Can(props: CanProps) {
           disabled: denied,
           describedBy: denied ? id : undefined,
         })}
-        {denied && req.kind === 'permission' && (
+        {denied && (req.kind === 'permission' || req.kind === 'super') && (
           <span id={id} className='text-sm text-muted-foreground'>
-            Requires {req.permission}
+            Requires {req.kind === 'super' ? 'admin:*' : req.permission}
           </span>
         )}
       </>
