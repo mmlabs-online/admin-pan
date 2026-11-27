@@ -12,7 +12,7 @@
 | Attempts | 0 |
 | Created | 2026-11-27 |
 | Record PR | — |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/37 |
 
 ## Report
 Owner, 2026-11-27: *"Khi bấm login 1 lần nó không access app mà bấm lần thứ 2 mới access"* — after clicking Sign in once the app is not entered; only the second click gets in. No screenshot.
