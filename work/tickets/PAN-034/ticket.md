@@ -7,7 +7,7 @@
 | Areas | ui, api, auth, security |
 | Attempts | 1 |
 | Created | 2026-11-27 |
-| PR | — |
+| PR | https://github.com/mmlabs-online/admin-pan/pull/39 |
 
 ## Goal
 Let staff finish an org app's setup in admin-pan instead of raw admin-API calls in a shell (org-admin-api `docs/deploy.md` "Admin access"): issue app credentials with a chosen scope, and set the app's default, org-owner and super-admin roles. UI-only work; org-admin-api already supports both.
