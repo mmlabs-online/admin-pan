@@ -43,3 +43,28 @@ Three 💭 notes, none needing a fix in this ticket:
 - PAN-034b: apply the (field, reason) error table and the role-diff and confirmation rules from my consult, and keep `conditional` limited to the Super-admin field.
 
 **Summary:** PASS from security: ADR 0007 is intact (leak test runs for a runtime scope too), no scope is preselected, runtime warnings and refusal copy are correct, `super` only makes permission checks stricter, and the admin app is limited to `releases`.
+
+## Attempt 2
+
+**Security review: PAN-034, attempt 2** (`git diff HEAD~1 -- src/`, commit b85586e, read-only)
+
+I did not run checks in this pass. The diff is small and only touches presentation.
+
+## Findings
+
+No 🔴 blockers and no 🟡 should-fix items. I checked each point you asked about:
+
+1. **ADR 0007 one-time secret handling is unchanged.** The diff does not touch the reveal branch, `queries.ts`, or the mutation or query cache. The secret path is the same as in attempt 1: component state only, a masked value, no toast. `form.setFocus('scope')` (`app-credential-issue-dialog.tsx:254-257`) only moves focus. `triggerRef={field.ref}` (`:274`) and `aria-required` (`select-dropdown.tsx:44-49`) are DOM attributes and carry no data.
+2. **No runtime scope is preselected.** `defaultValue={field.value ?? ''}` is unchanged. Adding `required` and moving focus on an invalid submit does not pick a scope. The test (`app-credential-issue-dialog.test.tsx:326-327`) checks that focus goes to the trigger and that `aria-required="true"` is set.
+3. **The runtime warning is still shown, now once instead of twice.**
+   - The diff removed the confirm-view `<Alert>` that repeated "Backend deploy environment only, never CI or browser code." (old `:286-293`).
+   - That sentence still appears for every runtime scope through `FormDescription` → `credentialScopeHints[chosen]` (`app-credential-issue-dialog.tsx:284-288`, `data/data.ts:101-111` `RUNTIME_ADVICE`). `FormDescription` is linked to the trigger by aria-describedby.
+   - The blast-radius line is still rendered for runtime scopes, now as `<p role='status' aria-live='polite'>` (`:295-300`).
+   - Tests still assert both the advice (`test.tsx:81`, and `data.test.ts:29-41` for every runtime hint) and the blast-radius copy (`test.tsx:382-384`).
+   - 💭 One note: the blast-radius line is now plain `text-sm` text, not an Alert, so it stands out less visually. This is acceptable because the advice is in the field description, which is announced with the control. If you want a small hardening, give it `font-medium`. It is not required.
+4. **No new data in logs, URLs or storage.** The diff adds no `console` calls, navigation, search params or storage writes. The only interpolated value in the live region is `app.name`, which is public app metadata already shown in the dialog.
+
+## Follow-ups (out of scope)
+- None new. The attempt-1 notes still apply: the `super` requirement on route guards, `conditional` used only on the Super-admin field (PAN-034b), and an optional scope name in the Issue button.
+
+**Summary:** PASS from security: the attempt-2 changes are a11y-only. The one-time secret handling is untouched, nothing is preselected, and the runtime advice and blast-radius warning are still shown and tested.
