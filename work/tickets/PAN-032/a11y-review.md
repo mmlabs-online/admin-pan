@@ -34,3 +34,37 @@ I read the diff and `user-auth-form.tsx` with line numbers. I did not run axe, a
 - Do a manual screen-reader pass of the busy → error → retry sequence.
 
 **Summary:** No 🔴 or 🟡 findings. The attempt-1 changes meet WCAG 2.2 AA on every requested point, with only four 💭 notes, the main one being the focus ring dimmed by `opacity-50` while busy.
+
+## Attempt 2
+
+**Findings (PAN-032 attempt 2, `git diff HEAD~1 -- src/`)**
+
+I read the diff and the component by grep. I did not run axe, a screen reader or the tests.
+
+🔴 None.
+🟡 None.
+
+**Regression checks against attempt 1**
+- **Focus: no change.**
+  - `user-auth-form.tsx:128` only adds `|| turnstileMissing` to an existing early return. Nothing moves focus, and nothing is added or removed in the markup.
+  - The button still carries no native `disabled`, so it stays in the tab order and keeps focus (2.4.3).
+- **aria-disabled: consistent.**
+  - `user-auth-form.tsx:207` is still `aria-disabled={blocked || undefined}`, with `blocked = busy || turnstileMissing` (line 121).
+  - The new guard at line 128 matches that exactly. `onSubmit` now refuses precisely when the button advertises itself as disabled, so the announced state and the behaviour agree (4.1.2).
+  - It is also a defensive second layer behind the inline check at line 143.
+- **role=status: unchanged.** The unconditional, initially empty `<p role='status' className='sr-only'>` at lines 200-202 is untouched (4.1.3).
+- **`inFlight` safety.**
+  - The early return runs before `inFlight.current = true` (line 129), so a blocked submit cannot leave the form stuck.
+  - Once the Turnstile token arrives, `turnstileMissing` goes false, aria-disabled is removed, and Enter submits again.
+- **Test (`user-auth-form.test.tsx:213-221`).**
+  - It now proves the full keyboard cycle: Enter is blocked while the token is missing (count stays 1), the token arrives, aria-disabled clears, and Enter submits (count 2).
+  - This directly covers the keyboard retry path from attempt 1.
+
+**💭 Notes carried over from attempt 1 (still open, non-blocking)**
+- The focus ring is dimmed by `aria-disabled:opacity-50` (line 206). Please check the `--ring` contrast in both themes (1.4.11 and 2.4.7).
+- Optionally add `aria-describedby` on the button pointing at the Turnstile alert.
+- Optionally add `motion-reduce:animate-none` on the spinner.
+
+**Follow-ups:** run axe on `/login` once PAN-023 lands. Do a manual screen-reader pass of the busy, error, retry sequence.
+
+**Summary:** No 🔴 or 🟡 findings: the attempt-2 change is a pure logic guard with no accessibility regression in focus, aria-disabled or role=status.
