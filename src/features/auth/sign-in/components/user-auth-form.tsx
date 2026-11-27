@@ -67,6 +67,8 @@ export function UserAuthForm({
   const [needsTurnstile, setNeedsTurnstile] = useState(false)
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
   const turnstile = useRef<TurnstileHandle>(null)
+  // Set synchronously on submit: guards a second submit before React re-renders.
+  const inFlight = useRef(false)
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -89,6 +91,7 @@ export function UserAuthForm({
       await reload()
     },
     onError: (e) => {
+      inFlight.current = false
       if (authFailure(e).kind === 'turnstile_required') setNeedsTurnstile(true)
     },
     onSuccess: () => {
@@ -114,9 +117,16 @@ export function UserAuthForm({
   // signed-out after a successful login: stay here with an alert, no loop
   const sessionError = signedIn && status === 'signed-out'
   const busy = mutation.isPending || (signedIn && !sessionError)
+  const turnstileMissing = needsTurnstile && !turnstileToken
+  const blocked = busy || turnstileMissing
+
+  useEffect(() => {
+    if (sessionError) inFlight.current = false
+  }, [sessionError])
 
   function onSubmit(data: z.infer<typeof formSchema>) {
-    if (busy) return
+    if (busy || inFlight.current || turnstileMissing) return
+    inFlight.current = true
     setSignedIn(false)
     mutation.mutate({
       ...data,
@@ -129,7 +139,13 @@ export function UserAuthForm({
       <form
         method='post'
         noValidate
-        onSubmit={(e) => void form.handleSubmit(onSubmit)(e)}
+        onSubmit={(e) => {
+          if (inFlight.current || blocked) {
+            e.preventDefault()
+            return
+          }
+          void form.handleSubmit(onSubmit)(e)
+        }}
         className={cn('grid gap-3', className)}
         {...props}
       >
@@ -181,12 +197,21 @@ export function UserAuthForm({
               : 'Could not start your session. Please try again.'}
           </p>
         )}
+        <p role='status' className='sr-only'>
+          {busy ? 'Signing in…' : ''}
+        </p>
+        {/* aria-disabled, not disabled: the button keeps keyboard focus while
+            busy; submits are blocked in the form's onSubmit instead. */}
         <Button
-          className='mt-2'
-          disabled={busy || (needsTurnstile && !turnstileToken)}
+          className='mt-2 aria-disabled:cursor-not-allowed aria-disabled:opacity-50'
+          aria-disabled={blocked || undefined}
           aria-busy={busy}
         >
-          {busy ? <Loader2 className='animate-spin' /> : <LogIn />}
+          {busy ? (
+            <Loader2 className='animate-spin' aria-hidden='true' />
+          ) : (
+            <LogIn aria-hidden='true' />
+          )}
           Sign in
         </Button>
       </form>
