@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Type | bug |
-| State | REVIEW |
+| State | DONE |
 | Severity | S2 |
 | Priority | P1 |
 | Areas | ui, auth, security |
@@ -53,9 +53,9 @@ None.
 - Account picker / `needs-account` flows other than what the fix needs.
 
 ## Acceptance criteria
-- [ ] A regression test reproduces the bug: it fails on `origin/main` before the fix and passes after (name the test). It signs in once through `UserAuthForm` with the real `AuthProvider` and a protected target guarded like `AuthGate`, and asserts the target is reached without a bounce back to `/sign-in`.
-- [ ] One successful sign-in opens the validated redirect target (or `/`); the existing redirect, error, Turnstile and rate-limit behaviour is unchanged.
-- [ ] All checks pass (R8).
+- [x] A regression test reproduces the bug: it fails on `origin/main` before the fix and passes after (name the test). It signs in once through `UserAuthForm` with the real `AuthProvider` and a protected target guarded like `AuthGate`, and asserts the target is reached without a bounce back to `/sign-in`.
+- [x] One successful sign-in opens the validated redirect target (or `/`); the existing redirect, error, Turnstile and rate-limit behaviour is unchanged.
+- [x] All checks pass (R8).
 
 ## Technical notes
 - Files: `src/features/auth/sign-in/components/user-auth-form.tsx` (+ its test); possibly `src/features/auth/gate/auth-gate.tsx`.
