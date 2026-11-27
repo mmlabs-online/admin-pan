@@ -1,8 +1,8 @@
-# PAN-034: Apps — issue credentials by scope, and set an app's special roles
+# PAN-034: Apps — issue credentials by scope (slice 1; roles moved to PAN-034b)
 
 | Field | Value |
 |---|---|
-| State | PLANNING |
+| State | IN_PROGRESS |
 | Priority | P1 |
 | Areas | ui, api, auth, security |
 | Attempts | 0 |
@@ -43,3 +43,4 @@ PAN-015, PAN-015b, PAN-027 (all DONE); org-admin-api ADM-034 and ADM-041 (creden
 
 ## Notes / answers from owner
 - 2026-11-27 (owner): ticket text provided by the owner; created as written.
+- 2026-11-27: the planner split the ticket for PR size. This ticket now delivers scope items 1–2 (credentials by scope) and AC1, plus AC3/AC4 for the credential calls. Scope items 3–4 and AC2 (special roles) move to **PAN-034b**.
