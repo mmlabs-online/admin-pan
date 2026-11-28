@@ -52,7 +52,7 @@ Phases: **1. UI with mock data** (PAN-001…008, done) → **2. Foundations** (P
 | PAN-032 | Sign-in form: keep focus while busy and announce "Signing in…" | DONE | P2 | ui, a11y | 1 | 2026-11-27 |
 | PAN-033 | Adopt an @mmlabs/auth-client whose login() resolves after the provider state is updated | BACKLOG | P3 | auth, security | 0 | 2026-11-27 |
 | PAN-034 | Apps — issue credentials by scope (slice 1; roles in PAN-034b) | DONE | P1 | ui, api, auth, security | 1 | 2026-11-27 |
-| PAN-034b | Apps — set an app's default, org-owner and super-admin roles | IN_PROGRESS | P1 | ui, api, auth, security | 0 | 2026-11-27 |
+| PAN-034b | Apps — set an app's default, org-owner and super-admin roles | REVIEW | P1 | ui, api, auth, security | 0 | 2026-11-27 |
 
 Order of work (dependencies): PAN-001 → PAN-002…008 → PAN-009 → PAN-010 → PAN-011 → PAN-013, PAN-014, PAN-015 → PAN-016 → PAN-012, PAN-019, PAN-022, PAN-023 → PAN-025 → PAN-026 → PAN-027 (after PAN-015) → PAN-019, PAN-028 → PAN-017, PAN-018, PAN-020, PAN-021, PAN-024 · PAN-029 (after PAN-014, PAN-015; org-admin-api ADM-020, USR-18) → BUG-002 → PAN-030, PAN-031 · BUG-003 → PAN-032; BUG-003 → PAN-033 (after a fixed @mmlabs/auth-client release; library ticket needed) · PAN-034 (after PAN-015, PAN-015b, PAN-027; org-admin-api ADM-034, ADM-041, USR-29) → PAN-034b (org-admin-api USR-06c, USR-38).
 Waiting on org-admin-api (state 2026-11-16, origin/main 0899731): PAN-010b ← new org-admin-api ticket allowing resend for `admin` (ADM-002d refuses it) · PAN-011 ← an endpoint returning the caller's effective admin permissions (no ticket yet) · PAN-018 ← USR-06 · PAN-019 ← ADM-006. Met: USR-08, ADM-002, ADM-002b, ADM-004, ADM-012.

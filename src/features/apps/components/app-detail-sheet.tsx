@@ -15,6 +15,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ForbiddenPanel } from '@/components/forbidden-panel'
 import { Can } from '@/components/permissions/can'
+import { allRoleDefinitionsQueryOptions } from '@/features/roles/api/queries'
 import { appQueryOptions } from '../api/queries'
 import { ADMIN_APP_KEY, type App } from '../data/app-schema'
 import {
@@ -22,6 +23,7 @@ import {
   formatDate,
   joinPolicyLabels,
   orgModeLabels,
+  unknownRoleLabel,
 } from '../data/data'
 import { AppCredentialsTab } from './app-credentials-tab'
 import { AppJoinRequestsTab } from './app-join-requests-tab'
@@ -120,20 +122,58 @@ export function AppDetailSheet({
   )
 }
 
-const roleId = (id: string | null | undefined) =>
-  id ? <code>{id}</code> : 'None'
+// Role names come from the app's role definitions (the same query the edit
+// dialog uses); an id is never left blank.
+function RoleRef({
+  id,
+  status,
+  keyById,
+}: {
+  id: string | null | undefined
+  status: 'pending' | 'error' | 'success'
+  keyById: Map<string, string>
+}) {
+  if (!id) return 'None'
+  if (status === 'pending') return 'Loading…'
+  if (status === 'error')
+    return (
+      <>
+        <code>{id}</code> (role names couldn&apos;t be loaded)
+      </>
+    )
+  const key = keyById.get(id)
+  return key ? <code>{key}</code> : unknownRoleLabel(id)
+}
 
 function AppOverview({ app }: { app: App }) {
+  const { api } = useApps()
+  const roleIds = [
+    app.default_role_id,
+    app.org_owner_role_id,
+    app.super_admin_role_id,
+  ]
+  const rolesQ = useQuery({
+    ...allRoleDefinitionsQueryOptions(app.key, api),
+    enabled: roleIds.some(Boolean),
+  })
+  const keyById = new Map((rolesQ.data ?? []).map((r) => [r.id, r.key]))
+  const role = (id: string | null | undefined) => (
+    <RoleRef id={id} status={rolesQ.status} keyById={keyById} />
+  )
   const rows: [string, React.ReactNode][] = [
     ['Key', <span className='font-mono'>{app.key}</span>],
     ['Name', app.name],
     ['Status', <AppStatusBadge status={app.status} />],
     ['Join policy', joinPolicyLabels[app.join_policy]],
     ['Org mode', orgModeLabels[app.org_mode]],
-    ['Default role', roleId(app.default_role_id)],
+    ['Default role', role(app.default_role_id)],
     ...(app.org_mode === 'required'
       ? [
-          ['Org owner role', roleId(app.org_owner_role_id)] as [
+          ['Org owner role', role(app.org_owner_role_id)] as [
+            string,
+            React.ReactNode,
+          ],
+          ['Super-admin role', role(app.super_admin_role_id)] as [
             string,
             React.ReactNode,
           ],

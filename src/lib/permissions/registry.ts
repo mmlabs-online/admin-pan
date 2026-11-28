@@ -155,6 +155,11 @@ export const ACTIONS = {
   ),
   'apps.register': perm('admin:apps:write', 'POST /api/v1/apps'),
   'apps.update': perm('admin:apps:write', 'PATCH /api/v1/apps/{key}'),
+  'apps.setSuperAdminRole': superOf(
+    'admin:apps:write',
+    'conditional',
+    'PATCH /api/v1/apps/{key}'
+  ),
   'apps.issueCredential': superOf(
     'admin:apps:write',
     'always',

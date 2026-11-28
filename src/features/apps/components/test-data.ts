@@ -1,3 +1,5 @@
+import { role } from '@/features/roles/components/test-data'
+import { type RoleDefinition } from '@/features/roles/data/role-schema'
 import {
   type App,
   type AppCredential,
@@ -65,6 +67,43 @@ export const APPS: App[] = [
     updated_at: stamp,
   },
 ]
+
+export const SIMAP_ADMIN_ID = '9a9a9a9a-9999-4999-8999-999999999991'
+export const SIMAP_MANAGER_ID = '9a9a9a9a-9999-4999-8999-999999999992'
+export const SIMAP_USER_ID = '9a9a9a9a-9999-4999-8999-999999999993'
+export const SIMAP_SUPPORT_ID = '9a9a9a9a-9999-4999-8999-999999999994'
+
+/** Role definitions by app key (`GET /apps/{key}/role-definitions`). */
+export const ROLE_DEFINITIONS: Record<string, RoleDefinition[]> = {
+  stoktok: [
+    role('stoktok', '4d4d4d4d-4444-4444-8444-444444444444', 'member', {
+      name: 'Member',
+      is_default: true,
+    }),
+  ],
+  calechip: [
+    role('calechip', '5e5e5e5e-5555-4555-8555-555555555555', 'owner', {
+      name: 'Owner',
+    }),
+    role('calechip', '5e5e5e5e-5555-4555-8555-555555555556', 'member', {
+      name: 'Member',
+    }),
+  ],
+  simap: [
+    role('simap', SIMAP_ADMIN_ID, 'admin', { name: 'Admin', privileged: true }),
+    role('simap', SIMAP_MANAGER_ID, 'manager', { name: 'Manager' }),
+    role('simap', SIMAP_USER_ID, 'user', { name: 'User' }),
+    role('simap', SIMAP_SUPPORT_ID, 'support', { name: 'Support' }),
+  ],
+}
+
+/** A `Page<RoleDefinitionRead>` body. */
+export const roleDefinitionsPage = (
+  items: RoleDefinition[],
+  total = items.length,
+  limit = 100,
+  offset = 0
+) => ({ items, total, limit, offset })
 
 const permission = (
   n: number,

@@ -2,7 +2,8 @@ import { apiError, fakeApi, json } from '@/test-utils/api'
 import { toast } from 'sonner'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
-import { APPS } from './test-data'
+import { ADMIN_PERMISSIONS } from '@/lib/permissions/registry'
+import { APPS, SIMAP_ADMIN_ID, SIMAP_USER_ID } from './test-data'
 import { appsServer, isList, renderApps, writes } from './test-fixtures'
 
 vi.mock('sonner', async (orig) => ({
@@ -356,5 +357,320 @@ describe('App register/edit dialog', () => {
     await expect
       .element(dialog.getByRole('textbox', { name: 'Key' }))
       .toHaveValue('')
+  })
+})
+
+describe('App edit dialog: roles', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const pick = async (
+    screen: Screen,
+    dialog: Awaited<ReturnType<typeof openEdit>>,
+    field: string,
+    option: RegExp | string
+  ) => {
+    await userEvent.click(dialog.getByRole('combobox', { name: field }))
+    await userEvent.click(screen.getByRole('option', { name: option }))
+  }
+  const save = (dialog: Awaited<ReturnType<typeof openEdit>>) =>
+    userEvent.click(dialog.getByRole('button', { name: 'Save changes' }))
+  const ready = async (dialog: Awaited<ReturnType<typeof openEdit>>) =>
+    expect
+      .element(dialog.getByRole('combobox', { name: 'Default role' }))
+      .toBeEnabled()
+
+  it('simap: set Org owner role to simap:admin -> review -> one PATCH with that body; the sheet then shows simap:admin, never the uuid', async () => {
+    let apps = [...APPS]
+    const { client, seen } = fakeApi(
+      appsServer(
+        async (req) => {
+          const body = (await req.clone().json()) as Record<
+            string,
+            string | null
+          >
+          apps = apps.map((a) => (a.key === 'simap' ? { ...a, ...body } : a))
+          return json(apps.find((a) => a.key === 'simap'))
+        },
+        () => apps
+      )
+    )
+    const screen = await renderApps(client)
+    const dialog = await openEdit(screen, 'simap')
+    await ready(dialog)
+    await pick(screen, dialog, 'Org owner role', /^simap:admin/)
+    await save(dialog)
+
+    const review = dialog.getByRole('heading', { name: 'Review role changes' })
+    await expect.element(review).toBeVisible()
+    await expect.element(review).toHaveFocus()
+    await expect
+      .element(dialog.getByText(/Org owner role:/))
+      .toHaveTextContent('Org owner role: None → simap:admin')
+    expect(writes(seen, 'PATCH')).toHaveLength(0)
+    await userEvent.click(
+      dialog.getByRole('button', { name: 'Confirm and save' })
+    )
+    await expect.element(dialog).not.toBeInTheDocument()
+    const patches = writes(seen, 'PATCH')
+    expect(patches).toHaveLength(1)
+    expect(await patches[0].json()).toEqual({
+      org_owner_role_id: SIMAP_ADMIN_ID,
+    })
+
+    await userEvent.click(screen.getByRole('button', { name: 'View simap' }))
+    const sheet = screen.getByRole('dialog')
+    await expect.element(sheet.getByText('simap:admin')).toBeVisible()
+    await expect
+      .element(sheet.getByText(SIMAP_ADMIN_ID))
+      .not.toBeInTheDocument()
+  })
+
+  it('selects: Default role always; Org owner and Super-admin only while Org mode is Required; options are None + key — name; admin app shows none', async () => {
+    const { client } = fakeApi(appsServer(() => json({})))
+    const screen = await renderApps(client)
+    let dialog = await openEdit(screen, 'stoktok')
+    await ready(dialog)
+    await expect
+      .element(dialog.getByRole('combobox', { name: 'Org owner role' }))
+      .not.toBeInTheDocument()
+    await expect
+      .element(dialog.getByRole('combobox', { name: 'Super-admin role' }))
+      .not.toBeInTheDocument()
+    await pick(screen, dialog, 'Org mode', 'Required')
+    await expect
+      .element(dialog.getByRole('combobox', { name: 'Org owner role' }))
+      .toBeVisible()
+    await expect
+      .element(dialog.getByRole('combobox', { name: 'Super-admin role' }))
+      .toBeVisible()
+    await userEvent.click(
+      dialog.getByRole('combobox', { name: 'Default role' })
+    )
+    await expect
+      .element(screen.getByRole('option', { name: 'None' }))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('option', { name: 'stoktok:member — Member' }))
+      .toBeVisible()
+    await userEvent.keyboard('{Escape}')
+    await userEvent.keyboard('{Escape}')
+    await expect.element(dialog).not.toBeInTheDocument()
+
+    dialog = await openEdit(screen, 'admin')
+    await expect
+      .element(dialog.getByRole('combobox', { name: 'Default role' }))
+      .not.toBeInTheDocument()
+  })
+
+  it('untouched roles are never sent: a name edit on calechip sends {name} only, with no review phase', async () => {
+    const { client, seen } = fakeApi(appsServer(() => json(APPS[1])))
+    const screen = await renderApps(client)
+    const dialog = await openEdit(screen, 'calechip')
+    await ready(dialog)
+    await userEvent.fill(dialog.getByRole('textbox', { name: 'Name' }), 'Cal')
+    await save(dialog)
+    await expect.element(dialog).not.toBeInTheDocument()
+    expect(await writes(seen, 'PATCH')[0].json()).toEqual({ name: 'Cal' })
+  })
+
+  it('role change -> review; Back sends nothing and keeps the values; Confirm sends one PATCH even on a double click', async () => {
+    let release: (r: Response) => void = noop
+    const { client, seen } = fakeApi(
+      appsServer(() => new Promise<Response>((resolve) => (release = resolve)))
+    )
+    const screen = await renderApps(client)
+    const dialog = await openEdit(screen, 'simap')
+    await ready(dialog)
+    await pick(screen, dialog, 'Default role', /^simap:user/)
+    await save(dialog)
+    await expect
+      .element(
+        dialog.getByText(
+          'Accounts that join Simap from now on get this role.',
+          { exact: false }
+        )
+      )
+      .toBeVisible()
+    await userEvent.click(dialog.getByRole('button', { name: 'Back' }))
+    await expect
+      .element(dialog.getByRole('combobox', { name: 'Default role' }))
+      .toHaveTextContent('simap:user')
+    expect(writes(seen, 'PATCH')).toHaveLength(0)
+
+    await save(dialog)
+    const confirm = dialog.getByRole('button', { name: 'Confirm and save' })
+    const button = (await confirm.element()) as HTMLElement
+    button.click()
+    button.click()
+    const busy = dialog.getByRole('button', { name: 'Saving…' })
+    await expect.element(busy).toHaveAttribute('aria-disabled', 'true')
+    expect(writes(seen, 'PATCH')).toHaveLength(1)
+    release(json(APPS[3]))
+    await expect.element(dialog).not.toBeInTheDocument()
+    expect(await writes(seen, 'PATCH')[0].json()).toEqual({
+      default_role_id: SIMAP_USER_ID,
+    })
+  })
+
+  it('Org owner -> None: the review warns and the body is {org_owner_role_id: null}', async () => {
+    const { client, seen } = fakeApi(appsServer(() => json(APPS[1])))
+    const screen = await renderApps(client)
+    const dialog = await openEdit(screen, 'calechip')
+    await ready(dialog)
+    await pick(screen, dialog, 'Org owner role', 'None')
+    await save(dialog)
+    await expect
+      .element(
+        dialog.getByText(
+          'Org creation and invitations stop working for Calechip.'
+        )
+      )
+      .toBeVisible()
+    await userEvent.click(
+      dialog.getByRole('button', { name: 'Confirm and save' })
+    )
+    await expect.element(dialog).not.toBeInTheDocument()
+    expect(await writes(seen, 'PATCH')[0].json()).toEqual({
+      org_owner_role_id: null,
+    })
+  })
+
+  it('without admin:* the Super-admin select is disabled with the reason linked; with admin:* it is enabled', async () => {
+    const without = ADMIN_PERMISSIONS.filter((p) => p !== 'admin:*')
+    const { client } = fakeApi(appsServer(() => json({})))
+    let screen = await renderApps(client, { granted: without })
+    let dialog = await openEdit(screen, 'simap')
+    await ready(dialog)
+    const select = dialog.getByRole('combobox', { name: 'Super-admin role' })
+    await expect.element(select).toBeDisabled()
+    const reason =
+      'Requires admin:*. Only super admins can change the super-admin role.'
+    await expect.element(dialog.getByText(reason)).toBeVisible()
+    const id = (select.element() as HTMLElement)
+      .getAttribute('aria-describedby')
+      ?.split(' ')
+    expect(
+      id?.some((i) => document.getElementById(i)?.textContent === reason)
+    ).toBe(true)
+    await screen.unmount()
+
+    screen = await renderApps(client)
+    dialog = await openEdit(screen, 'simap')
+    await ready(dialog)
+    await expect
+      .element(dialog.getByRole('combobox', { name: 'Super-admin role' }))
+      .toBeEnabled()
+  })
+
+  it('super-admin with another change -> field error, no PATCH; alone -> review with the cross-org warning and body {super_admin_role_id}', async () => {
+    const { client, seen } = fakeApi(appsServer(() => json(APPS[3])))
+    const screen = await renderApps(client)
+    const dialog = await openEdit(screen, 'simap')
+    await ready(dialog)
+    await pick(screen, dialog, 'Super-admin role', /^simap:support/)
+    await userEvent.fill(
+      dialog.getByRole('textbox', { name: 'Name' }),
+      'Simap 2'
+    )
+    await save(dialog)
+    await expect
+      .element(dialog.getByText(/Save the super-admin role on its own/))
+      .toBeVisible()
+    expect(writes(seen, 'PATCH')).toHaveLength(0)
+
+    await userEvent.fill(dialog.getByRole('textbox', { name: 'Name' }), 'Simap')
+    await save(dialog)
+    await expect
+      .element(dialog.getByText(/without being a member/))
+      .toBeVisible()
+    await userEvent.click(
+      dialog.getByRole('button', { name: 'Confirm and save' })
+    )
+    await expect.element(dialog).not.toBeInTheDocument()
+    expect(await writes(seen, 'PATCH')[0].json()).toEqual({
+      super_admin_role_id: expect.any(String),
+    })
+  })
+
+  it('422 org_owner_role_id/role_has_admin_permissions -> back in the form with the field error linked and focused; the value is kept', async () => {
+    const { client } = fakeApi(
+      appsServer(() =>
+        apiError(422, 'unprocessable', [
+          { field: 'org_owner_role_id', reason: 'role_has_admin_permissions' },
+        ])
+      )
+    )
+    const screen = await renderApps(client)
+    const dialog = await openEdit(screen, 'simap')
+    await ready(dialog)
+    await pick(screen, dialog, 'Org owner role', /^simap:admin/)
+    await save(dialog)
+    await userEvent.click(
+      dialog.getByRole('button', { name: 'Confirm and save' })
+    )
+    const select = dialog.getByRole('combobox', { name: 'Org owner role' })
+    await expect
+      .element(dialog.getByText(/can't be the org owner role/))
+      .toBeVisible()
+    await expect.element(select).toHaveAttribute('aria-invalid', 'true')
+    await expect.element(select).toHaveFocus()
+    await expect.element(select).toHaveTextContent('simap:admin')
+  })
+
+  it('409 super_admin_role_id/role_has_assignments -> error on Super-admin role; 403 admin_wildcard_required -> inline panel saying nothing was saved, values kept', async () => {
+    let res = () =>
+      apiError(409, 'conflict', [
+        { field: 'super_admin_role_id', reason: 'role_has_assignments' },
+      ])
+    const { client } = fakeApi(appsServer(() => res()))
+    const screen = await renderApps(client)
+    const dialog = await openEdit(screen, 'simap')
+    await ready(dialog)
+    await pick(screen, dialog, 'Super-admin role', /^simap:support/)
+    await save(dialog)
+    await userEvent.click(
+      dialog.getByRole('button', { name: 'Confirm and save' })
+    )
+    await expect
+      .element(dialog.getByText(/Users already hold this role/))
+      .toBeVisible()
+
+    res = () => apiError(403, 'admin_wildcard_required')
+    await save(dialog)
+    await userEvent.click(
+      dialog.getByRole('button', { name: 'Confirm and save' })
+    )
+    await expect
+      .element(dialog.getByRole('alert'))
+      .toHaveTextContent('Nothing was saved.')
+    await expect
+      .element(dialog.getByRole('combobox', { name: 'Super-admin role' }))
+      .toHaveTextContent('simap:support')
+  })
+
+  it('roles failed to load: role selects disabled with a note and Retry; a name edit sends {name} only', async () => {
+    const { client, seen } = fakeApi((req) =>
+      new URL(req.url).pathname.endsWith('/role-definitions')
+        ? apiError(500, 'internal_error')
+        : appsServer(() => json(APPS[1]))(req)
+    )
+    const screen = await renderApps(client)
+    const dialog = await openEdit(screen, 'calechip')
+    await expect
+      .element(dialog.getByText(/Couldn't load this app's roles/).first())
+      .toBeVisible()
+    await expect
+      .element(dialog.getByRole('combobox', { name: 'Default role' }))
+      .toBeDisabled()
+    await expect
+      .element(dialog.getByRole('combobox', { name: 'Org owner role' }))
+      .toHaveTextContent(/Unknown role \(/)
+    await expect
+      .element(dialog.getByRole('button', { name: 'Retry' }))
+      .toBeVisible()
+    await userEvent.fill(dialog.getByRole('textbox', { name: 'Name' }), 'Cal')
+    await save(dialog)
+    await expect.element(dialog).not.toBeInTheDocument()
+    expect(await writes(seen, 'PATCH')[0].json()).toEqual({ name: 'Cal' })
   })
 })

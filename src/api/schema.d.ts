@@ -1081,6 +1081,8 @@ export interface components {
             /** Origins */
             origins: string[];
             status: components["schemas"]["AppStatus"];
+            /** Super Admin Role Id */
+            super_admin_role_id?: string | null;
             /**
              * Updated At
              * Format: date-time
@@ -1121,6 +1123,11 @@ export interface components {
             /** Origins */
             origins?: string[] | null;
             status?: components["schemas"]["AppStatus"] | null;
+            /**
+             * Super Admin Role Id
+             * @description Designate (or, with null, clear) the app's super-admin role (ADR-0030). Needs admin:* when the value changes.
+             */
+            super_admin_role_id?: string | null;
         };
         /**
          * AssignmentCreate
@@ -2800,7 +2807,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Missing permission */
+            /** @description Missing permission (permission_denied), or admin:* required (admin_wildcard_required) */
             403: {
                 headers: {
                     /** @description Server-generated request id (UUID4); quote it to support. */
@@ -2811,7 +2818,18 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Admin app invariant, origin already taken, or org_mode in use */
+            /** @description Unknown app */
+            404: {
+                headers: {
+                    /** @description Server-generated request id (UUID4); quote it to support. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Admin app invariant, origin already taken, org_mode in use or while a super-admin role is designated (reason=super_admin_role_designated), or the role to designate has assignments (reason=role_has_assignments) */
             409: {
                 headers: {
                     /** @description Server-generated request id (UUID4); quote it to support. */
@@ -2822,7 +2840,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Validation failed (code=validation_error; also code=unprocessable for refused data) */
+            /** @description Invalid designation (super_admin_role_id reasons: admin_app_not_allowed, unknown_role, org_mode_required, system_role, same_as_default_role, same_as_org_owner_role, role_has_org_permissions, wildcard_not_allowed) */
             422: {
                 headers: {
                     /** @description Server-generated request id (UUID4); quote it to support. */

@@ -1,8 +1,16 @@
-import { useId, useRef, useState } from 'react'
-import { useFieldArray, useForm } from 'react-hook-form'
+import { useEffect, useId, useRef, useState } from 'react'
+import {
+  useFieldArray,
+  useForm,
+  useWatch,
+  type UseFormReturn,
+} from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useQuery } from '@tanstack/react-query'
 import { Plus, X } from 'lucide-react'
+import { flushSync } from 'react-dom'
 import { toast } from 'sonner'
+import { useActionPermission } from '@/context/permission-provider'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -24,14 +32,28 @@ import {
 import { Input } from '@/components/ui/input'
 import { ForbiddenPanel } from '@/components/forbidden-panel'
 import { SelectDropdown } from '@/components/select-dropdown'
+import { allRoleDefinitionsQueryOptions } from '@/features/roles/api/queries'
 import { useCreateAppMutation, useUpdateAppMutation } from '../api/queries'
 import {
   ADMIN_APP_KEY,
+  APP_ROLE_FIELDS,
+  ROLE_NONE,
   type App,
   type AppForm,
+  type AppRoleField,
+  type AppUpdate,
   appFormSchema,
 } from '../data/app-schema'
-import { ADMIN_APP_NOTE, joinPolicyOptions, orgModeOptions } from '../data/data'
+import {
+  ADMIN_APP_NOTE,
+  ROLE_FIELD_LABELS,
+  appUpdateDiff,
+  joinPolicyOptions,
+  orgModeOptions,
+  roleChanges,
+  roleSelectItems,
+  superAdminNotAlone,
+} from '../data/data'
 import { appFormError, type AppAlert } from '../data/errors'
 import { useApps } from './apps-provider'
 
@@ -43,8 +65,72 @@ type AppFormDialogProps = {
   returnFocus: () => void
 }
 
-const sameOrigins = (a: string[], b: string[]) =>
-  a.length === b.length && a.every((v, i) => v === b[i])
+const PRIVILEGED_HINT =
+  'Roles marked privileged hold admin-only permissions or are the super-admin role; the API refuses them here.'
+const SUPER_ADMIN_DENIED =
+  'Requires admin:*. Only super admins can change the super-admin role.'
+const SUPER_ADMIN_ALONE =
+  'Save the super-admin role on its own: undo your other changes, or save them first.'
+
+type RolesQuery = {
+  status: 'pending' | 'error' | 'success'
+}
+
+function roleHint(
+  field: AppRoleField,
+  roles: RolesQuery,
+  denied: boolean
+): string {
+  if (roles.status === 'pending') return 'Loading roles…'
+  if (roles.status === 'error')
+    return "Couldn't load this app's roles. Role fields can't be changed."
+  if (field === 'super_admin_role_id')
+    return denied
+      ? SUPER_ADMIN_DENIED
+      : 'Lets staff super-admins who hold it open any organization of this app. Needs admin:*.'
+  return field === 'org_owner_role_id'
+    ? `${PRIVILEGED_HINT} Must stay set while org mode is Required for org creation and invitations.`
+    : PRIVILEGED_HINT
+}
+
+function RoleSelect({
+  form,
+  name,
+  roles,
+  items,
+  disabled,
+  denied,
+}: {
+  form: UseFormReturn<AppForm>
+  name: AppRoleField
+  roles: RolesQuery
+  items: { value: string; label: string }[]
+  disabled: boolean
+  denied: boolean
+}) {
+  return (
+    <FormField
+      control={form.control}
+      name={name}
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>{ROLE_FIELD_LABELS[name]}</FormLabel>
+          <SelectDropdown
+            isControlled
+            defaultValue={field.value}
+            onValueChange={field.onChange}
+            triggerRef={field.ref}
+            items={items}
+            disabled={disabled}
+            className='w-full'
+          />
+          <FormDescription>{roleHint(name, roles, denied)}</FormDescription>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  )
+}
 
 // Register: POST /api/v1/apps; edit: PATCH /api/v1/apps/{key} with the changed
 // fields only. Both need admin:apps:write (the API adds admin:* for the admin
@@ -63,6 +149,15 @@ export function AppFormDialog({
   const inFlight = useRef(false)
   const [alert, setAlert] = useState<AppAlert | null>(null)
   const originsErrorId = useId()
+  const [phase, setPhase] = useState<'form' | 'review'>('form')
+  const [pendingBody, setPendingBody] = useState<AppUpdate | null>(null)
+  const reviewHeading = useRef<HTMLHeadingElement>(null)
+  const showRoles = !!currentRow && currentRow.key !== ADMIN_APP_KEY
+  const rolesQ = useQuery({
+    ...allRoleDefinitionsQueryOptions(currentRow?.key ?? '', api),
+    enabled: open && showRoles,
+  })
+  const superState = useActionPermission('apps.setSuperAdminRole')
 
   const form = useForm<AppForm>({
     resolver: zodResolver(appFormSchema),
@@ -73,6 +168,9 @@ export function AppFormDialog({
           join_policy: currentRow.join_policy,
           org_mode: currentRow.org_mode,
           origins: currentRow.origins.map((value) => ({ value })),
+          default_role_id: currentRow.default_role_id ?? ROLE_NONE,
+          org_owner_role_id: currentRow.org_owner_role_id ?? ROLE_NONE,
+          super_admin_role_id: currentRow.super_admin_role_id ?? ROLE_NONE,
         }
       : {
           key: '',
@@ -80,8 +178,35 @@ export function AppFormDialog({
           join_policy: 'approval',
           org_mode: 'none',
           origins: [],
+          default_role_id: ROLE_NONE,
+          org_owner_role_id: ROLE_NONE,
+          super_admin_role_id: ROLE_NONE,
         },
   })
+  const orgMode = useWatch({ control: form.control, name: 'org_mode' })
+  const superDenied = superState === 'denied'
+  // A role field is sent only once the roles loaded and the field is usable.
+  const editable: AppRoleField[] =
+    showRoles && rolesQ.isSuccess
+      ? [
+          'default_role_id',
+          ...(orgMode === 'required'
+            ? (['org_owner_role_id'] as const)
+            : ([] as const)),
+          ...(orgMode === 'required' && !superDenied
+            ? (['super_admin_role_id'] as const)
+            : ([] as const)),
+        ]
+      : []
+  const byId = new Map((rolesQ.data ?? []).map((r) => [r.id, r]))
+  const roleItems = (field: AppRoleField) =>
+    roleSelectItems(rolesQ.data ?? [], currentRow?.[field], {
+      annotatePrivileged: field !== 'super_admin_role_id',
+    })
+
+  useEffect(() => {
+    if (phase === 'review') reviewHeading.current?.focus()
+  }, [phase])
   const origins = useFieldArray({ control: form.control, name: 'origins' })
   const originsError =
     form.formState.errors.origins?.message ??
@@ -92,48 +217,34 @@ export function AppFormDialog({
     create.reset()
     update.reset()
     setAlert(null)
+    setPhase('form')
+    setPendingBody(null)
   }
 
-  const onSubmit = async (values: AppForm) => {
+  const submit = async (values: AppForm, body: AppUpdate | null) => {
     if (inFlight.current) return
     setAlert(null)
-    const originValues = values.origins.map((o) => o.value.trim())
-    const changed = currentRow && {
-      ...(values.name !== currentRow.name && { name: values.name }),
-      ...(values.join_policy !== currentRow.join_policy && {
-        join_policy: values.join_policy,
-      }),
-      ...(values.org_mode !== currentRow.org_mode && {
-        org_mode: values.org_mode,
-      }),
-      ...(!sameOrigins(originValues, currentRow.origins) && {
-        origins: originValues,
-      }),
-    }
-    // Nothing changed: no request (the admin app then needs no admin:*).
-    if (changed && Object.keys(changed).length === 0) {
-      reset()
-      onOpenChange(false)
-      return
-    }
     inFlight.current = true
     try {
-      if (currentRow && changed) {
-        await update.mutateAsync({ key: currentRow.key, body: changed })
+      if (currentRow && body) {
+        await update.mutateAsync({ key: currentRow.key, body })
       } else {
         await create.mutateAsync({
           key: values.key,
           name: values.name,
           join_policy: values.join_policy,
           org_mode: values.org_mode,
-          origins: originValues,
+          origins: values.origins.map((o) => o.value.trim()),
         })
       }
     } catch (error) {
       const mapped = appFormError(error, {
         mode: isEdit ? 'edit' : 'create',
         appKey: currentRow?.key,
+        sent: body ? Object.keys(body) : undefined,
       })
+      // The form is hidden during the review: show it before focusing.
+      flushSync(() => setPhase('form'))
       const [first, ...rest] = Object.entries(mapped.fields)
       if (first) {
         form.setError(
@@ -159,6 +270,38 @@ export function AppFormDialog({
     reset()
     onOpenChange(false)
   }
+
+  const onSubmit = async (values: AppForm) => {
+    if (inFlight.current) return
+    if (!currentRow) return submit(values, null)
+    const diff = appUpdateDiff(currentRow, values, editable)
+    // Nothing changed: no request (the admin app then needs no admin:*).
+    if (Object.keys(diff).length === 0) {
+      reset()
+      onOpenChange(false)
+      return
+    }
+    if (superAdminNotAlone(diff)) {
+      form.setError(
+        'super_admin_role_id',
+        { message: SUPER_ADMIN_ALONE },
+        { shouldFocus: true }
+      )
+      return
+    }
+    // A role change is confirmed first (R9); nothing is sent yet.
+    if (APP_ROLE_FIELDS.some((f) => f in diff)) {
+      setPendingBody(diff)
+      setPhase('review')
+      return
+    }
+    await submit(values, diff)
+  }
+
+  const review =
+    phase === 'review' && currentRow && pendingBody
+      ? roleChanges(currentRow, pendingBody, byId, currentRow.name)
+      : null
 
   return (
     <Dialog
@@ -193,6 +336,7 @@ export function AppFormDialog({
               onSubmit={(e) => void form.handleSubmit(onSubmit)(e)}
               className='space-y-4'
               noValidate
+              hidden={phase === 'review'}
             >
               <FormField
                 control={form.control}
@@ -278,6 +422,47 @@ export function AppFormDialog({
                   )}
                 />
               </div>
+              {showRoles && currentRow && (
+                <div className='space-y-4'>
+                  <RoleSelect
+                    form={form}
+                    name='default_role_id'
+                    roles={rolesQ}
+                    items={roleItems('default_role_id')}
+                    disabled={!editable.includes('default_role_id')}
+                    denied={false}
+                  />
+                  {orgMode === 'required' && (
+                    <>
+                      <RoleSelect
+                        form={form}
+                        name='org_owner_role_id'
+                        roles={rolesQ}
+                        items={roleItems('org_owner_role_id')}
+                        disabled={!editable.includes('org_owner_role_id')}
+                        denied={false}
+                      />
+                      <RoleSelect
+                        form={form}
+                        name='super_admin_role_id'
+                        roles={rolesQ}
+                        items={roleItems('super_admin_role_id')}
+                        disabled={!editable.includes('super_admin_role_id')}
+                        denied={superDenied}
+                      />
+                    </>
+                  )}
+                  {rolesQ.isError && (
+                    <Button
+                      type='button'
+                      size='sm'
+                      onClick={() => void rolesQ.refetch()}
+                    >
+                      Retry
+                    </Button>
+                  )}
+                </div>
+              )}
               <fieldset
                 className='space-y-2'
                 aria-describedby={originsError ? originsErrorId : undefined}
@@ -351,6 +536,36 @@ export function AppFormDialog({
             </form>
           </Form>
         </div>
+        {review && currentRow && (
+          <section
+            aria-labelledby='app-review-heading'
+            className='max-h-[60vh] space-y-3 overflow-y-auto text-sm'
+          >
+            <h3
+              id='app-review-heading'
+              ref={reviewHeading}
+              tabIndex={-1}
+              className='font-medium'
+            >
+              Review role changes
+            </h3>
+            <p>
+              App {currentRow.name} ({currentRow.key}):
+            </p>
+            <ul className='space-y-2'>
+              {review.changes.map((c) => (
+                <li key={c.field}>
+                  {c.label}: <code>{c.from}</code> → <code>{c.to}</code>
+                  <br />
+                  <span className='text-muted-foreground'>{c.consequence}</span>
+                </li>
+              ))}
+            </ul>
+            {review.others.length > 0 && (
+              <p>Also saves: {review.others.join(', ')}.</p>
+            )}
+          </section>
+        )}
         {currentRow?.key === ADMIN_APP_KEY && (
           <p className='text-sm text-muted-foreground'>{ADMIN_APP_NOTE}</p>
         )}
@@ -366,20 +581,48 @@ export function AppFormDialog({
           {pending ? (isEdit ? 'Saving…' : 'Registering…') : ''}
         </p>
         <DialogFooter>
-          <Button
-            type='submit'
-            form='app-form'
-            aria-disabled={pending || undefined}
-            className={pending ? 'opacity-50' : undefined}
-          >
-            {pending
-              ? isEdit
-                ? 'Saving…'
-                : 'Registering…'
-              : isEdit
-                ? 'Save changes'
-                : 'Register app'}
-          </Button>
+          {phase === 'review' ? (
+            <>
+              <Button
+                key='back'
+                type='button'
+                variant='outline'
+                onClick={() => {
+                  flushSync(() => setPhase('form'))
+                  const first = APP_ROLE_FIELDS.find(
+                    (f) => pendingBody && f in pendingBody
+                  )
+                  if (first) form.setFocus(first)
+                }}
+              >
+                Back
+              </Button>
+              <Button
+                type='button'
+                aria-disabled={pending || undefined}
+                className={pending ? 'opacity-50' : undefined}
+                onClick={() => void submit(form.getValues(), pendingBody)}
+              >
+                {pending ? 'Saving…' : 'Confirm and save'}
+              </Button>
+            </>
+          ) : (
+            <Button
+              key='save'
+              type='submit'
+              form='app-form'
+              aria-disabled={pending || undefined}
+              className={pending ? 'opacity-50' : undefined}
+            >
+              {pending
+                ? isEdit
+                  ? 'Saving…'
+                  : 'Registering…'
+                : isEdit
+                  ? 'Save changes'
+                  : 'Register app'}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

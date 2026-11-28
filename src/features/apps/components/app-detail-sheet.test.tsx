@@ -54,12 +54,14 @@ describe('AppDetailSheet', () => {
       .toBeVisible()
   })
 
-  it("Overview: key, name, status, join policy, org mode, default role id or 'None', origins as a plain list (no links), created/updated as <time>; no Members", async () => {
+  it("Overview: key, name, status, join policy, org mode, default role key or 'None', origins as a plain list (no links), created/updated as <time>; no Members", async () => {
     const { client } = fakeApi(appsServer(() => json({})))
     const screen = await renderApps(client)
     const sheet = await view(screen, 'stoktok')
-    const defaults = APPS[2].default_role_id as string
-    await expect.element(sheet.getByText(defaults)).toBeVisible()
+    await expect.element(sheet.getByText('stoktok:member')).toBeVisible()
+    await expect
+      .element(sheet.getByText(APPS[2].default_role_id as string))
+      .not.toBeInTheDocument()
     await expect
       .element(sheet.getByText('https://stoktok.mmlabs.online'))
       .toBeVisible()
@@ -86,9 +88,11 @@ describe('AppDetailSheet', () => {
     const screen = await renderApps(client)
     const sheet = await view(screen, 'calechip')
     await expect.element(sheet.getByText('Org owner role')).toBeVisible()
+    await expect.element(sheet.getByText('calechip:owner')).toBeVisible()
     await expect
       .element(sheet.getByText(APPS[1].org_owner_role_id as string))
-      .toBeVisible()
+      .not.toBeInTheDocument()
+    await expect.element(sheet.getByText('Super-admin role')).toBeVisible()
     await expect.element(sheet.getByText('None').first()).toBeVisible()
     await screen.unmount()
 
@@ -97,6 +101,47 @@ describe('AppDetailSheet', () => {
     await expect
       .element(adminSheet.getByText(/need the admin:\* permission/))
       .toBeVisible()
+  })
+
+  it("role names: loading -> 'Loading…'; unknown id -> 'Unknown role (id)'; role-definitions 500 -> the id with a note; no request when all three ids are null", async () => {
+    const isRoles = (r: Request) => path(r).endsWith('/role-definitions')
+    let release: (r: Response) => void = () => {}
+    const slow = fakeApi((req) =>
+      isRoles(req)
+        ? new Promise<Response>((resolve) => (release = resolve))
+        : appsServer(() => json({}))(req)
+    )
+    let screen = await renderApps(slow.client)
+    let sheet = await view(screen, 'stoktok')
+    await expect.element(sheet.getByText('Loading…')).toBeVisible()
+    release(json({ items: [], total: 0, limit: 100, offset: 0 }))
+    await expect
+      .element(
+        sheet.getByText(`Unknown role (${APPS[2].default_role_id as string})`)
+      )
+      .toBeVisible()
+    await screen.unmount()
+
+    const broken = fakeApi((req) =>
+      isRoles(req)
+        ? apiError(500, 'internal_error')
+        : appsServer(() => json({}))(req)
+    )
+    screen = await renderApps(broken.client)
+    sheet = await view(screen, 'stoktok')
+    await expect
+      .element(sheet.getByText(/role names couldn't be loaded/))
+      .toBeVisible()
+    await expect
+      .element(sheet.getByText(APPS[2].default_role_id as string))
+      .toBeVisible()
+    await screen.unmount()
+
+    const none = fakeApi(appsServer(() => json({})))
+    screen = await renderApps(none.client)
+    sheet = await view(screen, 'simap')
+    await expect.element(sheet.getByText('Org owner role')).toBeVisible()
+    expect(none.seen.filter(isRoles)).toHaveLength(0)
   })
 
   it("404 -> 'This app no longer exists.'; 403 -> inline ForbiddenPanel; error -> Retry", async () => {

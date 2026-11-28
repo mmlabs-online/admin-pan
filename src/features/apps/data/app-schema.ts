@@ -15,6 +15,15 @@ export type JoinRequest = components['schemas']['JoinRequestRead']
 
 export const ADMIN_APP_KEY = 'admin'
 
+// The role selects use a sentinel for "None": Radix Select forbids ''.
+export const ROLE_NONE = 'none'
+export const APP_ROLE_FIELDS = [
+  'default_role_id',
+  'org_owner_role_id',
+  'super_admin_role_id',
+] as const
+export type AppRoleField = (typeof APP_ROLE_FIELDS)[number]
+
 // Limits of `AppCreate` / `PermissionCreate` (openapi.json) and of
 // org-admin-api origins.py; app-schema.test.ts guards drift where the
 // snapshot carries them.
@@ -48,6 +57,9 @@ export const appFormSchema = z.object({
     .max(NAME_MAX, `Use at most ${NAME_MAX} characters.`),
   join_policy: z.enum(['open', 'approval', 'closed']),
   org_mode: z.enum(['none', 'required']),
+  default_role_id: z.string(),
+  org_owner_role_id: z.string(),
+  super_admin_role_id: z.string(),
   origins: z
     .array(
       z.object({
@@ -74,6 +86,7 @@ export const appFormSchema = z.object({
     }),
 })
 export type AppForm = z.infer<typeof appFormSchema>
+export type AppUpdate = components['schemas']['AppUpdate']
 
 // Add-permission form: the key is built as `<app>:<resource>:<action>`.
 export const permissionFormSchema = z.object({

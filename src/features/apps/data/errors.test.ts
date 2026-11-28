@@ -43,7 +43,7 @@ describe('appFormError', () => {
     })
   })
 
-  it('422 unprocessable apex_not_allowed / too_many_origins / loopback_not_allowed -> origins; role_has_org_permissions / org_mode_required -> org_mode; unknown reason -> alert', () => {
+  it('422 unprocessable apex_not_allowed / too_many_origins / loopback_not_allowed -> origins; unknown reason -> alert', () => {
     for (const r of [
       'apex_not_allowed',
       'too_many_origins',
@@ -55,12 +55,6 @@ describe('appFormError', () => {
             .fields
         )
       ).toEqual(['origins'])
-    for (const r of ['role_has_org_permissions', 'org_mode_required'])
-      expect(
-        Object.keys(
-          appFormError(err(422, 'unprocessable', reason(r)), edit()).fields
-        )
-      ).toEqual(['org_mode'])
     expect(
       appFormError(err(422, 'unprocessable', reason('nope')), edit())
     ).toEqual({
@@ -115,6 +109,207 @@ describe('appFormError', () => {
       kind: 'message',
       text: 'Something went wrong.',
     })
+  })
+})
+
+const refuse = (
+  status: 409 | 422,
+  field: string,
+  why: string,
+  ctx: Parameters<typeof appFormError>[1] = edit()
+) =>
+  appFormError(
+    err(status, status === 409 ? 'conflict' : 'unprocessable', [
+      { field, reason: why },
+    ]),
+    ctx
+  )
+const only = (r: ReturnType<typeof appFormError>) => {
+  expect(r.alert).toBeNull()
+  return Object.entries(r.fields)
+}
+
+describe('appFormError role refusals', () => {
+  // [field, reason, expected field when sent has the field, copy]
+  const rows: [string, string, string, string][] = [
+    ['default_role_id', 'unknown_role', 'default_role_id', 'no longer exists'],
+    [
+      'org_owner_role_id',
+      'unknown_role',
+      'org_owner_role_id',
+      'no longer exists',
+    ],
+    [
+      'super_admin_role_id',
+      'unknown_role',
+      'super_admin_role_id',
+      'no longer exists',
+    ],
+    [
+      'default_role_id',
+      'role_has_admin_permissions',
+      'default_role_id',
+      "can't be the default role",
+    ],
+    [
+      'default_role_id',
+      'role_has_org_permissions',
+      'default_role_id',
+      'org-scoped permissions',
+    ],
+    [
+      'default_role_id',
+      'same_as_super_admin_role',
+      'default_role_id',
+      "can't also be the default role",
+    ],
+    [
+      'org_owner_role_id',
+      'role_has_admin_permissions',
+      'org_owner_role_id',
+      "can't be the org owner role",
+    ],
+    [
+      'org_owner_role_id',
+      'org_mode_required',
+      'org_owner_role_id',
+      'needs org mode Required',
+    ],
+    [
+      'org_owner_role_id',
+      'same_as_default_role',
+      'org_owner_role_id',
+      "can't also be the org owner role",
+    ],
+    [
+      'org_owner_role_id',
+      'same_as_super_admin_role',
+      'org_owner_role_id',
+      "can't also be the org owner role",
+    ],
+    [
+      'super_admin_role_id',
+      'admin_app_not_allowed',
+      'super_admin_role_id',
+      "admin app can't have",
+    ],
+    [
+      'super_admin_role_id',
+      'org_mode_required',
+      'super_admin_role_id',
+      'needs org mode Required',
+    ],
+    [
+      'super_admin_role_id',
+      'system_role',
+      'super_admin_role_id',
+      'System roles',
+    ],
+    [
+      'super_admin_role_id',
+      'same_as_default_role',
+      'super_admin_role_id',
+      "can't also be the super-admin role",
+    ],
+    [
+      'super_admin_role_id',
+      'same_as_org_owner_role',
+      'super_admin_role_id',
+      "can't also be the super-admin role",
+    ],
+    [
+      'super_admin_role_id',
+      'role_has_org_permissions',
+      'super_admin_role_id',
+      'app-level permissions only',
+    ],
+    [
+      'super_admin_role_id',
+      'wildcard_not_allowed',
+      'super_admin_role_id',
+      'holds stoktok:*',
+    ],
+  ]
+  it.each(rows)('422 %s/%s -> fixed copy on %s', (field, why, target, copy) => {
+    const [[f, text]] = only(
+      refuse(422, field, why, { ...edit(), sent: [field] })
+    )
+    expect(f).toBe(target)
+    expect(text).toContain(copy)
+    expect(text).not.toContain('server text')
+  })
+
+  it('shared reasons are routed by the fields that were sent', () => {
+    const route = (field: string, why: string, sent: string[]) =>
+      only(refuse(422, field, why, { ...edit(), sent }))[0][0]
+    expect(
+      route('default_role_id', 'role_has_org_permissions', ['org_mode'])
+    ).toBe('org_mode')
+    expect(
+      route('default_role_id', 'role_has_org_permissions', ['default_role_id'])
+    ).toBe('default_role_id')
+    expect(route('org_owner_role_id', 'org_mode_required', ['org_mode'])).toBe(
+      'org_mode'
+    )
+    expect(
+      route('org_owner_role_id', 'org_mode_required', ['org_owner_role_id'])
+    ).toBe('org_owner_role_id')
+    expect(route('org_owner_role_id', 'org_mode_required', ['name'])).toBe(
+      'org_owner_role_id'
+    )
+    expect(
+      route('org_owner_role_id', 'same_as_default_role', ['default_role_id'])
+    ).toBe('default_role_id')
+    expect(
+      route('org_owner_role_id', 'same_as_default_role', ['org_owner_role_id'])
+    ).toBe('org_owner_role_id')
+    expect(route('org_owner_role_id', 'same_as_default_role', [])).toBe(
+      'org_owner_role_id'
+    )
+  })
+
+  it('409 reasons map by field; unmapped reason -> refused alert; reason-less keeps the old alerts', () => {
+    expect(
+      only(refuse(409, 'super_admin_role_id', 'role_has_assignments'))[0][0]
+    ).toBe('super_admin_role_id')
+    expect(
+      only(refuse(409, 'org_mode', 'super_admin_role_designated'))[0][0]
+    ).toBe('org_mode')
+    expect(only(refuse(409, 'org_mode', 'org_mode_in_use'))[0][0]).toBe(
+      'org_mode'
+    )
+    expect(refuse(409, 'origins', 'origin_taken').fields).toHaveProperty(
+      'origins'
+    )
+    const other = refuse(409, 'x', 'something_new')
+    expect(other.alert).toEqual({
+      kind: 'message',
+      text: 'The API refused this change.',
+    })
+    expect(JSON.stringify(other.alert)).not.toContain('someone else')
+  })
+
+  it('edit 403 says nothing was saved; create 403 is unchanged', () => {
+    for (const code of ['admin_wildcard_required', 'permission_denied']) {
+      const alert = appFormError(err(403, code), edit()).alert
+      expect(alert?.kind).toBe('forbidden')
+      if (alert?.kind === 'forbidden')
+        expect(alert.copy.description.endsWith('Nothing was saved.')).toBe(true)
+    }
+    const created = appFormError(err(403, 'permission_denied'), create).alert
+    if (created?.kind === 'forbidden')
+      expect(created.copy.description).not.toContain('Nothing was saved.')
+  })
+
+  it('validation_error on body.org_owner_role_id -> that field', () => {
+    expect(
+      appFormError(
+        err(422, 'validation_error', [
+          { loc: ['body', 'org_owner_role_id'], msg: 'bad id' },
+        ]),
+        edit()
+      ).fields
+    ).toEqual({ org_owner_role_id: 'bad id' })
   })
 })
 
