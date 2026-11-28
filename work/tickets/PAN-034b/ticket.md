@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| State | BACKLOG |
+| State | PLANNING |
 | Priority | P1 |
 | Areas | ui, api, auth, security |
 | Attempts | 0 |
@@ -35,3 +35,5 @@ Design decisions already made by the PAN-034 planner (S0–S5): see the "Split p
 ## Notes / answers from owner
 - 2026-11-27: split from PAN-034 by the planner; the orchestrator accepted the split (the owner can revert it by merging the two).
 - Known API-side risk (identity consult F6 in PAN-034): org-admin-api refuses an org owner role that holds an `is_admin` permission (422 `org_owner_role_id`/`role_has_admin_permissions`), while its simap recipe gives `simap:admin` "one admin-only key". If simap's real role holds one, the PATCH will be refused; the fix belongs in org-admin-api (doc or rule), not in the UI.
+- 2026-11-28 (owner): run PAN-034b now and add it to the open PR #39 (PAN-034 not merged yet); run it before the org-admin-api simap-role conflict is resolved — the UI shows the API refusal clearly.
+- 2026-11-28 (orchestrator): the four PAN-034 consults (frontend, api-platform, identity-access, appsec) already cover this slice in full; they are reused as the consult input instead of re-consulting.
