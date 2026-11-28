@@ -80,9 +80,9 @@ describe('AppsTable', () => {
       .element(table.getByText('Approval', { exact: true }))
       .toBeVisible()
     await expect
-      .element(table.getByText('Required', { exact: true }))
+      .element(table.getByText('Required', { exact: true }).first())
       .toBeVisible()
-    // header row + 3 data rows
+    // header row + one row per app
     expect(table.getByRole('row').elements()).toHaveLength(APPS.length + 1)
     const stoktok = table.getByRole('row').filter({ hasText: 'stoktok' })
     await expect

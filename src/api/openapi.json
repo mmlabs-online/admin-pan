@@ -103,6 +103,18 @@
         "title": "AppCreate",
         "type": "object"
       },
+      "AppCredentialIssue": {
+        "additionalProperties": false,
+        "description": "Optional issuance body; no body or `{}` means `manifest` (current clients keep working).",
+        "properties": {
+          "scope": {
+            "$ref": "#/components/schemas/AppCredentialScope",
+            "default": "manifest"
+          }
+        },
+        "title": "AppCredentialIssue",
+        "type": "object"
+      },
       "AppCredentialIssued": {
         "properties": {
           "active": {
@@ -166,12 +178,16 @@
               }
             ],
             "title": "Revoked At"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/AppCredentialScope"
           }
         },
         "required": [
           "id",
           "app",
           "key_id",
+          "scope",
           "created_by",
           "created_at",
           "last_used_at",
@@ -242,12 +258,16 @@
               }
             ],
             "title": "Revoked At"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/AppCredentialScope"
           }
         },
         "required": [
           "id",
           "app",
           "key_id",
+          "scope",
           "created_by",
           "created_at",
           "last_used_at",
@@ -256,6 +276,19 @@
         ],
         "title": "AppCredentialRead",
         "type": "object"
+      },
+      "AppCredentialScope": {
+        "description": "One scope per key (ADR-0021 §1). USR-29 adds the first runtime scope (ADR-0025).",
+        "enum": [
+          "manifest",
+          "releases",
+          "org-members:read",
+          "usage:read",
+          "usage:write",
+          "limits:write"
+        ],
+        "title": "AppCredentialScope",
+        "type": "string"
       },
       "AppMembers": {
         "properties": {
@@ -345,6 +378,18 @@
           },
           "status": {
             "$ref": "#/components/schemas/AppStatus"
+          },
+          "super_admin_role_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Super Admin Role Id"
           },
           "updated_at": {
             "format": "date-time",
@@ -496,6 +541,19 @@
                 "type": "null"
               }
             ]
+          },
+          "super_admin_role_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Designate (or, with null, clear) the app's super-admin role (ADR-0030). Needs admin:* when the value changes.",
+            "title": "Super Admin Role Id"
           }
         },
         "title": "AppUpdate",
@@ -4442,7 +4500,26 @@
                 }
               }
             },
-            "description": "Missing permission",
+            "description": "Missing permission (permission_denied), or admin:* required (admin_wildcard_required)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unknown app",
             "headers": {
               "X-Request-ID": {
                 "description": "Server-generated request id (UUID4); quote it to support.",
@@ -4461,7 +4538,7 @@
                 }
               }
             },
-            "description": "Admin app invariant, origin already taken, or org_mode in use",
+            "description": "Admin app invariant, origin already taken, org_mode in use or while a super-admin role is designated (reason=super_admin_role_designated), or the role to designate has assignments (reason=role_has_assignments)",
             "headers": {
               "X-Request-ID": {
                 "description": "Server-generated request id (UUID4); quote it to support.",
@@ -4480,7 +4557,7 @@
                 }
               }
             },
-            "description": "Validation failed (code=validation_error; also code=unprocessable for refused data)",
+            "description": "Invalid designation (super_admin_role_id reasons: admin_app_not_allowed, unknown_role, org_mode_required, system_role, same_as_default_role, same_as_org_owner_role, role_has_org_permissions, wildcard_not_allowed)",
             "headers": {
               "X-Request-ID": {
                 "description": "Server-generated request id (UUID4); quote it to support.",
@@ -4501,7 +4578,9 @@
         "tags": [
           "apps"
         ],
-        "x-permission": "admin:apps:write"
+        "x-permission": "admin:apps:write",
+        "x-requires-super": "conditional",
+        "x-requires-super-when": "Changing the admin app or the app's super-admin role designation"
       }
     },
     "/api/v1/apps/{key}/credentials": {
@@ -4643,6 +4722,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/AppCredentialIssue"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "content": {
@@ -4690,7 +4786,26 @@
                 }
               }
             },
-            "description": "Missing permission",
+            "description": "Missing permission (permission_denied), or admin:* required (admin_wildcard_required)",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated request id (UUID4); quote it to support.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unknown app",
             "headers": {
               "X-Request-ID": {
                 "description": "Server-generated request id (UUID4); quote it to support.",
@@ -4709,7 +4824,7 @@
                 }
               }
             },
-            "description": "admin app, disabled app or credential limit (details[0].reason); also needs admin:*",
+            "description": "admin app (manifest scope), disabled app or credential limit per scope (details)",
             "headers": {
               "X-Request-ID": {
                 "description": "Server-generated request id (UUID4); quote it to support.",
@@ -4749,7 +4864,8 @@
         "tags": [
           "app-credentials"
         ],
-        "x-permission": "admin:apps:write"
+        "x-permission": "admin:apps:write",
+        "x-requires-super": "always"
       }
     },
     "/api/v1/apps/{key}/credentials/{credential_id}": {

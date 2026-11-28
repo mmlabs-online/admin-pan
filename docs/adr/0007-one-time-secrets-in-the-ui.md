@@ -21,3 +21,6 @@ Issuing an app credential (org-admin-api ADR-0016) returns a long-lived `mmak_â€
 ## Consequences
 - Every once-shown secret uses the same shape; the reviewer checks it against this ADR.
 - A Sentry-style reporter, if ever added, needs an `mmak_` scrubber.
+
+## Amendment (PAN-034, 2026-11-27)
+- The mutation variables are `{ <non-secret request fields>, onSecret }` (today `{ scope, onSecret }`). Still no `mutationKey`, `gcTime: 0`, `retry: false`. Non-secret fields such as `scope` may appear in variables and UI text, never the value.

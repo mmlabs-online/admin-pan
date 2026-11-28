@@ -22,6 +22,7 @@ import {
   ADMIN_APP_KEY,
   APP_DEFAULT_SORT,
   type AppCredential,
+  type AppCredentialScope,
 } from '../data/app-schema'
 import { isUnknownOutcome, joinRequestRefusal } from '../data/errors'
 
@@ -334,12 +335,17 @@ export function useIssueCredentialMutation(
   const invalidate = (key: readonly unknown[]) =>
     void queryClient.invalidateQueries({ queryKey: key })
   return useMutation({
-    mutationFn: async (
+    mutationFn: async ({
+      scope,
+      onSecret,
+    }: {
+      scope: AppCredentialScope
       onSecret: (credential: string) => void
-    ): Promise<AppCredential> => {
+    }): Promise<AppCredential> => {
       const { credential, ...meta } = unwrap(
         await api.POST('/api/v1/apps/{key}/credentials', {
           params: { path: { key: appKey } },
+          body: { scope },
         })
       )
       if (typeof credential !== 'string' || !credential)

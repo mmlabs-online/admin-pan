@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { z } from 'zod'
+import { useForm, useWatch } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Eye, EyeOff } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -10,17 +13,44 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Form,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ForbiddenPanel } from '@/components/forbidden-panel'
+import { SelectDropdown } from '@/components/select-dropdown'
 import { useIssueCredentialMutation } from '../api/queries'
-import { type App, type AppCredential } from '../data/app-schema'
+import {
+  ADMIN_APP_KEY,
+  APP_CREDENTIAL_SCOPES,
+  type App,
+  type AppCredential,
+  type AppCredentialScope,
+} from '../data/app-schema'
+import {
+  CREDENTIAL_LIMIT_NOTE,
+  credentialScopeHints,
+  credentialScopeOptions,
+  isRuntimeScope,
+} from '../data/data'
 import {
   credentialIssueError,
   isUnknownOutcome,
   type AppAlert,
 } from '../data/errors'
 import { useApps } from './apps-provider'
+
+// The scope stays in form state only: not in the URL, a toast or a query key.
+const scopeFormSchema = z.object({
+  scope: z.enum(APP_CREDENTIAL_SCOPES, { error: 'Select a scope.' }),
+})
+type ScopeForm = z.infer<typeof scopeFormSchema>
 
 type AppCredentialIssueDialogProps = {
   app: App
@@ -49,6 +79,14 @@ export function AppCredentialIssueDialog({
   const [alert, setAlert] = useState<AppAlert | null>(null)
   const [unknown, setUnknown] = useState(false)
   const revealing = issued !== null
+  const form = useForm<ScopeForm>({
+    resolver: zodResolver(scopeFormSchema),
+    defaultValues: { scope: undefined },
+  })
+  const chosen: AppCredentialScope | undefined = useWatch({
+    control: form.control,
+    name: 'scope',
+  })
 
   // Clear the value when the page is hidden (bfcache) and on unmount.
   useEffect(() => {
@@ -64,16 +102,16 @@ export function AppCredentialIssueDialog({
     if (revealing) copyButton.current?.focus()
   }, [revealing])
 
-  const onIssue = async () => {
+  const onIssue = async (scope: AppCredentialScope) => {
     if (inFlight.current) return
     inFlight.current = true
     setAlert(null)
     try {
-      const meta = await issue.mutateAsync(setSecret)
+      const meta = await issue.mutateAsync({ scope, onSecret: setSecret })
       setIssued(meta)
       issue.reset()
     } catch (error) {
-      setAlert(credentialIssueError(error))
+      setAlert(credentialIssueError(error, scope))
       if (isUnknownOutcome(error)) setUnknown(true)
     } finally {
       inFlight.current = false
@@ -119,7 +157,8 @@ export function AppCredentialIssueDialog({
             <DialogHeader className='text-start'>
               <DialogTitle>Credential issued</DialogTitle>
               <DialogDescription>
-                Credential {issued.key_id} for {app.name} ({app.key}).
+                Credential {issued.key_id} ({issued.scope}) for {app.name} (
+                {app.key}).
               </DialogDescription>
             </DialogHeader>
             <p role='status' aria-live='polite' className='text-sm'>
@@ -128,9 +167,11 @@ export function AppCredentialIssueDialog({
             </p>
             <Alert>
               <AlertDescription>
-                Copy this credential now and store it in your deploy secret
-                store. It can&apos;t be shown again. Clipboard history or sync
-                tools may keep a copy.
+                {isRuntimeScope(issued.scope)
+                  ? "Copy this credential now and store it only in the backend's deploy environment, never in CI variables or browser code."
+                  : 'Copy this credential now and store it in your deploy secret store.'}{' '}
+                It can&apos;t be shown again. Clipboard history or sync tools
+                may keep a copy.
               </AlertDescription>
             </Alert>
             {secret === null ? (
@@ -198,11 +239,66 @@ export function AppCredentialIssueDialog({
               <DialogTitle>Issue credential</DialogTitle>
               <DialogDescription>
                 Issue a new credential for {app.name} ({app.key})? The value is
-                shown once and can&apos;t be retrieved later. An app can have at
-                most 2 active credentials. Issuing needs admin:apps:write and
+                shown once and can&apos;t be retrieved later.{' '}
+                {CREDENTIAL_LIMIT_NOTE} Issuing needs admin:apps:write and
                 admin:*.
+                {app.key === ADMIN_APP_KEY &&
+                  ' A releases credential for the admin app is a CI secret for the control plane itself.'}
               </DialogDescription>
             </DialogHeader>
+            <Form {...form}>
+              <form
+                id='credential-issue-form'
+                noValidate
+                onSubmit={(e) =>
+                  void form.handleSubmit(
+                    (values) => onIssue(values.scope),
+                    () => form.setFocus('scope')
+                  )(e)
+                }
+              >
+                <FormField
+                  control={form.control}
+                  name='scope'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Scope
+                        <span aria-hidden='true' className='text-destructive'>
+                          *
+                        </span>
+                      </FormLabel>
+                      <SelectDropdown
+                        isControlled
+                        required
+                        triggerRef={field.ref}
+                        defaultValue={field.value ?? ''}
+                        onValueChange={field.onChange}
+                        placeholder='Select a scope'
+                        items={credentialScopeOptions(app.key).map((value) => ({
+                          label: value,
+                          value,
+                        }))}
+                        className='w-full'
+                      />
+                      <FormDescription>
+                        {chosen
+                          ? credentialScopeHints[chosen]
+                          : 'Choose what this credential may do.'}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </form>
+            </Form>
+            {chosen && isRuntimeScope(chosen) && (
+              <p role='status' aria-live='polite' className='text-sm'>
+                {chosen === 'org-members:read'
+                  ? `This key can read data of every org of ${app.name}.`
+                  : `This key can read or report usage for ${app.name}.`}
+              </p>
+            )}
             {alert?.kind === 'forbidden' && (
               <ForbiddenPanel variant='inline' copy={alert.copy} />
             )}
@@ -227,10 +323,13 @@ export function AppCredentialIssueDialog({
               </Button>
               {!unknown && (
                 <Button
-                  type='button'
+                  type='submit'
+                  form='credential-issue-form'
                   aria-disabled={pending || undefined}
                   className={pending ? 'opacity-50' : undefined}
-                  onClick={() => void onIssue()}
+                  onClick={(e) => {
+                    if (pending) e.preventDefault()
+                  }}
                 >
                   {pending ? 'Issuing…' : 'Issue credential'}
                 </Button>

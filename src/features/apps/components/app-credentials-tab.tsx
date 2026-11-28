@@ -19,7 +19,7 @@ import {
   appCredentialsQueryOptions,
 } from '../api/queries'
 import { ADMIN_APP_KEY, type App, type AppCredential } from '../data/app-schema'
-import { formatDate } from '../data/data'
+import { CREDENTIAL_LIMIT_NOTE, formatDate } from '../data/data'
 import { AppCredentialIssueDialog } from './app-credential-issue-dialog'
 import { AppCredentialRevokeDialog } from './app-credential-revoke-dialog'
 import { useApps } from './apps-provider'
@@ -72,48 +72,40 @@ export function AppCredentialsTab({ app }: { app: App }) {
             API credentials
           </h3>
           <p className='text-sm text-muted-foreground'>
-            Deploy jobs use a credential to call org-admin-api for this app. An
-            app can have at most 2 active credentials.
+            Deploy jobs and app backends use a credential to call org-admin-api
+            for this app. {CREDENTIAL_LIMIT_NOTE}
           </p>
         </div>
-        {!isAdminApp && (
-          <div className='flex flex-col items-end gap-1'>
-            <Can action='apps.issueCredential' disable>
-              {({ disabled, describedBy }) => (
-                <Button
-                  ref={issueButton}
-                  size='sm'
-                  disabled={disabled || appDisabled}
-                  aria-describedby={
-                    [describedBy, appDisabled ? disabledNoteId : undefined]
-                      .filter(Boolean)
-                      .join(' ') || undefined
-                  }
-                  onClick={() => setIssuing(true)}
-                >
-                  <Plus className='size-4' aria-hidden='true' />
-                  Issue credential
-                </Button>
-              )}
-            </Can>
-            {appDisabled && (
-              <span
-                id={disabledNoteId}
-                className='text-sm text-muted-foreground'
+        <div className='flex flex-col items-end gap-1'>
+          <Can action='apps.issueCredential' disable>
+            {({ disabled, describedBy }) => (
+              <Button
+                ref={issueButton}
+                size='sm'
+                disabled={disabled || appDisabled}
+                aria-describedby={
+                  [describedBy, appDisabled ? disabledNoteId : undefined]
+                    .filter(Boolean)
+                    .join(' ') || undefined
+                }
+                onClick={() => setIssuing(true)}
               >
-                Enable this app to issue credentials.
-              </span>
+                <Plus className='size-4' aria-hidden='true' />
+                Issue credential
+              </Button>
             )}
-          </div>
-        )}
+          </Can>
+          {appDisabled && (
+            <span id={disabledNoteId} className='text-sm text-muted-foreground'>
+              Enable this app to issue credentials.
+            </span>
+          )}
+        </div>
       </div>
-      {isAdminApp ? (
-        <p className='text-sm text-muted-foreground'>
-          The admin app has no credentials.
-        </p>
-      ) : (
-        <p className='text-sm text-muted-foreground'>Issuing needs admin:*.</p>
-      )}
+      <p className='text-sm text-muted-foreground'>
+        {isAdminApp && 'The admin app can only have releases credentials. '}
+        Issuing needs admin:*.
+      </p>
 
       {view.status === 'forbidden' ? (
         <ForbiddenPanel variant='inline' copy={view.copy} />
@@ -133,6 +125,7 @@ export function AppCredentialsTab({ app }: { app: App }) {
               <TableHeader>
                 <TableRow>
                   <TableHead scope='col'>Key ID</TableHead>
+                  <TableHead scope='col'>Scope</TableHead>
                   <TableHead scope='col'>Status</TableHead>
                   <TableHead scope='col'>Created</TableHead>
                   <TableHead scope='col'>Last used</TableHead>
@@ -147,6 +140,9 @@ export function AppCredentialsTab({ app }: { app: App }) {
                     <TableRow key={credential.id}>
                       <TableCell className='font-mono text-sm'>
                         {credential.key_id}
+                      </TableCell>
+                      <TableCell>
+                        <code>{credential.scope}</code>
                       </TableCell>
                       <TableCell>
                         {credential.active ? (
@@ -199,7 +195,7 @@ export function AppCredentialsTab({ app }: { app: App }) {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className='h-16 text-center'>
+                    <TableCell colSpan={6} className='h-16 text-center'>
                       No credentials yet.
                     </TableCell>
                   </TableRow>

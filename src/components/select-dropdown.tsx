@@ -1,3 +1,4 @@
+import type { Ref } from 'react'
 import { Loader } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FormControl } from '@/components/ui/form'
@@ -18,6 +19,8 @@ type SelectDropdownProps = {
   disabled?: boolean
   className?: string
   isControlled?: boolean
+  triggerRef?: Ref<HTMLButtonElement>
+  required?: boolean
 }
 
 export function SelectDropdown({
@@ -29,6 +32,8 @@ export function SelectDropdown({
   disabled,
   className = '',
   isControlled = false,
+  triggerRef,
+  required,
 }: SelectDropdownProps) {
   const defaultState = isControlled
     ? { value: defaultValue, onValueChange }
@@ -36,7 +41,12 @@ export function SelectDropdown({
   return (
     <Select {...defaultState}>
       <FormControl>
-        <SelectTrigger disabled={disabled} className={cn(className)}>
+        <SelectTrigger
+          ref={triggerRef}
+          disabled={disabled}
+          aria-required={required || undefined}
+          className={cn(className)}
+        >
           <SelectValue placeholder={placeholder ?? 'Select'} />
         </SelectTrigger>
       </FormControl>

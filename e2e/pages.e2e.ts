@@ -328,6 +328,8 @@ test('apps credentials: list, issue shows the value once (masked, Show), close; 
   await sheet.getByRole('button', { name: 'Issue credential' }).click()
   const dialog = page.getByRole('dialog', { name: 'Issue credential' })
   await expect(dialog).toContainText('stoktok')
+  await dialog.getByRole('combobox', { name: 'Scope' }).click()
+  await page.getByRole('option', { name: 'manifest', exact: true }).click()
   await dialog.getByRole('button', { name: 'Issue credential' }).click()
   const issued = page.getByRole('dialog', { name: 'Credential issued' })
   await expect(issued).toBeVisible()
@@ -352,8 +354,10 @@ test('apps credentials: list, issue shows the value once (masked, Show), close; 
 
   await sheet.getByRole('button', { name: 'Issue credential' }).click()
   const again = page.getByRole('dialog', { name: 'Issue credential' })
+  await again.getByRole('combobox', { name: 'Scope' }).click()
+  await page.getByRole('option', { name: 'manifest', exact: true }).click()
   await again.getByRole('button', { name: 'Issue credential' }).click()
-  await expect(again).toContainText('already has 2 active credentials')
+  await expect(again).toContainText('already has 2 active manifest credentials')
   await again.getByRole('button', { name: 'Cancel' }).click()
   await expect(again).toBeHidden()
 

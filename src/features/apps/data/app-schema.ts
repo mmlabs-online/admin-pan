@@ -10,9 +10,19 @@ export type OrgMode = components['schemas']['OrgMode']
 export type Permission = components['schemas']['PermissionRead']
 export type PermissionScope = components['schemas']['PermissionScope']
 export type AppCredential = components['schemas']['AppCredentialRead']
+export type AppCredentialScope = components['schemas']['AppCredentialScope']
 export type JoinRequest = components['schemas']['JoinRequestRead']
 
 export const ADMIN_APP_KEY = 'admin'
+
+// The role selects use a sentinel for "None": Radix Select forbids ''.
+export const ROLE_NONE = 'none'
+export const APP_ROLE_FIELDS = [
+  'default_role_id',
+  'org_owner_role_id',
+  'super_admin_role_id',
+] as const
+export type AppRoleField = (typeof APP_ROLE_FIELDS)[number]
 
 // Limits of `AppCreate` / `PermissionCreate` (openapi.json) and of
 // org-admin-api origins.py; app-schema.test.ts guards drift where the
@@ -47,6 +57,9 @@ export const appFormSchema = z.object({
     .max(NAME_MAX, `Use at most ${NAME_MAX} characters.`),
   join_policy: z.enum(['open', 'approval', 'closed']),
   org_mode: z.enum(['none', 'required']),
+  default_role_id: z.string(),
+  org_owner_role_id: z.string(),
+  super_admin_role_id: z.string(),
   origins: z
     .array(
       z.object({
@@ -73,6 +86,7 @@ export const appFormSchema = z.object({
     }),
 })
 export type AppForm = z.infer<typeof appFormSchema>
+export type AppUpdate = components['schemas']['AppUpdate']
 
 // Add-permission form: the key is built as `<app>:<resource>:<action>`.
 export const permissionFormSchema = z.object({
@@ -112,6 +126,22 @@ const _enumsMatch: [
   Same<OrgMode, z.infer<typeof orgModeSchema>>,
 ] = [true, true, true]
 void _enumsMatch
+
+// Every value of the API's AppCredentialScope; data.test.ts also checks it
+// against openapi.json.
+export const APP_CREDENTIAL_SCOPES = [
+  'manifest',
+  'releases',
+  'org-members:read',
+  'usage:read',
+  'usage:write',
+  'limits:write',
+] as const
+const _scopesMatch: Same<
+  AppCredentialScope,
+  (typeof APP_CREDENTIAL_SCOPES)[number]
+> = true
+void _scopesMatch
 
 // API `sort` values (leading '-' = descending); the default is not kept in
 // the URL.

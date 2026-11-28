@@ -23,10 +23,12 @@ import {
   CREDENTIALS,
   JOIN_REQUESTS,
   PERMISSIONS,
+  ROLE_DEFINITIONS,
   appsPage,
   credentialsPage,
   joinRequestsPage,
   permissionsPage,
+  roleDefinitionsPage,
 } from './test-data'
 
 function TableWithUrlState({
@@ -128,7 +130,7 @@ export function appsServer(
     const p = path(req)
     if (p === '/api/v1/apps') return json(appsPage(apps()))
     const m =
-      /^\/api\/v1\/apps\/([^/]+)(\/permissions|\/credentials|\/join-requests)?$/.exec(
+      /^\/api\/v1\/apps\/([^/]+)(\/permissions|\/credentials|\/join-requests|\/role-definitions)?$/.exec(
         p
       )
     const app = apps().find((a) => a.key === m?.[1])
@@ -138,6 +140,20 @@ export function appsServer(
       const status = new URL(req.url).searchParams.get('status') ?? 'pending'
       return json(
         joinRequestsPage(JOIN_REQUESTS.filter((r) => r.status === status))
+      )
+    }
+    if (m[2] === '/role-definitions') {
+      const q = new URL(req.url).searchParams
+      const limit = Number(q.get('limit') ?? 100)
+      const offset = Number(q.get('offset') ?? 0)
+      const all = ROLE_DEFINITIONS[app.key] ?? []
+      return json(
+        roleDefinitionsPage(
+          all.slice(offset, offset + limit),
+          all.length,
+          limit,
+          offset
+        )
       )
     }
     if (m[2] === '/credentials')

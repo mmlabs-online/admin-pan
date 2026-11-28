@@ -35,6 +35,14 @@ export type Requirement =
       permission: AdminPermission
       operations: readonly ApiOperation[]
     }
+  // The base permission plus admin:* (the API's `x-requires-super`): `always`
+  // for every call, `conditional` when it depends on the request body.
+  | {
+      kind: 'super'
+      base: AdminPermission
+      when: 'always' | 'conditional'
+      operations: readonly ApiOperation[]
+    }
   // No admin endpoint in our OpenAPI snapshot yet.
   | { kind: 'pending'; ticket: `PAN-${string}`; reason: string }
   // Never calls an admin endpoint.
@@ -45,6 +53,14 @@ function perm(
   ...operations: ApiOperation[]
 ): Requirement {
   return { kind: 'permission', permission, operations }
+}
+
+function superOf(
+  base: AdminPermission,
+  when: 'always' | 'conditional',
+  ...operations: ApiOperation[]
+): Requirement {
+  return { kind: 'super', base, when, operations }
 }
 
 const local: Requirement = {
@@ -139,8 +155,14 @@ export const ACTIONS = {
   ),
   'apps.register': perm('admin:apps:write', 'POST /api/v1/apps'),
   'apps.update': perm('admin:apps:write', 'PATCH /api/v1/apps/{key}'),
-  'apps.issueCredential': perm(
+  'apps.setSuperAdminRole': superOf(
     'admin:apps:write',
+    'conditional',
+    'PATCH /api/v1/apps/{key}'
+  ),
+  'apps.issueCredential': superOf(
+    'admin:apps:write',
+    'always',
     'POST /api/v1/apps/{key}/credentials'
   ),
   'apps.revokeCredential': perm(
